@@ -1,6 +1,15 @@
 # Task API SDK
 
-> TypeScript SDK for the **Task API** (v3.0.0) — a schema-driven generative API that uses Starlark scripts to orchestrate LLM-powered workflows.
+> TypeScript SDK for the **Task API** v3.0.0 — a schema-driven generative API that uses Starlark scripts to orchestrate LLM-powered workflows.
+
+## Features
+
+- **Full TypeScript support** with strict types and interfaces
+- **Zero dependencies** — uses native `fetch` (Node.js 18+)
+- **ESM-first** module design
+- **9 organized client classes** covering all API domains
+- **SSE streaming** support for real-time function output
+- **Bearer API key** authentication
 
 ## Installation
 
@@ -8,415 +17,418 @@
 npm install task-api-sdk
 ```
 
-> **Requirements:** Node.js ≥ 18.0.0 (uses native `fetch`)
+> **Requirements:** Node.js >= 18.0.0
 
 ## Quick Start
 
-```ts
-import { ChatClient } from 'task-api-sdk';
+```typescript
+import { TaskApiClient } from 'task-api-sdk';
 
-const chat = new ChatClient({
+const client = new TaskApiClient({
   apiKey: 'your-api-key',
-  // baseUrl: 'https://api.opper.ai' (default)
 });
 
-const response = await chat.chatCompletions({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Hello, world!' }],
-});
+// Check server health
+const health = await client.system.healthCheck();
+console.log('Server status:', health.status);
 
-console.log(response.choices?.[0]?.message?.content);
+// List available models
+const models = await client.models.listModels();
+console.log('Available models:', models.models);
+
+// Run a function
+const result = await client.functions.runFunction('my-function', {
+  input: 'Hello, world!',
+});
+console.log('Output:', result.output);
 ```
 
 ## Configuration
 
-All client classes accept a `ClientConfig` object:
+### Authentication
 
-```ts
-import type { ClientConfig } from 'task-api-sdk';
+The SDK uses Bearer token authentication. Pass your API key when creating a client:
 
-const config: ClientConfig = {
-  apiKey: 'your-api-key',           // Required — passed as Bearer token
-  baseUrl: 'https://api.opper.ai',  // Optional — defaults to production
-  headers: {                         // Optional — extra headers for every request
-    'X-Custom-Header': 'value',
-  },
-};
+```typescript
+import { TaskApiClient } from 'task-api-sdk';
+
+const client = new TaskApiClient({
+  apiKey: 'your-api-key',
+});
 ```
 
-## Clients
+### Server Configuration
 
-The SDK provides nine client classes, one for each API domain:
+By default, the SDK connects to the production server. You can configure a custom base URL:
 
-| Client | Import | Description |
-| --- | --- | --- |
-| `FunctionsClient` | `task-api-sdk` | Schema-driven function management and execution |
-| `ChatClient` | `task-api-sdk` | OpenAI-compatible chat completions |
-| `ResponsesClient` | `task-api-sdk` | OpenAI Responses API compatible endpoint |
-| `InteractionsClient` | `task-api-sdk` | Google-compatible interactions endpoint |
-| `ModelsClient` | `task-api-sdk` | Model registry and capabilities |
-| `EmbeddingsClient` | `task-api-sdk` | OpenAI-compatible embeddings |
-| `GenerationsClient` | `task-api-sdk` | Recorded HTTP request/response generations |
-| `ParseClient` | `task-api-sdk` | Starlark script parsing |
-| `SystemClient` | `task-api-sdk` | System health and status |
+| Environment | URL |
+|---|---|
+| **Production** | `https://api.opper.ai` (default) |
+| **Local development** | `http://localhost:8080` |
+
+```typescript
+// Connect to local dev server
+const client = new TaskApiClient({
+  apiKey: 'your-api-key',
+  baseUrl: 'http://localhost:8080',
+});
+```
+
+### Custom Headers
+
+You can include additional headers in every request:
+
+```typescript
+const client = new TaskApiClient({
+  apiKey: 'your-api-key',
+  headers: {
+    'X-Custom-Header': 'value',
+  },
+});
+```
+
+## Client Reference
+
+The `TaskApiClient` composes all sub-clients, accessible as properties:
+
+| Property | Client Class | Description |
+|---|---|---|
+| `client.functions` | `FunctionsClient` | Schema-driven function management and execution |
+| `client.chat` | `ChatClient` | OpenAI-compatible chat completions (stub) |
+| `client.responses` | `ResponsesClient` | OpenAI Responses API compatible endpoint (stub) |
+| `client.interactions` | `InteractionsClient` | Google-compatible interactions endpoint (stub) |
+| `client.models` | `ModelsClient` | Model registry and capabilities |
+| `client.embeddings` | `EmbeddingsClient` | OpenAI-compatible embeddings (stub) |
+| `client.generations` | `GenerationsClient` | Recorded HTTP request/response generations |
+| `client.parse` | `ParseClient` | Starlark script parsing |
+| `client.system` | `SystemClient` | System health and status |
+
+You can also import and use individual client classes directly:
+
+```typescript
+import { FunctionsClient } from 'task-api-sdk';
+
+const functions = new FunctionsClient({ apiKey: 'your-api-key' });
+```
 
 ---
 
 ### Functions
 
-```ts
-import { FunctionsClient } from 'task-api-sdk';
+Manage schema-driven functions including CRUD operations, revision management, execution, and streaming.
 
-const functions = new FunctionsClient({ apiKey: 'your-api-key' });
-
+```typescript
 // List all functions
-const list = await functions.listFunctions();
+const functions = await client.functions.listFunctions();
 
-// Get function details
-const details = await functions.getFunction('my-function');
+// Get a specific function
+const fn = await client.functions.getFunction('my-function');
 
-// Update a function
-await functions.updateFunction('my-function', { source: 'print("hello")' });
+// Update a function's source code
+const updated = await client.functions.updateFunction('my-function', {
+  source: 'def main(input): return input.upper()',
+});
 
 // Delete a function
-await functions.deleteFunction('my-function');
+await client.functions.deleteFunction('my-function');
 
 // Run a function
-const result = await functions.runFunction('my-function', {
-  input: { text: 'Hello' },
+const result = await client.functions.runFunction('my-function', {
+  input: 'Hello!',
 });
-console.log(result);
 
-// Stream a function (SSE)
-for await (const event of functions.streamFunction('my-function', {
-  input: { text: 'Hello' },
+// Stream function output (SSE)
+for await (const chunk of client.functions.streamFunction('my-function', {
+  input: 'Tell me a story',
 })) {
-  console.log(event.data);
+  process.stdout.write(chunk);
 }
 
-// Revisions
-const revisions = await functions.listRevisions('my-function');
-const revision = await functions.getRevision('my-function', 1);
-await functions.revertRevision('my-function', 1);
+// List revisions
+const revisions = await client.functions.listRevisions('my-function');
 
-// Realtime
-const realtime = await functions.createRealtimeFunction('my-function', {
-  model: 'gpt-4',
+// Get a specific revision
+const revision = await client.functions.getRevision('my-function', 1);
+
+// Revert to a previous revision
+const reverted = await client.functions.revertRevision('my-function', 1);
+
+// Create a realtime voice agent function
+const realtime = await client.functions.createRealtimeFunction('my-function', {
+  // realtime configuration
 });
-const wsUrl = functions.realtimeWebSocket('my-function');
+
+// Get WebSocket URL for realtime communication
+const wsUrl = client.functions.realtimeWebSocket('my-function');
 ```
+
+**Methods:**
+
+| Method | Description |
+|---|---|
+| `listFunctions()` | List all cached functions |
+| `getFunction(name)` | Get function details including script source |
+| `updateFunction(name, body)` | Update a function's source code |
+| `deleteFunction(name)` | Delete a cached function |
+| `runFunction(name, body)` | Execute a function with input |
+| `streamFunction(name, body)` | Execute with SSE streaming output |
+| `listRevisions(name)` | List all revisions of a function |
+| `getRevision(name, revisionID)` | Get a specific revision |
+| `revertRevision(name, revisionID)` | Revert to a previous revision |
+| `createRealtimeFunction(name, body)` | Generate a realtime voice agent function |
+| `realtimeWebSocket(name)` | Get WebSocket URL for realtime communication |
 
 ---
 
 ### Chat
 
-```ts
-import { ChatClient } from 'task-api-sdk';
+OpenAI-compatible chat completions. Currently a stub prepared for future implementation.
 
-const chat = new ChatClient({ apiKey: 'your-api-key' });
-
-// Non-streaming chat completion
-const response = await chat.chatCompletions({
-  model: 'gpt-4',
-  messages: [
-    { role: 'system', content: 'You are a helpful assistant.' },
-    { role: 'user', content: 'What is TypeScript?' },
-  ],
-});
-console.log(response.choices?.[0]?.message?.content);
-
-// Streaming chat completion
-const stream = chat.chatCompletionsStream({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Tell me a story.' }],
-});
-
-for await (const chunk of stream) {
-  const delta = chunk.choices?.[0]?.delta?.content;
-  if (delta) process.stdout.write(delta);
-}
-console.log(); // newline
+```typescript
+// Chat endpoints will be available in a future release
+const chat = client.chat;
 ```
 
 ---
 
 ### Responses
 
-```ts
-import { ResponsesClient } from 'task-api-sdk';
+OpenAI Responses API compatible endpoint. Currently a stub prepared for future implementation.
 
-const responses = new ResponsesClient({ apiKey: 'your-api-key' });
-
-// Non-streaming response
-const result = await responses.createResponse({
-  model: 'gpt-4',
-  input: 'Explain quantum computing in simple terms.',
-});
-console.log(result);
-
-// Streaming response
-for await (const event of responses.createResponseStream({
-  model: 'gpt-4',
-  input: 'Write a poem about the sea.',
-})) {
-  console.log(event.data);
-}
+```typescript
+// Responses endpoints will be available in a future release
+const responses = client.responses;
 ```
 
 ---
 
 ### Interactions
 
-```ts
-import { InteractionsClient } from 'task-api-sdk';
+Google-compatible interactions endpoint. Currently a stub prepared for future implementation.
 
-const interactions = new InteractionsClient({ apiKey: 'your-api-key' });
-
-// Non-streaming interaction
-const result = await interactions.createInteraction({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Hello!' }],
-});
-console.log(result);
-
-// Streaming interaction
-for await (const event of interactions.createInteractionStream({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Hello!' }],
-})) {
-  console.log(event.data);
-}
+```typescript
+// Interactions endpoints will be available in a future release
+const interactions = client.interactions;
 ```
 
 ---
 
 ### Models
 
-```ts
-import { ModelsClient } from 'task-api-sdk';
+List available models with their capabilities and parameters.
 
-const models = new ModelsClient({ apiKey: 'your-api-key' });
-
-const response = await models.listModels();
-for (const model of response.data ?? []) {
-  console.log(model.id, model.name);
+```typescript
+const response = await client.models.listModels();
+for (const model of response.models ?? []) {
+  console.log(`${model.name} — ${model.description}`);
 }
 ```
+
+**Methods:**
+
+| Method | Description |
+|---|---|
+| `listModels()` | List all available models |
 
 ---
 
 ### Embeddings
 
-```ts
-import { EmbeddingsClient } from 'task-api-sdk';
+OpenAI-compatible embeddings. Currently a stub prepared for future implementation.
 
-const embeddings = new EmbeddingsClient({ apiKey: 'your-api-key' });
-
-const result = await embeddings.createEmbeddings({
-  model: 'text-embedding-ada-002',
-  input: 'The quick brown fox jumps over the lazy dog.',
-});
-
-console.log(result.data?.[0]?.embedding);
-console.log(result.usage);
+```typescript
+// Embeddings endpoints will be available in a future release
+const embeddings = client.embeddings;
 ```
 
 ---
 
 ### Generations
 
-```ts
-import { GenerationsClient } from 'task-api-sdk';
+Manage recorded HTTP request/response generations with pagination.
 
-const generations = new GenerationsClient({ apiKey: 'your-api-key' });
-
+```typescript
 // List generations with pagination
-const list = await generations.listGenerations({ page: 1, page_size: 10 });
-console.log(list.meta);
+const generations = await client.generations.listGenerations(1, 25);
 
 // Get a specific generation
-const generation = await generations.getGeneration('generation-id');
-console.log(generation);
+const generation = await client.generations.getGeneration('generation-id');
 
 // Delete a generation
-const deleteResult = await generations.deleteGeneration('generation-id');
-console.log(deleteResult);
+const deleted = await client.generations.deleteGeneration('generation-id');
 ```
+
+**Methods:**
+
+| Method | Description |
+|---|---|
+| `listGenerations(page?, pageSize?)` | List generations with pagination |
+| `getGeneration(id)` | Get a specific generation by ID |
+| `deleteGeneration(id)` | Delete a specific generation |
 
 ---
 
 ### Parse
 
-```ts
-import { ParseClient } from 'task-api-sdk';
+Parse Starlark scripts and retrieve AST/metadata.
 
-const parse = new ParseClient({ apiKey: 'your-api-key' });
-
-const result = await parse.parseStarlark({
-  source: 'def hello(): return "world"',
+```typescript
+const result = await client.parse.parseStarlark({
+  source: 'def main(input): return input',
 });
-console.log(result);
+console.log('Parsed:', result);
 ```
+
+**Methods:**
+
+| Method | Description |
+|---|---|
+| `parseStarlark(body)` | Parse a Starlark script and return AST/metadata |
 
 ---
 
 ### System
 
-```ts
-import { SystemClient } from 'task-api-sdk';
+Check server health status. No authentication required.
 
-// Note: health check does not require authentication,
-// but apiKey is still required by the client constructor
-const system = new SystemClient({ apiKey: '' });
-
-const health = await system.healthCheck();
-console.log(health.status);
+```typescript
+const health = await client.system.healthCheck();
+console.log('Status:', health.status);
 ```
+
+**Methods:**
+
+| Method | Description |
+|---|---|
+| `healthCheck()` | Check server health status |
 
 ---
 
-## Streaming
-
-The SDK supports Server-Sent Events (SSE) streaming for several endpoints:
-
-- **`ChatClient.chatCompletionsStream()`** — returns `AsyncGenerator<ChatStreamChunk>`
-- **`FunctionsClient.streamFunction()`** — returns `AsyncGenerator<SSEEvent>`
-- **`ResponsesClient.createResponseStream()`** — returns `AsyncGenerator<SSEEvent>`
-- **`InteractionsClient.createInteractionStream()`** — returns `AsyncGenerator<SSEEvent>`
-
-All streaming methods return async generators that can be consumed with `for await...of`:
-
-```ts
-import { ChatClient } from 'task-api-sdk';
-
-const chat = new ChatClient({ apiKey: 'your-api-key' });
-
-for await (const chunk of chat.chatCompletionsStream({
-  model: 'gpt-4',
-  messages: [{ role: 'user', content: 'Hello!' }],
-})) {
-  // ChatStreamChunk is already parsed
-  const content = chunk.choices?.[0]?.delta?.content;
-  if (content) process.stdout.write(content);
-}
-```
-
-For `SSEEvent`-based streams, the `data` field contains a raw JSON string:
-
-```ts
-import { FunctionsClient } from 'task-api-sdk';
-
-const functions = new FunctionsClient({ apiKey: 'your-api-key' });
-
-for await (const event of functions.streamFunction('my-func', {
-  input: { text: 'Hello' },
-})) {
-  if (event.data === '[DONE]') break;
-  const parsed = JSON.parse(event.data);
-  console.log(parsed);
-}
-```
-
 ## Error Handling
 
-All clients throw an `ApiError` when the API returns a non-OK response:
+The SDK throws `ApiError` for non-successful HTTP responses:
 
-```ts
-import { ApiError, ChatClient } from 'task-api-sdk';
-
-const chat = new ChatClient({ apiKey: 'your-api-key' });
+```typescript
+import { ApiError } from 'task-api-sdk';
 
 try {
-  await chat.chatCompletions({
-    model: 'gpt-4',
-    messages: [{ role: 'user', content: 'Hello!' }],
-  });
+  await client.functions.getFunction('nonexistent');
 } catch (error) {
   if (error instanceof ApiError) {
-    console.error(`HTTP ${error.status} ${error.statusText}`);
+    console.error(`HTTP ${error.status}: ${error.statusText}`);
     console.error('Response body:', error.body);
-  } else {
-    throw error;
   }
 }
 ```
 
-## TypeScript Types
+### Request Cancellation
 
-All request and response types are exported from the main entry point:
+All methods accept an optional `AbortSignal` for request cancellation:
 
-```ts
+```typescript
+const controller = new AbortController();
+
+// Cancel after 5 seconds
+setTimeout(() => controller.abort(), 5000);
+
+const result = await client.functions.runFunction('my-function', {
+  input: 'Hello',
+}, {
+  signal: controller.signal,
+});
+```
+
+## Types Reference
+
+All types are exported from the main entry point:
+
+```typescript
 import type {
-  // Chat types
-  ChatRequest,
-  ChatResponse,
-  ChatStreamChunk,
-  ChatMessage,
-  ChatChoice,
-  ChatUsage,
-
   // Function types
   FunctionInfo,
   FunctionDetails,
+  FunctionRevision,
+  RevisionInfo,
   RunRequest,
   RunResponse,
   UpdateFunctionRequest,
-
+  RealtimeCreateRequest,
+  RealtimeCreateResponse,
+  
+  // Chat types
+  ChatRequest,
+  ChatResponse,
+  ChatMessage,
+  ChatChoice,
+  ChatUsage,
+  ChatStreamChunk,
+  ChatStreamChoice,
+  ChatStreamDelta,
+  
   // Responses types
   ResponsesRequest,
   ResponsesResponse,
   ResponsesOutputItem,
-
+  ResponsesTool,
+  ResponsesUsage,
+  
   // Interactions types
   InteractionsRequest,
   InteractionsResponse,
-
-  // Models types
+  InteractionsOutput,
+  InteractionsTool,
+  InteractionsUsage,
+  
+  // Model types
   ModelInfo,
   ModelsResponse,
-
+  
   // Embeddings types
   EmbeddingsRequest,
   EmbeddingsResponse,
-
+  EmbeddingsDataItem,
+  
+  // Generation types
+  GenerationConfig,
+  ListGenerationsResponse,
+  
   // Parse types
   ParseRequest,
-
-  // Error types
+  
+  // Common types
   ErrorResponse,
   ErrorDetail,
-
-  // Client configuration
+  UsageInfo,
+  ResponseMeta,
+  Tool,
+  Hints,
+  GuardrailConfig,
+  GuardInfo,
+  ReasoningConfig,
+  StreamOptions,
+  
+  // Client config
   ClientConfig,
   RequestOptions,
-  SSEEvent,
 } from 'task-api-sdk';
 ```
 
-### Key Types Reference
+## API Reference
 
-| Type | Description |
-| --- | --- |
-| `ChatRequest` | Chat completion request body |
-| `ChatResponse` | Chat completion response |
-| `ChatStreamChunk` | Single chunk from a streaming chat response |
-| `FunctionInfo` | Summary of a cached function |
-| `FunctionDetails` | Full function details including source |
-| `RunRequest` | Function execution request body |
-| `RunResponse` | Function execution response |
-| `ResponsesRequest` | OpenAI Responses API request body |
-| `ResponsesResponse` | OpenAI Responses API response |
-| `InteractionsRequest` | Google-compatible interaction request |
-| `InteractionsResponse` | Google-compatible interaction response |
-| `ModelInfo` | Model details and capabilities |
-| `ModelsResponse` | List of available models |
-| `EmbeddingsRequest` | Embeddings request body |
-| `EmbeddingsResponse` | Embeddings response with vectors |
-| `ParseRequest` | Starlark parse request |
-| `ErrorResponse` | Structured error response from the API |
-| `ApiError` | Error class thrown by clients (has `status`, `statusText`, `body`) |
-| `ClientConfig` | Client configuration (apiKey, baseUrl, headers) |
-| `SSEEvent` | Parsed Server-Sent Event (data, event) |
+| Endpoint Group | Base Path | Auth Required |
+|---|---|---|
+| Functions | `/v3/functions` | ✅ |
+| Chat | — | ✅ |
+| Responses | — | ✅ |
+| Interactions | — | ✅ |
+| Models | `/v3/models` | ❌ |
+| Embeddings | — | ✅ |
+| Generations | `/v3/generations` | ✅ |
+| Parse | `/v3/parse` | ✅ |
+| System | `/health` | ❌ |
+
+**Production server:** `https://api.opper.ai`  
+**Local dev server:** `http://localhost:8080`
 
 ## License
 

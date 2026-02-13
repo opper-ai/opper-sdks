@@ -1,40 +1,36 @@
-// =============================================================================
-// Base HTTP Client for Task API SDK
-// =============================================================================
+import { ApiError } from './types.js';
+import type { ErrorResponse } from './types.js';
 
-import { ApiError, ErrorResponse } from './types.js';
-
-/** Configuration options for the BaseClient */
+/**
+ * Configuration options for the base HTTP client.
+ */
 export interface ClientConfig {
-  /** API key for authentication (passed as Bearer token) */
-  apiKey: string;
+  /** API key for Bearer authentication */
+  readonly apiKey: string;
   /** Base URL for the API (default: https://api.opper.ai) */
-  baseUrl?: string;
+  readonly baseUrl?: string;
   /** Additional headers to include in every request */
-  headers?: Record<string, string>;
-}
-
-/** Options for individual requests */
-export interface RequestOptions {
-  /** Additional headers for this request */
-  headers?: Record<string, string>;
-  /** Query parameters */
-  query?: Record<string, string | number | boolean | undefined>;
-  /** AbortSignal for request cancellation */
-  signal?: AbortSignal;
-}
-
-/** A parsed SSE event */
-export interface SSEEvent {
-  /** Event data (parsed line after "data: ") */
-  data: string;
-  /** Event type (parsed line after "event: "), if present */
-  event?: string;
+  readonly headers?: Record<string, string>;
 }
 
 /**
- * Base HTTP client providing common functionality for all API clients.
- * Handles authentication, request construction, error handling, and SSE streaming.
+ * Options for making HTTP requests.
+ */
+export interface RequestOptions {
+  /** Query parameters to append to the URL */
+  readonly query?: Record<string, string | number | boolean | undefined>;
+  /** Additional headers for this specific request */
+  readonly headers?: Record<string, string>;
+  /** AbortSignal for request cancellation */
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * Base HTTP client class providing authenticated request methods,
+ * error handling, and SSE streaming support.
+ *
+ * Supports both production (https://api.opper.ai) and local dev
+ * (http://localhost:8080) servers.
  */
 export class BaseClient {
   protected readonly baseUrl: string;
@@ -42,201 +38,194 @@ export class BaseClient {
   protected readonly defaultHeaders: Record<string, string>;
 
   constructor(config: ClientConfig) {
-    this.baseUrl = (config.baseUrl ?? 'https://api.opper.ai').replace(/\/+$/, '');
     this.apiKey = config.apiKey;
+    this.baseUrl = (config.baseUrl ?? 'https://api.opper.ai').replace(/\/+$/, '');
     this.defaultHeaders = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
+      'Authorization': `Bearer ${this.apiKey}`,
       ...config.headers,
     };
   }
 
-  // ---------------------------------------------------------------------------
-  // Query parameter serialization
-  // ---------------------------------------------------------------------------
-
   /**
-   * Serialize a record of query parameters into a URL query string.
-   * Undefined values are omitted.
+   * Build a full URL with path and optional query parameters.
    */
-  protected buildQueryString(params?: Record<string, string | number | boolean | undefined>): string {
-    if (!params) return '';
-    const parts: string[] = [];
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== undefined) {
-        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  protected buildUrl(path: string, query?: Record<string, string | number | boolean | undefined>): string {
+    const url = new URL(`${this.baseUrl}${path}`);
+    if (query) {
+      for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined) {
+          url.searchParams.append(key, String(value));
+        }
       }
     }
-    return parts.length > 0 ? `?${parts.join('&')}` : '';
+    return url.toString();
   }
 
-  // ---------------------------------------------------------------------------
-  // Core request method
-  // ---------------------------------------------------------------------------
-
   /**
-   * Execute an HTTP request and return the parsed JSON response.
-   *
-   * @throws {ApiError} if the response status is not OK
+   * Merge default headers with per-request headers.
    */
-  protected async request<T>(
-    method: string,
-    path: string,
-    body?: unknown,
-    options?: RequestOptions,
-  ): Promise<T> {
-    const queryString = this.buildQueryString(options?.query);
-    const url = `${this.baseUrl}${path}${queryString}`;
-
-    const headers: Record<string, string> = {
+  protected mergeHeaders(options?: RequestOptions): Record<string, string> {
+    return {
       ...this.defaultHeaders,
       ...options?.headers,
     };
+  }
 
-    // Remove Content-Type for requests without body
-    if (body === undefined) {
-      // Keep Content-Type only when there is a body
-      // Some servers are fine with it, but cleaner to omit
-    }
-
-    const fetchOptions: RequestInit = {
-      method,
-      headers,
-      signal: options?.signal,
-    };
-
-    if (body !== undefined) {
-      fetchOptions.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(url, fetchOptions);
-
+  /**
+   * Handle the response from a fetch call.
+   * Throws an ApiError for non-OK responses.
+   */
+  protected async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      const errorBody = await this.safeParseJson(response);
-      throw new ApiError(response.status, response.statusText, errorBody);
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        body = await response.text().catch(() => null);
+      }
+      throw new ApiError(response.status, response.statusText, body);
     }
 
     // Handle 204 No Content
     if (response.status === 204) {
-      return undefined as unknown as T;
+      return undefined as T;
     }
 
-    return (await response.json()) as T;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return (await response.json()) as T;
+    }
+
+    return (await response.text()) as T;
   }
-
-  // ---------------------------------------------------------------------------
-  // HTTP method shortcuts
-  // ---------------------------------------------------------------------------
-
-  /** Execute a GET request */
-  protected async get<T>(path: string, options?: RequestOptions): Promise<T> {
-    return this.request<T>('GET', path, undefined, options);
-  }
-
-  /** Execute a POST request */
-  protected async post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    return this.request<T>('POST', path, body, options);
-  }
-
-  /** Execute a PUT request */
-  protected async put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    return this.request<T>('PUT', path, body, options);
-  }
-
-  /** Execute a DELETE request */
-  protected async delete<T>(path: string, options?: RequestOptions): Promise<T> {
-    return this.request<T>('DELETE', path, undefined, options);
-  }
-
-  // ---------------------------------------------------------------------------
-  // SSE Streaming support
-  // ---------------------------------------------------------------------------
 
   /**
-   * Execute an HTTP request and return an async iterable of SSE events.
-   * Useful for endpoints that support streaming via Server-Sent Events.
-   *
-   * @throws {ApiError} if the response status is not OK
+   * Perform a GET request.
+   */
+  protected async get<T>(path: string, options?: RequestOptions): Promise<T> {
+    const url = this.buildUrl(path, options?.query);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.mergeHeaders(options),
+      signal: options?.signal,
+    });
+    return this.handleResponse<T>(response);
+  }
+
+  /**
+   * Perform a POST request with a JSON body.
+   */
+  protected async post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    const url = this.buildUrl(path, options?.query);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: this.mergeHeaders(options),
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: options?.signal,
+    });
+    return this.handleResponse<T>(response);
+  }
+
+  /**
+   * Perform a PUT request with a JSON body.
+   */
+  protected async put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    const url = this.buildUrl(path, options?.query);
+    const response = await fetch(url, {
+      method: 'PUT',
+      headers: this.mergeHeaders(options),
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: options?.signal,
+    });
+    return this.handleResponse<T>(response);
+  }
+
+  /**
+   * Perform a DELETE request.
+   */
+  protected async delete<T>(path: string, options?: RequestOptions): Promise<T> {
+    const url = this.buildUrl(path, options?.query);
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.mergeHeaders(options),
+      signal: options?.signal,
+    });
+    return this.handleResponse<T>(response);
+  }
+
+  /**
+   * Perform a POST request that returns a Server-Sent Events (SSE) stream.
+   * Yields parsed SSE data events as strings.
    */
   protected async *stream(
-    method: string,
     path: string,
     body?: unknown,
     options?: RequestOptions,
-  ): AsyncGenerator<SSEEvent, void, undefined> {
-    const queryString = this.buildQueryString(options?.query);
-    const url = `${this.baseUrl}${path}${queryString}`;
-
-    const headers: Record<string, string> = {
-      ...this.defaultHeaders,
+  ): AsyncGenerator<string, void, undefined> {
+    const url = this.buildUrl(path, options?.query);
+    const headers = {
+      ...this.mergeHeaders(options),
       'Accept': 'text/event-stream',
-      ...options?.headers,
     };
 
-    const fetchOptions: RequestInit = {
-      method,
+    const response = await fetch(url, {
+      method: 'POST',
       headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: options?.signal,
-    };
-
-    if (body !== undefined) {
-      fetchOptions.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(url, fetchOptions);
+    });
 
     if (!response.ok) {
-      const errorBody = await this.safeParseJson(response);
+      let errorBody: unknown;
+      try {
+        errorBody = await response.json();
+      } catch {
+        errorBody = await response.text().catch(() => null);
+      }
       throw new ApiError(response.status, response.statusText, errorBody);
     }
 
     if (!response.body) {
-      return;
+      throw new ApiError(0, 'No response body', 'Response body is null for SSE stream');
     }
 
-    yield* this.parseSSEStream(response.body);
-  }
-
-  /**
-   * Parse a ReadableStream into SSE events.
-   */
-  private async *parseSSEStream(
-    stream: ReadableStream<Uint8Array>,
-  ): AsyncGenerator<SSEEvent, void, undefined> {
-    const reader = stream.getReader();
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
     try {
       while (true) {
         const { done, value } = await reader.read();
-
-        if (done) {
-          // Process any remaining data in the buffer
-          if (buffer.trim().length > 0) {
-            const event = this.parseSSEBlock(buffer);
-            if (event) {
-              yield event;
-            }
-          }
-          break;
-        }
+        if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        // Keep the last potentially incomplete line in the buffer
+        buffer = lines.pop() ?? '';
 
-        // SSE events are separated by double newlines
-        const parts = buffer.split('\n\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed === '') {
+            continue;
+          }
+          if (trimmed.startsWith('data: ')) {
+            const data = trimmed.slice(6);
+            if (data === '[DONE]') {
+              return;
+            }
+            yield data;
+          }
+        }
+      }
 
-        // Keep the last part in the buffer (it may be incomplete)
-        buffer = parts.pop() ?? '';
-
-        for (const part of parts) {
-          const trimmed = part.trim();
-          if (trimmed.length === 0) continue;
-
-          const event = this.parseSSEBlock(trimmed);
-          if (event) {
-            yield event;
+      // Process any remaining data in the buffer
+      if (buffer.trim()) {
+        const trimmed = buffer.trim();
+        if (trimmed.startsWith('data: ')) {
+          const data = trimmed.slice(6);
+          if (data !== '[DONE]') {
+            yield data;
           }
         }
       }
@@ -246,69 +235,21 @@ export class BaseClient {
   }
 
   /**
-   * Parse a single SSE block (lines between double newlines) into an SSEEvent.
+   * Perform a POST request that returns a typed SSE stream.
+   * Yields parsed JSON objects from SSE data events.
    */
-  private parseSSEBlock(block: string): SSEEvent | null {
-    const lines = block.split('\n');
-    let data = '';
-    let event: string | undefined;
-    let hasData = false;
-
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        data += (hasData ? '\n' : '') + line.slice(6);
-        hasData = true;
-      } else if (line.startsWith('data:')) {
-        data += (hasData ? '\n' : '') + line.slice(5);
-        hasData = true;
-      } else if (line.startsWith('event: ')) {
-        event = line.slice(7);
-      } else if (line.startsWith('event:')) {
-        event = line.slice(6);
+  protected async *streamJson<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions,
+  ): AsyncGenerator<T, void, undefined> {
+    for await (const data of this.stream(path, body, options)) {
+      try {
+        yield JSON.parse(data) as T;
+      } catch {
+        // Skip non-JSON data events
       }
-      // Ignore "id:" and "retry:" lines, as well as comments (lines starting with ":")
     }
-
-    if (!hasData) return null;
-
-    return { data, event };
-  }
-
-  // ---------------------------------------------------------------------------
-  // JSON parsing utilities
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Safely parse the response body as JSON.
-   * Returns the parsed object, or the raw text if JSON parsing fails.
-   */
-  protected async safeParseJson(response: Response): Promise<unknown> {
-    try {
-      const text = await response.text();
-      return JSON.parse(text) as unknown;
-    } catch {
-      return undefined;
-    }
-  }
-
-  /**
-   * Parse a JSON string, returning the typed result.
-   * Throws a SyntaxError if the string is not valid JSON.
-   */
-  protected parseJson<T>(text: string): T {
-    return JSON.parse(text) as T;
-  }
-
-  /**
-   * Parse the data field of an SSE event as JSON.
-   * Returns null if the data is the SSE termination signal "[DONE]".
-   */
-  protected parseSSEData<T>(data: string): T | null {
-    const trimmed = data.trim();
-    if (trimmed === '[DONE]') {
-      return null;
-    }
-    return JSON.parse(trimmed) as T;
   }
 }
 
