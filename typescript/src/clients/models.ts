@@ -1,22 +1,23 @@
+// =============================================================================
+// Task API SDK - Models Client
+// =============================================================================
+
 import { BaseClient } from '../client-base.js';
-import type { ModelsResponse } from '../types.js';
-import type { RequestOptions } from '../client-base.js';
+import type { ModelsResponse, RequestOptions } from '../types.js';
 
 /**
- * Client for the Models API endpoints.
- *
- * Provides access to listing available models with their capabilities
- * and parameters. No authentication is required for these endpoints.
+ * Client for the Models API.
+ * Provides access to the model registry with capabilities, pricing, and parameters.
  */
 export class ModelsClient extends BaseClient {
   /**
    * List all available models with their capabilities and parameters.
    *
-   * @param options - Optional request options (headers, signal, etc.)
-   * @returns A promise resolving to the models listing response.
+   * @param options - Optional request options (headers, signal).
+   * @returns A promise that resolves to the models response containing the model registry.
    */
   async listModels(options?: RequestOptions): Promise<ModelsResponse> {
-    return this.get<ModelsResponse>('/v3/models', options);
+    return this.get<ModelsResponse>('/v3/models', undefined, options);
   }
 }
 

@@ -1,23 +1,34 @@
+// =============================================================================
+// Task API SDK - Embeddings Client
+// =============================================================================
+
 import { BaseClient } from '../client-base.js';
-import type { ClientConfig } from '../client-base.js';
 import type {
-  EmbeddingsDataItem,
   EmbeddingsRequest,
   EmbeddingsResponse,
-  EmbeddingsUsageInfo,
-  ErrorResponse,
+  RequestOptions,
 } from '../types.js';
 
 /**
- * Client for OpenAI-compatible embeddings endpoints.
- *
- * Currently a stub with no endpoints but prepared for future implementation.
- * Related schemas: EmbeddingsDataItem, EmbeddingsRequest, EmbeddingsResponse,
- * EmbeddingsUsageInfo, ErrorResponse.
+ * EmbeddingsClient provides OpenAI-compatible embeddings endpoint methods.
+ * Extends BaseClient with Bearer authentication and JSON serialization.
  */
 export class EmbeddingsClient extends BaseClient {
-  constructor(config: ClientConfig) {
-    super(config);
+  /**
+   * Create embeddings for the given input.
+   *
+   * Sends a POST request to `/v1/embeddings` with the provided request body
+   * and returns the embedding vectors along with usage information.
+   *
+   * @param body - The embeddings request containing input text(s) and model.
+   * @param options - Optional request options (headers, abort signal).
+   * @returns The embeddings response with data items and usage info.
+   */
+  async create(
+    body: EmbeddingsRequest,
+    options?: RequestOptions,
+  ): Promise<EmbeddingsResponse> {
+    return this.post<EmbeddingsResponse>('/v1/embeddings', body, options);
   }
 }
 

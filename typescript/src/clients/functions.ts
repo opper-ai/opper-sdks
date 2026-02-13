@@ -1,62 +1,68 @@
+// =============================================================================
+// Task API SDK - Functions Client
+// =============================================================================
+
 import { BaseClient } from '../client-base.js';
-import type { ClientConfig, RequestOptions } from '../client-base.js';
 import type {
   FunctionDetails,
   FunctionInfo,
-  ListFunctionsResponse,
-  ListRevisionsResponse,
   FunctionRevision,
   RealtimeCreateRequest,
   RealtimeCreateResponse,
+  RequestOptions,
   RevisionInfo,
   RunRequest,
   RunResponse,
   UpdateFunctionRequest,
 } from '../types.js';
 
+// -----------------------------------------------------------------------------
+// Response wrapper interfaces for list endpoints
+// -----------------------------------------------------------------------------
+
+/** Response from listing functions. */
+export interface ListFunctionsResponse {
+  readonly functions: FunctionInfo[];
+}
+
+/** Response from listing revisions. */
+export interface ListRevisionsResponse {
+  readonly revisions: RevisionInfo[];
+}
+
+// -----------------------------------------------------------------------------
+// FunctionsClient
+// -----------------------------------------------------------------------------
+
 /**
- * Client for the Functions API endpoints.
- *
- * Provides methods for managing schema-driven functions including
- * CRUD operations, revision management, execution, streaming,
- * and realtime voice agent support.
+ * Client for managing Task API functions.
+ * Provides methods for CRUD operations, revisions, execution, streaming,
+ * realtime function creation, and WebSocket connections.
  */
 export class FunctionsClient extends BaseClient {
-  constructor(config: ClientConfig) {
-    super(config);
-  }
-
   /**
    * List all cached functions for the authenticated project.
-   *
-   * @param options - Optional request options
-   * @returns A list of functions
    */
   async listFunctions(options?: RequestOptions): Promise<ListFunctionsResponse> {
-    return this.get<ListFunctionsResponse>('/v3/functions', options);
+    return this.get<ListFunctionsResponse>('/v3/functions', undefined, options);
   }
 
   /**
    * Get details of a specific function including its script source.
-   *
    * @param name - Function name
-   * @param options - Optional request options
-   * @returns The function details
    */
   async getFunction(name: string, options?: RequestOptions): Promise<FunctionDetails> {
     return this.get<FunctionDetails>(
       `/v3/functions/${encodeURIComponent(name)}`,
+      undefined,
       options,
     );
   }
 
   /**
    * Update the source code of a function.
-   *
    * @param name - Function name
-   * @param body - The update request body containing the new source
-   * @param options - Optional request options
-   * @returns The updated function details
+   * @param body - Update request containing the new source
    */
   async updateFunction(
     name: string,
@@ -72,9 +78,7 @@ export class FunctionsClient extends BaseClient {
 
   /**
    * Delete a cached function.
-   *
    * @param name - Function name
-   * @param options - Optional request options
    */
   async deleteFunction(name: string, options?: RequestOptions): Promise<void> {
     return this.delete<void>(
@@ -85,11 +89,8 @@ export class FunctionsClient extends BaseClient {
 
   /**
    * Generate a realtime voice agent function.
-   *
    * @param name - Function name
-   * @param body - The realtime function creation request
-   * @param options - Optional request options
-   * @returns The created realtime function response
+   * @param body - Realtime function creation request
    */
   async createRealtimeFunction(
     name: string,
@@ -105,25 +106,20 @@ export class FunctionsClient extends BaseClient {
 
   /**
    * List all revisions of a function.
-   *
    * @param name - Function name
-   * @param options - Optional request options
-   * @returns A list of revisions
    */
   async listRevisions(name: string, options?: RequestOptions): Promise<ListRevisionsResponse> {
     return this.get<ListRevisionsResponse>(
       `/v3/functions/${encodeURIComponent(name)}/revisions`,
+      undefined,
       options,
     );
   }
 
   /**
    * Get a specific revision of a function.
-   *
    * @param name - Function name
    * @param revisionID - Revision ID
-   * @param options - Optional request options
-   * @returns The function revision details
    */
   async getRevision(
     name: string,
@@ -132,17 +128,15 @@ export class FunctionsClient extends BaseClient {
   ): Promise<FunctionRevision> {
     return this.get<FunctionRevision>(
       `/v3/functions/${encodeURIComponent(name)}/revisions/${encodeURIComponent(String(revisionID))}`,
+      undefined,
       options,
     );
   }
 
   /**
    * Revert a function to a previous revision.
-   *
    * @param name - Function name
    * @param revisionID - Revision ID to revert to
-   * @param options - Optional request options
-   * @returns The reverted function details
    */
   async revertRevision(
     name: string,
@@ -159,11 +153,8 @@ export class FunctionsClient extends BaseClient {
   /**
    * Execute a function with the given input.
    * If no cached script exists, one is generated automatically.
-   *
    * @param name - Function name
-   * @param body - The run request body
-   * @param options - Optional request options
-   * @returns The function execution response
+   * @param body - Run request containing input, schemas, and optional hints
    */
   async runFunction(
     name: string,
@@ -179,19 +170,17 @@ export class FunctionsClient extends BaseClient {
 
   /**
    * Execute a function with SSE streaming output.
-   * Yields parsed SSE data events as strings from the Server-Sent Events stream.
-   *
+   * Yields parsed data objects for each SSE event.
+   * The stream ends when a "[DONE]" sentinel is received.
    * @param name - Function name
-   * @param body - The run request body
-   * @param options - Optional request options
-   * @returns An async generator yielding streamed data chunks
+   * @param body - Run request containing input, schemas, and optional hints
    */
-  async *streamFunction(
+  streamFunction(
     name: string,
     body: RunRequest,
     options?: RequestOptions,
-  ): AsyncGenerator<string, void, undefined> {
-    yield* this.stream(
+  ): AsyncGenerator<RunResponse, void, undefined> {
+    return this.stream<RunResponse>(
       `/v3/functions/${encodeURIComponent(name)}/stream`,
       body,
       options,
@@ -199,21 +188,15 @@ export class FunctionsClient extends BaseClient {
   }
 
   /**
-   * Get the WebSocket URL for realtime voice agent communication.
-   *
-   * The returned URL can be used to establish a WebSocket connection
-   * for bidirectional realtime communication. The caller is responsible
-   * for creating the WebSocket connection.
-   *
+   * Build a WebSocket URL for realtime voice agent communication.
+   * The caller is responsible for creating the WebSocket connection
+   * using the returned URL.
    * @param name - Function name
-   * @returns The full WebSocket URL for the realtime endpoint
+   * @returns The WebSocket URL for the realtime endpoint
    */
   realtimeWebSocket(name: string): string {
-    const httpUrl = this.buildUrl(
-      `/v3/realtime/${encodeURIComponent(name)}`,
-    );
-    // Convert http(s) URL to ws(s) URL
-    return httpUrl.replace(/^http(s?):\/\//, 'ws$1://');
+    const base = this.baseUrl.replace(/^http/, 'ws');
+    return `${base}/v3/realtime/${encodeURIComponent(name)}`;
   }
 }
 

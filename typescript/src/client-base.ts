@@ -1,36 +1,16 @@
-import { ApiError } from './types.js';
-import type { ErrorResponse } from './types.js';
+// =============================================================================
+// Task API SDK - Base HTTP Client
+// =============================================================================
+
+import { ApiError, ClientConfig, RequestOptions } from './types.js';
+
+/** Default base URL for the Task API. */
+const DEFAULT_BASE_URL = 'https://api.opper.ai';
 
 /**
- * Configuration options for the base HTTP client.
- */
-export interface ClientConfig {
-  /** API key for Bearer authentication */
-  readonly apiKey: string;
-  /** Base URL for the API (default: https://api.opper.ai) */
-  readonly baseUrl?: string;
-  /** Additional headers to include in every request */
-  readonly headers?: Record<string, string>;
-}
-
-/**
- * Options for making HTTP requests.
- */
-export interface RequestOptions {
-  /** Query parameters to append to the URL */
-  readonly query?: Record<string, string | number | boolean | undefined>;
-  /** Additional headers for this specific request */
-  readonly headers?: Record<string, string>;
-  /** AbortSignal for request cancellation */
-  readonly signal?: AbortSignal;
-}
-
-/**
- * Base HTTP client class providing authenticated request methods,
+ * Base HTTP client with configurable baseUrl and API key (Bearer auth).
+ * Provides methods for GET, POST, PUT, DELETE requests with JSON serialization,
  * error handling, and SSE streaming support.
- *
- * Supports both production (https://api.opper.ai) and local dev
- * (http://localhost:8080) servers.
  */
 export class BaseClient {
   protected readonly baseUrl: string;
@@ -38,34 +18,43 @@ export class BaseClient {
   protected readonly defaultHeaders: Record<string, string>;
 
   constructor(config: ClientConfig) {
+    this.baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.apiKey = config.apiKey;
-    this.baseUrl = (config.baseUrl ?? 'https://api.opper.ai').replace(/\/+$/, '');
     this.defaultHeaders = {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
       ...config.headers,
     };
   }
 
-  /**
-   * Build a full URL with path and optional query parameters.
-   */
-  protected buildUrl(path: string, query?: Record<string, string | number | boolean | undefined>): string {
-    const url = new URL(`${this.baseUrl}${path}`);
-    if (query) {
-      for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) {
-          url.searchParams.append(key, String(value));
-        }
-      }
-    }
-    return url.toString();
-  }
+  // ---------------------------------------------------------------------------
+  // Query parameter serialization
+  // ---------------------------------------------------------------------------
 
   /**
-   * Merge default headers with per-request headers.
+   * Serialize a record of query parameters into a URL query string.
+   * Undefined and null values are omitted.
    */
-  protected mergeHeaders(options?: RequestOptions): Record<string, string> {
+  protected buildQueryString(params?: Record<string, string | number | boolean | undefined | null>): string {
+    if (!params) return '';
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null) {
+        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+      }
+    }
+    return parts.length > 0 ? `?${parts.join('&')}` : '';
+  }
+
+  // ---------------------------------------------------------------------------
+  // Core request helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Build merged headers for a request, combining defaults with per-request overrides.
+   */
+  private mergeHeaders(options?: RequestOptions): Record<string, string> {
     return {
       ...this.defaultHeaders,
       ...options?.headers,
@@ -73,100 +62,143 @@ export class BaseClient {
   }
 
   /**
-   * Handle the response from a fetch call.
-   * Throws an ApiError for non-OK responses.
+   * Perform a fetch request and handle errors.
+   * Returns the raw Response object.
    */
-  protected async handleResponse<T>(response: Response): Promise<T> {
+  protected async fetchRaw(
+    url: string,
+    init: RequestInit,
+    options?: RequestOptions,
+  ): Promise<Response> {
+    const headers = this.mergeHeaders(options);
+    const response = await fetch(url, {
+      ...init,
+      headers,
+      signal: options?.signal,
+    });
+
     if (!response.ok) {
       let body: unknown;
       try {
         body = await response.json();
       } catch {
-        body = await response.text().catch(() => null);
+        try {
+          body = await response.text();
+        } catch {
+          body = undefined;
+        }
       }
       throw new ApiError(response.status, response.statusText, body);
     }
 
-    // Handle 204 No Content
-    if (response.status === 204) {
+    return response;
+  }
+
+  /**
+   * Perform a request and parse the JSON response body.
+   */
+  protected async request<T>(
+    method: string,
+    path: string,
+    options?: RequestOptions & {
+      body?: unknown;
+      query?: Record<string, string | number | boolean | undefined | null>;
+    },
+  ): Promise<T> {
+    const queryString = this.buildQueryString(options?.query);
+    const url = `${this.baseUrl}${path}${queryString}`;
+
+    const init: RequestInit = {
+      method,
+    };
+
+    if (options?.body !== undefined) {
+      init.body = JSON.stringify(options.body);
+    }
+
+    const response = await this.fetchRaw(url, init, options);
+
+    // Handle 204 No Content or empty bodies
+    const contentLength = response.headers.get('content-length');
+    if (response.status === 204 || contentLength === '0') {
       return undefined as T;
     }
 
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return (await response.json()) as T;
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
     }
 
-    return (await response.text()) as T;
+    return JSON.parse(text) as T;
   }
 
-  /**
-   * Perform a GET request.
-   */
-  protected async get<T>(path: string, options?: RequestOptions): Promise<T> {
-    const url = this.buildUrl(path, options?.query);
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.mergeHeaders(options),
-      signal: options?.signal,
-    });
-    return this.handleResponse<T>(response);
+  // ---------------------------------------------------------------------------
+  // HTTP method shortcuts
+  // ---------------------------------------------------------------------------
+
+  /** Perform a GET request. */
+  protected async get<T>(
+    path: string,
+    query?: Record<string, string | number | boolean | undefined | null>,
+    options?: RequestOptions,
+  ): Promise<T> {
+    return this.request<T>('GET', path, { ...options, query });
   }
 
-  /**
-   * Perform a POST request with a JSON body.
-   */
-  protected async post<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    const url = this.buildUrl(path, options?.query);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: this.mergeHeaders(options),
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: options?.signal,
-    });
-    return this.handleResponse<T>(response);
+  /** Perform a POST request. */
+  protected async post<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions & {
+      query?: Record<string, string | number | boolean | undefined | null>;
+    },
+  ): Promise<T> {
+    return this.request<T>('POST', path, { ...options, body });
   }
 
-  /**
-   * Perform a PUT request with a JSON body.
-   */
-  protected async put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    const url = this.buildUrl(path, options?.query);
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: this.mergeHeaders(options),
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      signal: options?.signal,
-    });
-    return this.handleResponse<T>(response);
-  }
-
-  /**
-   * Perform a DELETE request.
-   */
-  protected async delete<T>(path: string, options?: RequestOptions): Promise<T> {
-    const url = this.buildUrl(path, options?.query);
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: this.mergeHeaders(options),
-      signal: options?.signal,
-    });
-    return this.handleResponse<T>(response);
-  }
-
-  /**
-   * Perform a POST request that returns a Server-Sent Events (SSE) stream.
-   * Yields parsed SSE data events as strings.
-   */
-  protected async *stream(
+  /** Perform a PUT request. */
+  protected async put<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions,
-  ): AsyncGenerator<string, void, undefined> {
-    const url = this.buildUrl(path, options?.query);
+  ): Promise<T> {
+    return this.request<T>('PUT', path, { ...options, body });
+  }
+
+  /** Perform a DELETE request. */
+  protected async delete<T>(
+    path: string,
+    options?: RequestOptions & {
+      query?: Record<string, string | number | boolean | undefined | null>;
+    },
+  ): Promise<T> {
+    return this.request<T>('DELETE', path, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // SSE Streaming support
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Perform a POST request that returns a Server-Sent Events (SSE) stream.
+   * Yields parsed data objects of type T for each SSE "data:" line.
+   * The stream ends when a "data: [DONE]" message is received or the
+   * response body is exhausted.
+   */
+  protected async *stream<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions & {
+      query?: Record<string, string | number | boolean | undefined | null>;
+    },
+  ): AsyncGenerator<T, void, undefined> {
+    const queryString = this.buildQueryString(options?.query);
+    const url = `${this.baseUrl}${path}${queryString}`;
+
     const headers = {
-      ...this.mergeHeaders(options),
+      ...this.defaultHeaders,
       'Accept': 'text/event-stream',
+      ...options?.headers,
     };
 
     const response = await fetch(url, {
@@ -181,13 +213,17 @@ export class BaseClient {
       try {
         errorBody = await response.json();
       } catch {
-        errorBody = await response.text().catch(() => null);
+        try {
+          errorBody = await response.text();
+        } catch {
+          errorBody = undefined;
+        }
       }
       throw new ApiError(response.status, response.statusText, errorBody);
     }
 
     if (!response.body) {
-      throw new ApiError(0, 'No response body', 'Response body is null for SSE stream');
+      return;
     }
 
     const reader = response.body.getReader();
@@ -200,21 +236,40 @@ export class BaseClient {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines from the buffer
         const lines = buffer.split('\n');
         // Keep the last potentially incomplete line in the buffer
         buffer = lines.pop() ?? '';
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (trimmed === '') {
+
+          // Skip empty lines and SSE comments
+          if (!trimmed || trimmed.startsWith(':')) {
             continue;
           }
-          if (trimmed.startsWith('data: ')) {
-            const data = trimmed.slice(6);
+
+          // Process "data:" lines
+          if (trimmed.startsWith('data:')) {
+            const data = trimmed.slice(5).trim();
+
+            // Check for stream termination signal
             if (data === '[DONE]') {
               return;
             }
-            yield data;
+
+            // Skip empty data
+            if (!data) {
+              continue;
+            }
+
+            try {
+              yield JSON.parse(data) as T;
+            } catch {
+              // If the data isn't valid JSON, skip it
+              continue;
+            }
           }
         }
       }
@@ -222,33 +277,19 @@ export class BaseClient {
       // Process any remaining data in the buffer
       if (buffer.trim()) {
         const trimmed = buffer.trim();
-        if (trimmed.startsWith('data: ')) {
-          const data = trimmed.slice(6);
-          if (data !== '[DONE]') {
-            yield data;
+        if (trimmed.startsWith('data:')) {
+          const data = trimmed.slice(5).trim();
+          if (data && data !== '[DONE]') {
+            try {
+              yield JSON.parse(data) as T;
+            } catch {
+              // Ignore parse errors for trailing data
+            }
           }
         }
       }
     } finally {
       reader.releaseLock();
-    }
-  }
-
-  /**
-   * Perform a POST request that returns a typed SSE stream.
-   * Yields parsed JSON objects from SSE data events.
-   */
-  protected async *streamJson<T>(
-    path: string,
-    body?: unknown,
-    options?: RequestOptions,
-  ): AsyncGenerator<T, void, undefined> {
-    for await (const data of this.stream(path, body, options)) {
-      try {
-        yield JSON.parse(data) as T;
-      } catch {
-        // Skip non-JSON data events
-      }
     }
   }
 }
