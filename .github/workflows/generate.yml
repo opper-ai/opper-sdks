@@ -14,7 +14,9 @@ jobs:
       - name: Fetch OpenAPI spec
         env:
           GH_TOKEN: ${{ secrets.API_REPO_TOKEN }}
-        run: gh api repos/opper-ai/task-api-v2/contents/openapi.yaml -H "Accept: application/vnd.github.raw+json" > openapi.yaml
+        run: |
+          gh api repos/opper-ai/task-api-v2/contents/openapi.yaml \
+            -H "Accept: application/vnd.github.raw+json" > openapi.yaml
 
       - uses: opper-ai/opper-openapi-sdks@v1
         id: generate
