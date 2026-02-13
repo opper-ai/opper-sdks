@@ -1,0 +1,38 @@
+name: Generate SDK
+
+on:
+  repository_dispatch:
+    types: [spec-updated]
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch OpenAPI spec
+        env:
+          GH_TOKEN: ${{ secrets.API_REPO_TOKEN }}
+        run: gh api repos/opper-ai/task-api-v2/contents/openapi.yaml -H "Accept: application/vnd.github.raw+json" > openapi.yaml
+
+      - uses: opper-ai/opper-openapi-sdks@v1
+        id: generate
+        with:
+          spec: ./openapi.yaml
+          opper-api-key: ${{ secrets.OPPER_API_KEY }}
+
+      - name: Copy generated SDK
+        env:
+          SDK_DIR: ${{ steps.generate.outputs.sdk-dir }}
+        run: rsync -a --delete --exclude .git --exclude .gitignore --exclude .github "$SDK_DIR/" ./typescript/
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update-sdk
+          title: 'chore: update TypeScript SDK from API spec'
+          body: |
+            Auto-generated from spec change in opper-ai/task-api-v2@${{ github.event.client_payload.sha || 'manual' }}.
+          commit-message: 'chore: regenerate TypeScript SDK'
