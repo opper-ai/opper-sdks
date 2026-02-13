@@ -179,7 +179,7 @@ export class FunctionsClient extends BaseClient {
 
   /**
    * Execute a function with SSE streaming output.
-   * Yields parsed JSON objects from the Server-Sent Events stream.
+   * Yields parsed SSE data events as strings from the Server-Sent Events stream.
    *
    * @param name - Function name
    * @param body - The run request body
