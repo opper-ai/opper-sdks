@@ -1,27 +1,19 @@
-// =============================================================================
-// Task API SDK - Parse Client
-// =============================================================================
-
 import { BaseClient } from '../client-base.js';
-import { ParseRequest, RequestOptions } from '../types.js';
+import type { ParseRequest } from '../types.js';
 
 /**
- * Client for parsing Starlark scripts.
- * Parses Starlark source code and returns AST and metadata.
+ * Client for the Parse API endpoints.
+ * Provides methods to parse Starlark scripts.
  */
 export class ParseClient extends BaseClient {
   /**
    * Parse a Starlark script and return its AST and metadata.
    *
    * @param body - The parse request containing the Starlark source code.
-   * @param options - Optional request options.
-   * @returns Parsed script information including AST and metadata.
+   * @returns The parsed script information.
    */
-  async parseStarlark(
-    body: ParseRequest,
-    options?: RequestOptions,
-  ): Promise<Record<string, unknown>> {
-    return this.post<Record<string, unknown>>('/v3/parse', body, options);
+  async parseStarlark(body: ParseRequest): Promise<Record<string, unknown>> {
+    return this.post<Record<string, unknown>>('/v3/parse', body);
   }
 }
 

@@ -9,26 +9,30 @@ import type {
   RequestOptions,
 } from '../types.js';
 
+/** Path for the OpenAI-compatible embeddings endpoint. */
+const EMBEDDINGS_PATH = '/v1/embeddings';
+
 /**
- * EmbeddingsClient provides OpenAI-compatible embeddings endpoint methods.
- * Extends BaseClient with Bearer authentication and JSON serialization.
+ * EmbeddingsClient extending BaseClient.
+ * Provides OpenAI-compatible embedding endpoint methods for generating
+ * vector embeddings from text input.
  */
 export class EmbeddingsClient extends BaseClient {
   /**
    * Create embeddings for the given input.
    *
-   * Sends a POST request to `/v1/embeddings` with the provided request body
-   * and returns the embedding vectors along with usage information.
+   * Sends text input to the specified model and returns vector embeddings.
+   * Supports single strings or arrays of strings as input.
    *
-   * @param body - The embeddings request containing input text(s) and model.
-   * @param options - Optional request options (headers, abort signal).
-   * @returns The embeddings response with data items and usage info.
+   * @param body - The embeddings request body containing input text and model.
+   * @param options - Optional request options (headers, signal).
+   * @returns The embeddings response containing vector data and usage info.
    */
-  async create(
+  async createEmbedding(
     body: EmbeddingsRequest,
     options?: RequestOptions,
   ): Promise<EmbeddingsResponse> {
-    return this.post<EmbeddingsResponse>('/v1/embeddings', body, options);
+    return this.post<EmbeddingsResponse>(EMBEDDINGS_PATH, body, options);
   }
 }
 

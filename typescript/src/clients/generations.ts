@@ -6,10 +6,10 @@ import { BaseClient } from '../client-base.js';
 import type { RequestOptions } from '../types.js';
 
 // -----------------------------------------------------------------------------
-// Generations Response Types
+// Generations-specific response types
 // -----------------------------------------------------------------------------
 
-/** Pagination metadata for generations listing. */
+/** Pagination metadata for list responses. */
 export interface GenerationsListMeta {
   readonly page: number;
   readonly page_size: number;
@@ -23,28 +23,31 @@ export interface GenerationsListResponse {
   readonly meta: GenerationsListMeta;
 }
 
+/** A single recorded generation with request and response data. */
+export type Generation = Record<string, unknown>;
+
 /** Response from deleting a generation. */
 export interface GenerationDeleteResponse {
   readonly deleted: boolean;
 }
 
 // -----------------------------------------------------------------------------
-// Generations Client
+// Client
 // -----------------------------------------------------------------------------
 
 /**
- * Client for managing recorded HTTP request/response generations.
- * Provides methods for listing, retrieving, and deleting generations
- * with pagination support.
+ * Client for the Generations API.
+ * Provides methods to list, retrieve, and delete recorded HTTP request/response
+ * generations.
  */
 export class GenerationsClient extends BaseClient {
   /**
-   * List recorded HTTP request/response generations with pagination.
+   * List recorded generations with pagination.
    *
-   * @param page - Page number (default 1)
-   * @param pageSize - Items per page (default 50)
-   * @param options - Additional request options
-   * @returns Paginated list of generations with metadata
+   * @param page - Page number (default 1).
+   * @param pageSize - Number of items per page (default 50).
+   * @param options - Optional request options (headers, signal).
+   * @returns A promise that resolves to the paginated list of generations.
    */
   async listGenerations(
     page?: number,
@@ -64,15 +67,15 @@ export class GenerationsClient extends BaseClient {
   /**
    * Get a specific recorded generation by ID.
    *
-   * @param id - Generation ID
-   * @param options - Additional request options
-   * @returns The recorded generation with request and response data
+   * @param id - The generation ID.
+   * @param options - Optional request options (headers, signal).
+   * @returns A promise that resolves to the generation object.
    */
   async getGeneration(
     id: string,
     options?: RequestOptions,
-  ): Promise<Record<string, unknown>> {
-    return this.get<Record<string, unknown>>(
+  ): Promise<Generation> {
+    return this.get<Generation>(
       `/v3/generations/${encodeURIComponent(id)}`,
       undefined,
       options,
@@ -82,9 +85,9 @@ export class GenerationsClient extends BaseClient {
   /**
    * Delete a specific recorded generation.
    *
-   * @param id - Generation ID
-   * @param options - Additional request options
-   * @returns Object indicating whether the generation was deleted
+   * @param id - The generation ID.
+   * @param options - Optional request options (headers, signal).
+   * @returns A promise that resolves to the deletion confirmation.
    */
   async deleteGeneration(
     id: string,

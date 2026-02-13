@@ -15,7 +15,8 @@ const CHAT_COMPLETIONS_PATH = '/v1/chat/completions';
 
 /**
  * ChatClient extending BaseClient.
- * Provides OpenAI-compatible chat completions endpoint methods.
+ * Provides OpenAI-compatible chat completion methods including
+ * standard request/response and Server-Sent Events streaming.
  */
 export class ChatClient extends BaseClient {
   /**
@@ -47,6 +48,19 @@ export class ChatClient extends BaseClient {
    *   be automatically set to `true`.
    * @param options - Optional request options (headers, signal).
    * @returns An async generator yielding chat stream chunks.
+   *
+   * @example
+   * ```typescript
+   * const chatClient = new ChatClient({ apiKey: 'your-api-key' });
+   * const stream = chatClient.streamCompletion({
+   *   messages: [{ role: 'user', content: 'Hello!' }],
+   *   model: 'gpt-4',
+   * });
+   * for await (const chunk of stream) {
+   *   const content = chunk.choices[0]?.delta?.content;
+   *   if (content) process.stdout.write(content);
+   * }
+   * ```
    */
   async *streamCompletion(
     body: ChatRequest,
