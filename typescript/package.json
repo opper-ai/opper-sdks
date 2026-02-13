@@ -1,0 +1,32 @@
+{
+  "name": "task-api-sdk",
+  "version": "3.0.0",
+  "description": "TypeScript SDK for the Task API - Schema-driven generative API that uses Starlark scripts to orchestrate LLM-powered workflows.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "keywords": [
+    "task-api",
+    "sdk",
+    "typescript",
+    "llm",
+    "starlark",
+    "generative-ai"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
