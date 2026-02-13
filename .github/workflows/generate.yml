@@ -26,15 +26,11 @@ jobs:
         id: generate
         with:
           spec: ./openapi.yaml
+          output: ./typescript
           opper-api-key: ${{ secrets.OPPER_API_KEY }}
 
-      - name: Copy generated SDK
-        env:
-          SDK_DIR: ${{ steps.generate.outputs.sdk-dir }}
-        run: |
-          rsync -a --delete --exclude .git --exclude .gitignore --exclude .github "$SDK_DIR/" ./typescript/
-          rm -f openapi.yaml
-          rm -rf sdk/
+      - name: Clean up temp files
+        run: rm -f openapi.yaml
 
       - name: Open PR
         uses: peter-evans/create-pull-request@v7
