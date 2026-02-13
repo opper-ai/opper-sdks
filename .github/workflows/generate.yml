@@ -31,12 +31,15 @@ jobs:
       - name: Copy generated SDK
         env:
           SDK_DIR: ${{ steps.generate.outputs.sdk-dir }}
-        run: rsync -a --delete --exclude .git --exclude .gitignore --exclude .github "$SDK_DIR/" ./typescript/
+        run: |
+          rsync -a --delete --exclude .git --exclude .gitignore --exclude .github "$SDK_DIR/" ./typescript/
+          rm -f openapi.yaml
+          rm -rf sdk/
 
       - name: Open PR
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.API_REPO_TOKEN }}
           branch: update-sdk
           title: 'chore: update TypeScript SDK from API spec'
           body: |
