@@ -1,15 +1,14 @@
-// =============================================================================
-// Functions Client for Task API SDK
-// =============================================================================
-
-import { BaseClient, type RequestOptions, type SSEEvent } from '../client-base.js';
+import { BaseClient } from '../client-base.js';
+import type { ClientConfig, RequestOptions } from '../client-base.js';
 import type {
   FunctionDetails,
-  FunctionRevision,
+  FunctionInfo,
   ListFunctionsResponse,
   ListRevisionsResponse,
+  FunctionRevision,
   RealtimeCreateRequest,
   RealtimeCreateResponse,
+  RevisionInfo,
   RunRequest,
   RunResponse,
   UpdateFunctionRequest,
@@ -18,19 +17,20 @@ import type {
 /**
  * Client for the Functions API endpoints.
  *
- * Provides methods for managing cached functions, revisions, running functions,
- * streaming function output, and realtime voice agent communication.
+ * Provides methods for managing schema-driven functions including
+ * CRUD operations, revision management, execution, streaming,
+ * and realtime voice agent support.
  */
 export class FunctionsClient extends BaseClient {
-  // ---------------------------------------------------------------------------
-  // Function CRUD
-  // ---------------------------------------------------------------------------
+  constructor(config: ClientConfig) {
+    super(config);
+  }
 
   /**
    * List all cached functions for the authenticated project.
    *
-   * @param options - Optional request options (headers, signal, etc.)
-   * @returns A list of function summaries
+   * @param options - Optional request options
+   * @returns A list of functions
    */
   async listFunctions(options?: RequestOptions): Promise<ListFunctionsResponse> {
     return this.get<ListFunctionsResponse>('/v3/functions', options);
@@ -41,7 +41,7 @@ export class FunctionsClient extends BaseClient {
    *
    * @param name - Function name
    * @param options - Optional request options
-   * @returns Detailed function information
+   * @returns The function details
    */
   async getFunction(name: string, options?: RequestOptions): Promise<FunctionDetails> {
     return this.get<FunctionDetails>(
@@ -54,9 +54,9 @@ export class FunctionsClient extends BaseClient {
    * Update the source code of a function.
    *
    * @param name - Function name
-   * @param body - The update request containing the new source code
+   * @param body - The update request body containing the new source
    * @param options - Optional request options
-   * @returns Updated function details
+   * @returns The updated function details
    */
   async updateFunction(
     name: string,
@@ -83,17 +83,13 @@ export class FunctionsClient extends BaseClient {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Realtime
-  // ---------------------------------------------------------------------------
-
   /**
    * Generate a realtime voice agent function.
    *
    * @param name - Function name
-   * @param body - Realtime function creation parameters
+   * @param body - The realtime function creation request
    * @param options - Optional request options
-   * @returns The created realtime function details
+   * @returns The created realtime function response
    */
   async createRealtimeFunction(
     name: string,
@@ -108,33 +104,11 @@ export class FunctionsClient extends BaseClient {
   }
 
   /**
-   * Get the WebSocket URL for realtime voice agent communication.
-   *
-   * Note: This method returns the URL for establishing a WebSocket connection.
-   * The actual WebSocket connection must be created by the caller using the
-   * returned URL. The server expects an HTTP Upgrade request and responds
-   * with 101 Switching Protocols on success.
-   *
-   * @param name - Function name
-   * @returns The WebSocket URL string
-   */
-  realtimeWebSocket(name: string): string {
-    const baseWsUrl = this.baseUrl
-      .replace(/^http:/, 'ws:')
-      .replace(/^https:/, 'wss:');
-    return `${baseWsUrl}/v3/realtime/${encodeURIComponent(name)}`;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Revisions
-  // ---------------------------------------------------------------------------
-
-  /**
    * List all revisions of a function.
    *
    * @param name - Function name
    * @param options - Optional request options
-   * @returns A list of revision summaries
+   * @returns A list of revisions
    */
   async listRevisions(name: string, options?: RequestOptions): Promise<ListRevisionsResponse> {
     return this.get<ListRevisionsResponse>(
@@ -149,7 +123,7 @@ export class FunctionsClient extends BaseClient {
    * @param name - Function name
    * @param revisionID - Revision ID
    * @param options - Optional request options
-   * @returns The full revision details
+   * @returns The function revision details
    */
   async getRevision(
     name: string,
@@ -168,7 +142,7 @@ export class FunctionsClient extends BaseClient {
    * @param name - Function name
    * @param revisionID - Revision ID to revert to
    * @param options - Optional request options
-   * @returns The function details after reversion
+   * @returns The reverted function details
    */
   async revertRevision(
     name: string,
@@ -182,18 +156,14 @@ export class FunctionsClient extends BaseClient {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Execution
-  // ---------------------------------------------------------------------------
-
   /**
    * Execute a function with the given input.
    * If no cached script exists, one is generated automatically.
    *
    * @param name - Function name
-   * @param body - The run request containing input and schemas
+   * @param body - The run request body
    * @param options - Optional request options
-   * @returns The function execution result
+   * @returns The function execution response
    */
   async runFunction(
     name: string,
@@ -209,26 +179,41 @@ export class FunctionsClient extends BaseClient {
 
   /**
    * Execute a function with SSE streaming output.
-   *
-   * Returns an async generator that yields SSE events. Each event's `data`
-   * field contains a JSON string. The stream terminates with a `[DONE]` sentinel.
+   * Yields parsed JSON objects from the Server-Sent Events stream.
    *
    * @param name - Function name
-   * @param body - The run request containing input and schemas
+   * @param body - The run request body
    * @param options - Optional request options
-   * @returns An async generator of SSE events
+   * @returns An async generator yielding streamed data chunks
    */
   async *streamFunction(
     name: string,
     body: RunRequest,
     options?: RequestOptions,
-  ): AsyncGenerator<SSEEvent, void, undefined> {
+  ): AsyncGenerator<string, void, undefined> {
     yield* this.stream(
-      'POST',
       `/v3/functions/${encodeURIComponent(name)}/stream`,
       body,
       options,
     );
+  }
+
+  /**
+   * Get the WebSocket URL for realtime voice agent communication.
+   *
+   * The returned URL can be used to establish a WebSocket connection
+   * for bidirectional realtime communication. The caller is responsible
+   * for creating the WebSocket connection.
+   *
+   * @param name - Function name
+   * @returns The full WebSocket URL for the realtime endpoint
+   */
+  realtimeWebSocket(name: string): string {
+    const httpUrl = this.buildUrl(
+      `/v3/realtime/${encodeURIComponent(name)}`,
+    );
+    // Convert http(s) URL to ws(s) URL
+    return httpUrl.replace(/^http(s?):\/\//, 'ws$1://');
   }
 }
 

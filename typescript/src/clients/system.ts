@@ -1,30 +1,40 @@
-// =============================================================================
-// SystemClient – System API endpoints
-// =============================================================================
-
 import { BaseClient } from '../client-base.js';
-import { ErrorResponse } from '../types.js';
+import type { ClientConfig, RequestOptions } from '../client-base.js';
 
-/** Response from the health check endpoint */
+/**
+ * Response from the health check endpoint.
+ */
 export interface HealthCheckResponse {
-  readonly status: string;
+  /** Health status of the server (e.g., "ok") */
+  readonly status?: string;
 }
 
 /**
- * Client for System-related API endpoints.
+ * Client for interacting with System endpoints.
  *
- * Provides access to system health and status information.
- * Note: The health check endpoint does not require authentication.
+ * Provides a health check endpoint for verifying server availability.
+ * No authentication is required for this endpoint.
  */
 export class SystemClient extends BaseClient {
+  constructor(config: ClientConfig) {
+    super(config);
+  }
+
   /**
-   * Check the health status of the API server.
+   * Health check
    *
-   * @returns The server health status
-   * @throws {ApiError} if the request fails
+   * Returns server health status.
+   *
+   * @param options - Optional request options (headers, signal, etc.)
+   * @returns The health check response containing server status
    */
-  async healthCheck(): Promise<HealthCheckResponse> {
-    return this.get<HealthCheckResponse>('/health');
+  async healthCheck(options?: RequestOptions): Promise<HealthCheckResponse> {
+    return this.get<HealthCheckResponse>('/health', {
+      ...options,
+      headers: {
+        ...options?.headers,
+      },
+    });
   }
 }
 
