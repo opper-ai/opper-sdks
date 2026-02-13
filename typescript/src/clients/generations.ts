@@ -1,5 +1,5 @@
 import { BaseClient } from '../client-base.js';
-import type { ClientConfig } from '../client-base.js';
+import type { RequestOptions } from '../client-base.js';
 import type {
   ListGenerationsResponse,
   GetGenerationResponse,
@@ -7,56 +7,73 @@ import type {
 } from '../types.js';
 
 /**
- * Client for managing recorded HTTP request/response generations.
+ * Query parameters for listing generations.
+ */
+export interface ListGenerationsParams {
+  /** Page number (1-based) */
+  readonly page?: number;
+  /** Number of items per page */
+  readonly page_size?: number;
+}
+
+/**
+ * Client for the Generations API endpoints.
  *
- * Provides methods for listing, retrieving, and deleting generations
- * with pagination support.
+ * Provides access to listing, retrieving, and deleting generations.
  */
 export class GenerationsClient extends BaseClient {
-  constructor(config: ClientConfig) {
-    super(config);
-  }
-
   /**
-   * List recorded HTTP request/response generations with pagination.
+   * List generations with optional pagination.
    *
-   * @param page - Page number (default 1)
-   * @param pageSize - Items per page (default 50)
-   * @returns A paginated list of generations
+   * @param params - Optional pagination parameters (page, page_size).
+   * @param options - Optional request options (headers, signal, etc.).
+   * @returns A promise resolving to the paginated generations listing response.
    */
   async listGenerations(
-    page?: number,
-    pageSize?: number,
+    params?: ListGenerationsParams,
+    options?: RequestOptions,
   ): Promise<ListGenerationsResponse> {
     return this.get<ListGenerationsResponse>('/v3/generations', {
+      ...options,
       query: {
-        page,
-        page_size: pageSize,
+        ...options?.query,
+        page: params?.page,
+        page_size: params?.page_size,
       },
     });
   }
 
   /**
-   * Get a specific recorded generation by ID.
+   * Get a specific generation by ID.
    *
-   * @param id - Generation ID
-   * @returns The generation record with request and response data
+   * @param id - The generation ID.
+   * @param options - Optional request options (headers, signal, etc.).
+   * @returns A promise resolving to the generation details.
    */
-  async getGeneration(id: string): Promise<GetGenerationResponse> {
+  async getGeneration(
+    id: string,
+    options?: RequestOptions,
+  ): Promise<GetGenerationResponse> {
     return this.get<GetGenerationResponse>(
       `/v3/generations/${encodeURIComponent(id)}`,
+      options,
     );
   }
 
   /**
-   * Delete a specific recorded generation.
+   * Delete a specific generation by ID.
    *
-   * @param id - Generation ID
-   * @returns An object indicating whether the deletion was successful
+   * @param id - The generation ID.
+   * @param options - Optional request options (headers, signal, etc.).
+   * @returns A promise resolving to the deletion confirmation.
    */
-  async deleteGeneration(id: string): Promise<DeleteGenerationResponse> {
+  async deleteGeneration(
+    id: string,
+    options?: RequestOptions,
+  ): Promise<DeleteGenerationResponse> {
     return this.delete<DeleteGenerationResponse>(
       `/v3/generations/${encodeURIComponent(id)}`,
+      options,
     );
   }
 }

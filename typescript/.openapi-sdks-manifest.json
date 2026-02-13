@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "specHash": "53c7450d492a54509e3347bead04a5f4e2f8fa32f70bf2570b86a23303a89fd9",
+  "specHash": "1ffe2244f16d38e7267a3ecaf4c8c17f97bd8df39010de95ac089dca383f0870",
   "instructionsHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "sections": {
     "package-json": {
@@ -8,105 +8,105 @@
       "outputPath": "package.json",
       "type": "package-config",
       "order": 0,
-      "generatedAt": "2026-02-13T09:08:09.699Z"
+      "generatedAt": "2026-02-13T10:01:13.304Z"
     },
     "tsconfig-json": {
       "contentHash": "05d56748fee0b10c9b7d22136a661bd02d8e808c9b43064c9928c6b45dd9ce9d",
       "outputPath": "tsconfig.json",
       "type": "package-config",
       "order": 0,
-      "generatedAt": "2026-02-13T09:08:09.699Z"
+      "generatedAt": "2026-02-13T10:01:13.304Z"
     },
     "types": {
       "contentHash": "7e4352b964c4f69e060bc8bd948b0063648499c19fbdeef6f98c4c76461f61ea",
       "outputPath": "src/types.ts",
       "type": "types",
       "order": 1,
-      "generatedAt": "2026-02-13T09:08:09.707Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client-base": {
       "contentHash": "f904d4ddbdbd27d597a88b2a55331e7e4da0a7885e18c54f7ec4c197869bbc33",
       "outputPath": "src/client-base.ts",
       "type": "client-base",
       "order": 2,
-      "generatedAt": "2026-02-13T09:08:09.707Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:functions": {
-      "contentHash": "76f5cfa84b5c1b798a6fcf9a6954e10cd627c07a0e3d340630f2ede8aea1c34e",
+      "contentHash": "e8c6bae8fda0934178cdb56132b744122dfaf6b3ef3c3fe0b4aaa4a5e15178dd",
       "outputPath": "src/clients/functions.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.709Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:chat": {
-      "contentHash": "2192a155dead4842116ac9ca75bcb263c70ddac04e30bc0554a8140e1304f981",
+      "contentHash": "25f020b8c9030dc5324d8bd24e118f3de3ce4c12fb8e389abe585fe20c60b380",
       "outputPath": "src/clients/chat.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.709Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:responses": {
-      "contentHash": "7beec4e12027517d4a8e61a561cc4cca006c76281056acdbeba328a1dea05ab6",
+      "contentHash": "02d989c054c3f5d82a83fa2b266a28f805cfd9cdb6d868cfec0e4d72a9db02ca",
       "outputPath": "src/clients/responses.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.709Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:interactions": {
-      "contentHash": "1a8a06aeebf94bc8ea592ee2aa5b96f068adb1b268b4d1cb7a74afba9ac76b56",
+      "contentHash": "8d5ad542c199419468e0936fdf99a912eb9d47432f2e6c897f5d1025f073562a",
       "outputPath": "src/clients/interactions.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.709Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:models": {
-      "contentHash": "4c08bf362aeb822844fca8ab3caa309c152c76d05d4da197ee3e118f7b85a068",
+      "contentHash": "a13711001685abc2ac39a8170a1595f22392499854b50f18bbecde2e95b81bf3",
       "outputPath": "src/clients/models.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.709Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:embeddings": {
-      "contentHash": "a77c6b39cbf14fd952e8d7776955cf367256e33e368c9e811ff0d9265e051b90",
+      "contentHash": "7b5fe10af2ad5a64441bb5300e9b788d8a89e112c8a1e32ede02e882514e091f",
       "outputPath": "src/clients/embeddings.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.709Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:generations": {
-      "contentHash": "532476fd25f822e6837b8d98efd3968274148fcf8101c76c60194502c6875836",
+      "contentHash": "ce6d361cab303daa1442b81153a38d1f6553582fe16dfe7252ba562f0409fc19",
       "outputPath": "src/clients/generations.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.709Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:parse": {
-      "contentHash": "39de9c317b3ff2aef5eae16b47ef087b426aa8bd38c40bc1f9d19d1ce280f55c",
+      "contentHash": "3a9c38fbb7f6354f4e9c885520607173799fd9af68d124c15c1fcbe50406fdbe",
       "outputPath": "src/clients/parse.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.709Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "client:system": {
-      "contentHash": "a34ac0b1992f0bf6e0d11a01d23922bcd6842fe2a559dd98de2be3f0b9fb70f2",
+      "contentHash": "c749e8e010905c7c0d5f7431110d30fde4420dd044c742e421c20483bd71eae3",
       "outputPath": "src/clients/system.ts",
       "type": "client",
       "order": 3,
-      "generatedAt": "2026-02-13T09:08:09.710Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "index": {
       "contentHash": "d3ea90ab31b65f47da4ff5f8325d97406e28b38f9f311050d551fff4b276b6c8",
       "outputPath": "src/index.ts",
       "type": "index",
       "order": 4,
-      "generatedAt": "2026-02-13T09:08:09.710Z"
+      "generatedAt": "2026-02-13T10:01:13.306Z"
     },
     "readme": {
       "contentHash": "fb6c3ef19f935b717acdd9b24ffceeb48b19ebd704a2c3a566e9d6b9b9503d87",
       "outputPath": "README.md",
       "type": "readme",
       "order": 5,
-      "generatedAt": "2026-02-13T09:08:09.710Z"
+      "generatedAt": "2026-02-13T10:01:13.307Z"
     }
   }
 }
