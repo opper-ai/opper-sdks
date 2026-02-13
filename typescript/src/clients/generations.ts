@@ -1,37 +1,43 @@
+// =============================================================================
+// Task API SDK - Generations Client
+// =============================================================================
+
 import { BaseClient } from '../client-base.js';
-import type { ClientConfig } from '../client-base.js';
 import type {
   ListGenerationsResponse,
-  GetGenerationResponse,
   DeleteGenerationResponse,
 } from '../types.js';
 
 /**
+ * Options for listing generations with pagination.
+ */
+export interface ListGenerationsOptions {
+  /** Page number (default 1) */
+  readonly page?: number;
+  /** Items per page (default 50) */
+  readonly pageSize?: number;
+}
+
+/**
  * Client for managing recorded HTTP request/response generations.
  *
- * Provides methods for listing, retrieving, and deleting generations
+ * Provides methods to list, retrieve, and delete generations
  * with pagination support.
  */
 export class GenerationsClient extends BaseClient {
-  constructor(config: ClientConfig) {
-    super(config);
-  }
-
   /**
    * List recorded HTTP request/response generations with pagination.
    *
-   * @param page - Page number (default 1)
-   * @param pageSize - Items per page (default 50)
+   * @param options - Optional pagination parameters
    * @returns A paginated list of generations
    */
   async listGenerations(
-    page?: number,
-    pageSize?: number,
+    options?: ListGenerationsOptions,
   ): Promise<ListGenerationsResponse> {
     return this.get<ListGenerationsResponse>('/v3/generations', {
-      query: {
-        page,
-        page_size: pageSize,
+      queryParams: {
+        page: options?.page,
+        page_size: options?.pageSize,
       },
     });
   }
@@ -40,10 +46,10 @@ export class GenerationsClient extends BaseClient {
    * Get a specific recorded generation by ID.
    *
    * @param id - Generation ID
-   * @returns The generation record with request and response data
+   * @returns The recorded generation with request and response data
    */
-  async getGeneration(id: string): Promise<GetGenerationResponse> {
-    return this.get<GetGenerationResponse>(
+  async getGeneration(id: string): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
       `/v3/generations/${encodeURIComponent(id)}`,
     );
   }
@@ -52,7 +58,7 @@ export class GenerationsClient extends BaseClient {
    * Delete a specific recorded generation.
    *
    * @param id - Generation ID
-   * @returns An object indicating whether the deletion was successful
+   * @returns Confirmation of deletion
    */
   async deleteGeneration(id: string): Promise<DeleteGenerationResponse> {
     return this.delete<DeleteGenerationResponse>(

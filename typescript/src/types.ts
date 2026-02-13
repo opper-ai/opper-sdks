@@ -1,12 +1,10 @@
 // =============================================================================
-// Task API SDK - TypeScript Type Definitions
+// Task API SDK - Type Definitions
 // =============================================================================
 
-// -----------------------------------------------------------------------------
-// ApiError class
-// -----------------------------------------------------------------------------
-
-/** Error class for API request failures */
+/**
+ * ApiError class for HTTP error responses from the API.
+ */
 export class ApiError extends Error {
   readonly status: number;
   readonly statusText: string;
@@ -21,11 +19,11 @@ export class ApiError extends Error {
   }
 }
 
-// -----------------------------------------------------------------------------
-// Error types
-// -----------------------------------------------------------------------------
+// =============================================================================
+// Error Types
+// =============================================================================
 
-/** Error detail information */
+/** Error detail object returned by the API */
 export interface ErrorDetail {
   readonly code: string;
   readonly message: string;
@@ -37,89 +35,66 @@ export interface ErrorResponse {
   readonly error: ErrorDetail;
 }
 
-// -----------------------------------------------------------------------------
-// Chat types
-// -----------------------------------------------------------------------------
-
-/** A function call in a chat completion */
-export interface ChatFunctionCall {
-  readonly name?: string;
-  readonly arguments?: string;
-}
-
-/** A tool call within a chat message */
-export interface ChatToolCall {
-  readonly id?: string;
-  readonly type?: string;
-  readonly function?: ChatFunctionCall;
-}
-
-/** A message in a chat conversation */
-export interface ChatMessage {
-  readonly role?: string;
-  readonly content?: string;
-  readonly tool_calls?: ChatToolCall[];
-}
-
-/** A message in a chat request */
-export interface ChatRequestMessage {
-  readonly content?: unknown;
-  readonly name?: string;
-  readonly role?: string;
-  readonly tool_call_id?: string;
-  readonly tool_calls?: ChatToolCall[];
-}
-
-/** Function definition within a chat request tool */
-export interface ChatRequestToolFunction {
-  readonly description?: string;
-  readonly name?: string;
-  readonly parameters?: Record<string, unknown>;
-  readonly strict?: boolean;
-}
-
-/** A tool definition for a chat request */
-export interface ChatRequestTool {
-  readonly function?: ChatRequestToolFunction;
-  readonly type?: string;
-}
-
-/** Stream options for chat completions */
-export interface StreamOptions {
-  readonly include_usage?: boolean;
-}
-
-/** Chat completion request */
-export interface ChatRequest {
-  readonly frequency_penalty?: number;
-  readonly max_tokens?: number;
-  readonly messages?: ChatRequestMessage[];
-  readonly model?: string;
-  readonly n?: number;
-  readonly presence_penalty?: number;
-  readonly reasoning_effort?: string;
-  readonly stop?: unknown;
-  readonly stream?: boolean;
-  readonly stream_options?: StreamOptions;
-  readonly temperature?: number;
-  readonly tool_choice?: unknown;
-  readonly tools?: ChatRequestTool[];
-  readonly top_p?: number;
-  readonly user?: string;
-}
-
-/** Token usage for a chat completion */
-export interface ChatUsage {
-  readonly completion_tokens?: number;
-  readonly prompt_tokens?: number;
-  readonly total_tokens?: number;
-}
+// =============================================================================
+// Chat Types
+// =============================================================================
 
 /** A choice in a chat completion response */
 export interface ChatChoice {
   readonly finish_reason?: string;
   readonly index?: number;
   readonly message?: ChatMessage;
+}
+
+/** A function call in a chat completion */
+export interface ChatFunctionCall {
+  readonly arguments?: string;
+  readonly name?: string;
+}
+
+/** A message in a chat completion */
+export interface ChatMessage {
+  readonly content?: string;
+  readonly function_call?: ChatFunctionCall;
+  readonly role?: string;
+  readonly tool_calls?: ChatToolCall[];
+}
+
+/** Chat completion request */
+export interface ChatRequest {
+  readonly frequency_penalty?: number;
+  readonly max_tokens?: number;
+  readonly messages: ChatRequestMessage[];
+  readonly model: string;
+  readonly presence_penalty?: number;
+  readonly stream?: boolean;
+  readonly stream_options?: StreamOptions;
+  readonly temperature?: number;
+  readonly tool_choice?: string;
+  readonly tools?: ChatRequestTool[];
+  readonly top_p?: number;
+}
+
+/** A message in a chat request */
+export interface ChatRequestMessage {
+  readonly content?: unknown;
+  readonly name?: string;
+  readonly role: string;
+  readonly tool_call_id?: string;
+  readonly tool_calls?: ChatToolCall[];
+}
+
+/** A tool definition in a chat request */
+export interface ChatRequestTool {
+  readonly function: ChatRequestToolFunction;
+  readonly type: string;
+}
+
+/** Function details within a chat request tool */
+export interface ChatRequestToolFunction {
+  readonly description?: string;
+  readonly name: string;
+  readonly parameters?: Record<string, unknown>;
 }
 
 /** Chat completion response */
@@ -129,38 +104,61 @@ export interface ChatResponse {
   readonly id?: string;
   readonly model?: string;
   readonly object?: string;
-  readonly system_fingerprint?: string;
   readonly usage?: ChatUsage;
 }
 
-/** Delta content in a streaming chat response */
-export interface ChatStreamDelta {
-  readonly content?: string;
-  readonly role?: string;
-  readonly tool_calls?: ChatToolCall[];
-}
-
-/** A choice in a streaming chat response */
+/** A choice in a chat stream response */
 export interface ChatStreamChoice {
   readonly delta?: ChatStreamDelta;
-  readonly finish_reason?: string | null;
+  readonly finish_reason?: string;
   readonly index?: number;
 }
 
-/** A chunk in a streaming chat response */
+/** A chunk in a chat stream response */
 export interface ChatStreamChunk {
   readonly choices?: ChatStreamChoice[];
   readonly created?: number;
   readonly id?: string;
   readonly model?: string;
   readonly object?: string;
-  readonly system_fingerprint?: string;
-  readonly usage?: ChatUsage | null;
+  readonly usage?: ChatUsage;
 }
 
-// -----------------------------------------------------------------------------
-// Embeddings types
-// -----------------------------------------------------------------------------
+/** Delta content in a streaming chat response */
+export interface ChatStreamDelta {
+  readonly content?: string;
+  readonly function_call?: ChatFunctionCall;
+  readonly role?: string;
+  readonly tool_calls?: ChatToolCall[];
+}
+
+/** A tool call in a chat message */
+export interface ChatToolCall {
+  readonly function?: ChatFunctionCall;
+  readonly id?: string;
+  readonly index?: number;
+  readonly type?: string;
+}
+
+/** Token usage information for chat completions */
+export interface ChatUsage {
+  readonly completion_tokens?: number;
+  readonly prompt_tokens?: number;
+  readonly total_tokens?: number;
+}
+
+// =============================================================================
+// Stream Options
+// =============================================================================
+
+/** Options for streaming responses */
+export interface StreamOptions {
+  readonly include_usage?: boolean;
+}
+
+// =============================================================================
+// Embeddings Types
+// =============================================================================
 
 /** A single embedding data item */
 export interface EmbeddingsDataItem {
@@ -174,13 +172,7 @@ export interface EmbeddingsRequest {
   readonly dimensions?: number;
   readonly encoding_format?: string;
   readonly input: unknown;
-  readonly model?: string;
-}
-
-/** Usage information for embeddings */
-export interface EmbeddingsUsageInfo {
-  readonly prompt_tokens?: number;
-  readonly total_tokens?: number;
+  readonly model: string;
 }
 
 /** Embeddings response */
@@ -191,18 +183,63 @@ export interface EmbeddingsResponse {
   readonly usage?: EmbeddingsUsageInfo;
 }
 
-// -----------------------------------------------------------------------------
-// Function types
-// -----------------------------------------------------------------------------
+/** Usage information for embeddings */
+export interface EmbeddingsUsageInfo {
+  readonly prompt_tokens?: number;
+  readonly total_tokens?: number;
+}
 
-/** Guard information for input/output guardrails */
+// =============================================================================
+// Function Types
+// =============================================================================
+
+/** Detailed information about a function including source */
+export interface FunctionDetails {
+  readonly name: string;
+  readonly schema_hash: string;
+  readonly generated_at: string;
+  readonly hit_count: number;
+  readonly source: string;
+  readonly input_schema: Record<string, unknown>;
+  readonly output_schema: Record<string, unknown>;
+}
+
+/** Summary information about a function */
+export interface FunctionInfo {
+  readonly name: string;
+  readonly schema_hash: string;
+  readonly generated_at: string;
+  readonly hit_count: number;
+  readonly has_script: boolean;
+}
+
+/** A revision of a function */
+export interface FunctionRevision {
+  readonly revision_id: number;
+  readonly source: string;
+  readonly schema_hash: string;
+  readonly created_at: string;
+  readonly input_schema: Record<string, unknown>;
+  readonly output_schema: Record<string, unknown>;
+}
+
+/** Configuration for generation parameters */
+export interface GenerationConfig {
+  readonly max_output_tokens?: number;
+  readonly temperature?: number;
+  readonly thinking_level?: string;
+  readonly top_k?: number;
+  readonly top_p?: number;
+}
+
+/** Information about a guard result */
 export interface GuardInfo {
   readonly type: string;
   readonly flagged: boolean;
   readonly findings?: unknown[];
 }
 
-/** Guardrail configuration */
+/** Configuration for a single guardrail */
 export interface GuardrailConfig {
   readonly type: string;
   readonly action?: string;
@@ -215,35 +252,41 @@ export interface GuardrailConfig {
 
 /** Hints for function execution */
 export interface Hints {
-  readonly input_guardrails?: GuardrailConfig[];
   readonly instructions?: string;
   readonly max_tokens?: number;
   readonly model?: string;
-  readonly output_guardrails?: GuardrailConfig[];
   readonly prefer?: string;
   readonly reasoning_effort?: string;
   readonly stream?: boolean;
   readonly temperature?: number;
+  readonly input_guardrails?: GuardrailConfig[];
+  readonly output_guardrails?: GuardrailConfig[];
 }
 
-/** Tool definition for functions */
-export interface Tool {
+/** Request to create a realtime voice agent function */
+export interface RealtimeCreateRequest {
+  readonly instructions: string;
+  readonly model?: string;
+  readonly provider?: string;
+  readonly tools?: Tool[];
+  readonly voice?: string;
+}
+
+/** Response from creating a realtime voice agent function */
+export interface RealtimeCreateResponse {
   readonly name: string;
-  readonly parameters: Record<string, unknown>;
-  readonly description?: string;
+  readonly script: string;
+  readonly cached: boolean;
+  readonly reasoning?: string;
 }
 
-/** Usage information for token consumption */
-export interface UsageInfo {
-  readonly input_tokens: number;
-  readonly output_tokens: number;
-  readonly cache_creation_1h_tokens?: number;
-  readonly cache_creation_tokens?: number;
-  readonly cache_read_tokens?: number;
-  readonly reasoning_tokens?: number;
+/** Configuration for reasoning behavior */
+export interface ReasoningConfig {
+  readonly effort?: string;
+  readonly summary?: string;
 }
 
-/** Response metadata for function execution */
+/** Metadata about a function execution response */
 export interface ResponseMeta {
   readonly function_name: string;
   readonly script_cached: boolean;
@@ -258,7 +301,15 @@ export interface ResponseMeta {
   readonly usage?: UsageInfo;
 }
 
-/** Run function request body */
+/** Summary information about a function revision */
+export interface RevisionInfo {
+  readonly revision_id: number;
+  readonly created_at: string;
+  readonly schema_hash: string;
+  readonly is_current: boolean;
+}
+
+/** Request to run a function */
 export interface RunRequest {
   readonly input_schema: Record<string, unknown>;
   readonly output_schema: Record<string, unknown>;
@@ -268,96 +319,52 @@ export interface RunRequest {
   readonly tools?: Tool[];
 }
 
-/** Run function response body */
+/** Response from running a function */
 export interface RunResponse {
   readonly output: unknown;
   readonly meta?: ResponseMeta;
 }
 
-/** Reasoning configuration */
-export interface ReasoningConfig {
-  readonly effort?: string;
-  readonly summary?: string;
-}
-
-/** Function information summary */
-export interface FunctionInfo {
+/** A tool definition for functions */
+export interface Tool {
   readonly name: string;
-  readonly schema_hash: string;
-  readonly generated_at: string;
-  readonly hit_count: number;
-  readonly has_script: boolean;
+  readonly parameters: Record<string, unknown>;
+  readonly description?: string;
 }
 
-/** Detailed function information including source */
-export interface FunctionDetails {
-  readonly name: string;
-  readonly schema_hash: string;
-  readonly generated_at: string;
-  readonly hit_count: number;
-  readonly source: string;
-  readonly input_schema: Record<string, unknown>;
-  readonly output_schema: Record<string, unknown>;
-}
-
-/** Function revision information */
-export interface FunctionRevision {
-  readonly revision_id: number;
-  readonly source: string;
-  readonly schema_hash: string;
-  readonly created_at: string;
-  readonly input_schema: Record<string, unknown>;
-  readonly output_schema: Record<string, unknown>;
-}
-
-/** Revision summary information */
-export interface RevisionInfo {
-  readonly revision_id: number;
-  readonly created_at: string;
-  readonly schema_hash: string;
-  readonly is_current: boolean;
-}
-
-/** Update function request body */
+/** Request to update a function's source code */
 export interface UpdateFunctionRequest {
   readonly source: string;
 }
 
-/** Realtime function creation request */
-export interface RealtimeCreateRequest {
-  readonly instructions: string;
-  readonly model?: string;
-  readonly provider?: string;
-  readonly tools?: Tool[];
-  readonly voice?: string;
+/** Detailed token usage information */
+export interface UsageInfo {
+  readonly input_tokens: number;
+  readonly output_tokens: number;
+  readonly cache_creation_1h_tokens?: number;
+  readonly cache_creation_tokens?: number;
+  readonly cache_read_tokens?: number;
+  readonly reasoning_tokens?: number;
 }
 
-/** Realtime function creation response */
-export interface RealtimeCreateResponse {
-  readonly name: string;
-  readonly script: string;
-  readonly cached: boolean;
-  readonly reasoning?: string;
-}
+// =============================================================================
+// Interactions Types (Google-compatible)
+// =============================================================================
 
-// -----------------------------------------------------------------------------
-// Interactions types (Google-compatible)
-// -----------------------------------------------------------------------------
-
-/** Error in an interaction response */
+/** Error in an interactions response */
 export interface InteractionsError {
   readonly code: string;
   readonly message: string;
 }
 
-/** Function declaration for interactions */
+/** A function declaration for interactions */
 export interface InteractionsFunction {
   readonly name: string;
   readonly description?: string;
   readonly parameters?: Record<string, unknown>;
 }
 
-/** Output item in an interaction response */
+/** An output item from an interaction */
 export interface InteractionsOutput {
   readonly type: string;
   readonly args?: Record<string, unknown>;
@@ -370,27 +377,22 @@ export interface InteractionsOutput {
   readonly thought?: string;
 }
 
-/** Tool definition for interactions */
-export interface InteractionsTool {
-  readonly type?: string;
-  readonly function_declarations?: InteractionsFunction[];
-}
-
-/** Usage information for interactions */
-export interface InteractionsUsage {
-  readonly total_tokens: number;
-}
-
-/** Interactions request body */
+/** Request for a Google-compatible interaction */
 export interface InteractionsRequest {
-  readonly agent: string;
   readonly input: unknown;
+  readonly agent?: string;
+  readonly background?: boolean;
+  readonly generation_config?: GenerationConfig;
   readonly model?: string;
   readonly previous_interaction_id?: string;
+  readonly response_format?: Record<string, unknown>;
+  readonly store?: boolean;
+  readonly stream?: boolean;
+  readonly system_instruction?: string;
   readonly tools?: InteractionsTool[];
 }
 
-/** Interactions response body */
+/** Response from a Google-compatible interaction */
 export interface InteractionsResponse {
   readonly id: string;
   readonly outputs: InteractionsOutput[];
@@ -403,30 +405,28 @@ export interface InteractionsResponse {
   readonly usage?: InteractionsUsage;
 }
 
-// -----------------------------------------------------------------------------
-// Messages types (Anthropic-compatible)
-// -----------------------------------------------------------------------------
+/** A tool for interactions */
+export interface InteractionsTool {
+  readonly function_declarations?: InteractionsFunction[];
+  readonly type?: string;
+}
 
-/** A message in a messages request */
+/** Usage information for interactions */
+export interface InteractionsUsage {
+  readonly total_tokens: number;
+}
+
+// =============================================================================
+// Messages Types (Anthropic-compatible)
+// =============================================================================
+
+/** A message in a Messages request */
 export interface MessagesMessage {
   readonly role: string;
   readonly content: unknown;
 }
 
-/** Tool definition for messages */
-export interface MessagesTool {
-  readonly name: string;
-  readonly input_schema: Record<string, unknown>;
-  readonly description?: string;
-}
-
-/** Usage information for messages */
-export interface MessagesUsage {
-  readonly input_tokens: number;
-  readonly output_tokens: number;
-}
-
-/** Messages request body */
+/** Messages API request */
 export interface MessagesRequest {
   readonly model: string;
   readonly messages: MessagesMessage[];
@@ -441,16 +441,7 @@ export interface MessagesRequest {
   readonly top_p?: number;
 }
 
-/** A content block in a messages response */
-export interface MessagesResponseBlock {
-  readonly type: string;
-  readonly id?: string;
-  readonly input?: unknown;
-  readonly name?: string;
-  readonly text?: string;
-}
-
-/** Messages response body */
+/** Messages API response */
 export interface MessagesResponse {
   readonly id: string;
   readonly type: string;
@@ -462,105 +453,31 @@ export interface MessagesResponse {
   readonly usage: MessagesUsage;
 }
 
-// -----------------------------------------------------------------------------
-// Responses types (OpenAI Responses API compatible)
-// -----------------------------------------------------------------------------
-
-/** Error in a responses response */
-export interface ResponsesError {
-  readonly code: string;
-  readonly message: string;
-}
-
-/** Content item in a responses output */
-export interface ResponsesOutputContent {
+/** A content block in a Messages response */
+export interface MessagesResponseBlock {
   readonly type: string;
-  readonly annotations?: unknown[];
+  readonly id?: string;
+  readonly input?: unknown;
+  readonly name?: string;
   readonly text?: string;
 }
 
-/** Output item in a responses response */
-export interface ResponsesOutputItem {
-  readonly type: string;
-  readonly arguments?: string;
-  readonly call_id?: string;
-  readonly content?: ResponsesOutputContent[];
-  readonly id?: string;
-  readonly name?: string;
-  readonly role?: string;
-  readonly status?: string;
-}
-
-/** Tool definition for responses */
-export interface ResponsesTool {
-  readonly type: string;
+/** A tool definition for the Messages API */
+export interface MessagesTool {
+  readonly name: string;
+  readonly input_schema: Record<string, unknown>;
   readonly description?: string;
-  readonly headers?: Record<string, string>;
-  readonly name?: string;
-  readonly parameters?: Record<string, unknown>;
-  readonly require_approval?: string;
-  readonly server_label?: string;
-  readonly server_url?: string;
 }
 
-/** Output tokens details for responses usage */
-export interface ResponsesOutputTokensDetails {
-  readonly reasoning_tokens?: number;
-}
-
-/** Usage information for responses */
-export interface ResponsesUsage {
+/** Token usage for the Messages API */
+export interface MessagesUsage {
   readonly input_tokens: number;
   readonly output_tokens: number;
-  readonly total_tokens: number;
-  readonly output_tokens_details?: ResponsesOutputTokensDetails;
 }
 
-/** Responses API request body */
-export interface ResponsesRequest {
-  readonly input: unknown;
-  readonly instructions?: string;
-  readonly max_output_tokens?: number;
-  readonly metadata?: Record<string, unknown>;
-  readonly model?: string;
-  readonly previous_response_id?: string;
-  readonly reasoning?: ReasoningConfig;
-  readonly store?: boolean;
-  readonly stream?: boolean;
-  readonly temperature?: number;
-  readonly tool_choice?: unknown;
-  readonly tools?: ResponsesTool[];
-  readonly top_p?: number;
-  readonly user?: string;
-}
-
-/** Responses API response body */
-export interface ResponsesResponse {
-  readonly id: string;
-  readonly object: string;
-  readonly created_at: number;
-  readonly model: string;
-  readonly status: string;
-  readonly output: ResponsesOutputItem[];
-  readonly error: ResponsesError | null;
-  readonly incomplete_details: unknown;
-  readonly tool_choice: unknown;
-  readonly instructions?: string;
-  readonly max_output_tokens?: number;
-  readonly metadata?: Record<string, unknown>;
-  readonly output_text?: string;
-  readonly previous_response_id?: string;
-  readonly reasoning?: ReasoningConfig;
-  readonly temperature?: number;
-  readonly tools?: ResponsesTool[];
-  readonly top_p?: number;
-  readonly usage?: ResponsesUsage;
-  readonly user?: string;
-}
-
-// -----------------------------------------------------------------------------
-// Models types
-// -----------------------------------------------------------------------------
+// =============================================================================
+// Models Types
+// =============================================================================
 
 /** Embedding model parameters */
 export interface ModelEmbeddingParams {
@@ -632,7 +549,7 @@ export interface ModelVideoParams {
   readonly supports_seed?: boolean;
 }
 
-/** Model parameters configuration */
+/** Model-specific parameters */
 export interface ModelParams {
   readonly max_tokens: boolean;
   readonly default_max_tokens: number;
@@ -662,7 +579,7 @@ export interface ModelPricing {
   readonly thresholds?: number[];
 }
 
-/** Information about a model */
+/** Information about an available model */
 export interface ModelInfo {
   readonly id: string;
   readonly type: string;
@@ -683,7 +600,7 @@ export interface ModelInfo {
   readonly successor?: string;
 }
 
-/** Models listing response */
+/** Response from listing available models */
 export interface ModelsResponse {
   readonly models: ModelInfo[];
   readonly total: number;
@@ -691,55 +608,124 @@ export interface ModelsResponse {
   readonly limit: number;
 }
 
-// -----------------------------------------------------------------------------
-// Parse types
-// -----------------------------------------------------------------------------
+// =============================================================================
+// Parse Types
+// =============================================================================
 
-/** Parse Starlark request body */
+/** Request to parse a Starlark script */
 export interface ParseRequest {
   readonly source: string;
 }
 
-// -----------------------------------------------------------------------------
-// Generation config types
-// -----------------------------------------------------------------------------
+// =============================================================================
+// Responses Types (OpenAI Responses API compatible)
+// =============================================================================
 
-/** Configuration for a generation */
-export interface GenerationConfig {
-  readonly source: string;
+/** Error in a Responses API response */
+export interface ResponsesError {
+  readonly code: string;
+  readonly message: string;
 }
 
-// -----------------------------------------------------------------------------
-// Inline endpoint request/response types
-// -----------------------------------------------------------------------------
+/** Content within a Responses API output item */
+export interface ResponsesOutputContent {
+  readonly type: string;
+  readonly annotations?: unknown[];
+  readonly text?: string;
+}
+
+/** An output item in a Responses API response */
+export interface ResponsesOutputItem {
+  readonly type: string;
+  readonly arguments?: string;
+  readonly call_id?: string;
+  readonly content?: ResponsesOutputContent[];
+  readonly id?: string;
+  readonly name?: string;
+  readonly role?: string;
+  readonly status?: string;
+}
+
+/** Responses API request */
+export interface ResponsesRequest {
+  readonly input: unknown;
+  readonly instructions?: string;
+  readonly max_output_tokens?: number;
+  readonly metadata?: Record<string, unknown>;
+  readonly model?: string;
+  readonly previous_response_id?: string;
+  readonly reasoning?: ReasoningConfig;
+  readonly store?: boolean;
+  readonly stream?: boolean;
+  readonly temperature?: number;
+  readonly tool_choice?: unknown;
+  readonly tools?: ResponsesTool[];
+  readonly top_p?: number;
+  readonly user?: string;
+}
+
+/** Responses API response */
+export interface ResponsesResponse {
+  readonly id: string;
+  readonly object: string;
+  readonly created_at: number;
+  readonly model: string;
+  readonly status: string;
+  readonly output: ResponsesOutputItem[];
+  readonly error: ResponsesError | null;
+  readonly incomplete_details: unknown;
+  readonly tool_choice: unknown;
+  readonly instructions?: string;
+  readonly max_output_tokens?: number;
+  readonly metadata?: Record<string, unknown>;
+  readonly output_text?: string;
+  readonly previous_response_id?: string;
+  readonly reasoning?: ReasoningConfig;
+  readonly temperature?: number;
+  readonly tools?: ResponsesTool[];
+  readonly top_p?: number;
+  readonly usage?: ResponsesUsage;
+  readonly user?: string;
+}
+
+/** A tool definition for the Responses API */
+export interface ResponsesTool {
+  readonly type: string;
+  readonly description?: string;
+  readonly headers?: Record<string, string>;
+  readonly name?: string;
+  readonly parameters?: Record<string, unknown>;
+  readonly require_approval?: string;
+  readonly server_label?: string;
+  readonly server_url?: string;
+}
+
+/** Output token usage details for Responses API */
+export interface ResponsesOutputTokensDetails {
+  readonly reasoning_tokens?: number;
+}
+
+/** Token usage information for the Responses API */
+export interface ResponsesUsage {
+  readonly input_tokens: number;
+  readonly output_tokens: number;
+  readonly total_tokens: number;
+  readonly output_tokens_details?: ResponsesOutputTokensDetails;
+}
+
+// =============================================================================
+// Inline Response/Request Types for Endpoints
+// =============================================================================
 
 /** Response from listing functions */
 export interface ListFunctionsResponse {
   readonly functions?: FunctionInfo[];
 }
 
-/** Response from getting a function (same as FunctionDetails) */
-export type GetFunctionResponse = FunctionDetails;
-
-/** Request to run a function (same as RunRequest) */
-export type RunFunctionRequest = RunRequest;
-
-/** Response from running a function (same as RunResponse) */
-export type RunFunctionResponse = RunResponse;
-
-/** Response from updating a function (same as FunctionDetails) */
-export type UpdateFunctionResponse = FunctionDetails;
-
 /** Response from listing revisions */
 export interface ListRevisionsResponse {
   readonly revisions?: RevisionInfo[];
 }
-
-/** Response from getting a revision (same as FunctionRevision) */
-export type GetRevisionResponse = FunctionRevision;
-
-/** Response from reverting a revision (same as FunctionDetails) */
-export type RevertRevisionResponse = FunctionDetails;
 
 /** Pagination metadata for generations listing */
 export interface GenerationsPaginationMeta {
@@ -755,18 +741,12 @@ export interface ListGenerationsResponse {
   readonly meta?: GenerationsPaginationMeta;
 }
 
-/** Response from getting a generation */
-export type GetGenerationResponse = Record<string, unknown>;
-
 /** Response from deleting a generation */
 export interface DeleteGenerationResponse {
   readonly deleted?: boolean;
 }
 
-/** Response from parsing Starlark */
-export type ParseStarlarkResponse = Record<string, unknown>;
-
-/** Health check response */
+/** Response from the health check endpoint */
 export interface HealthCheckResponse {
   readonly status?: string;
 }

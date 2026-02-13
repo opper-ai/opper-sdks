@@ -1,5 +1,8 @@
-import { BaseClient } from '../client-base.js';
-import type { ClientConfig } from '../client-base.js';
+// =============================================================================
+// Task API SDK - Interactions Client (Google-compatible)
+// =============================================================================
+
+import { BaseClient, ClientConfig } from '../client-base.js';
 import type {
   InteractionsError,
   InteractionsFunction,
@@ -8,14 +11,24 @@ import type {
   InteractionsResponse,
   InteractionsTool,
   InteractionsUsage,
-  ErrorResponse,
 } from '../types.js';
 
 /**
- * Client for Google-compatible interactions endpoint.
+ * Google-compatible interactions client.
  *
- * This client is currently a stub prepared for future implementation.
- * Related types are imported and available for use when endpoints are added.
+ * Currently no endpoints are defined in the API specification,
+ * but schemas exist for future implementation. This client serves
+ * as a placeholder and will be populated with methods as endpoints
+ * are added to the spec.
+ *
+ * Related schemas:
+ * - {@link InteractionsError}
+ * - {@link InteractionsFunction}
+ * - {@link InteractionsOutput}
+ * - {@link InteractionsRequest}
+ * - {@link InteractionsResponse}
+ * - {@link InteractionsTool}
+ * - {@link InteractionsUsage}
  */
 export class InteractionsClient extends BaseClient {
   constructor(config: ClientConfig) {

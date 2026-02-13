@@ -1,3 +1,7 @@
+// =============================================================================
+// Task API SDK - Embeddings Client
+// =============================================================================
+
 import { BaseClient } from '../client-base.js';
 import type { ClientConfig } from '../client-base.js';
 import type {
@@ -5,19 +9,26 @@ import type {
   EmbeddingsRequest,
   EmbeddingsResponse,
   EmbeddingsUsageInfo,
-  ErrorResponse,
 } from '../types.js';
 
 /**
- * Client for OpenAI-compatible embeddings endpoints.
+ * OpenAI-compatible embeddings client.
  *
- * Currently a stub with no endpoints but prepared for future implementation.
- * Related schemas: EmbeddingsDataItem, EmbeddingsRequest, EmbeddingsResponse,
- * EmbeddingsUsageInfo, ErrorResponse.
+ * Currently no endpoints are defined in the API specification for embeddings,
+ * but the schema types exist for future implementation. This client serves as
+ * a placeholder that will be extended with methods as endpoints become available.
  */
 export class EmbeddingsClient extends BaseClient {
   constructor(config: ClientConfig) {
     super(config);
   }
 }
+
+// Re-export related types for convenience
+export type {
+  EmbeddingsDataItem,
+  EmbeddingsRequest,
+  EmbeddingsResponse,
+  EmbeddingsUsageInfo,
+};
 
