@@ -11,12 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch OpenAPI spec
+      - name: Download OpenAPI spec from CI artifact
         env:
           GH_TOKEN: ${{ secrets.API_REPO_TOKEN }}
+          RUN_ID: ${{ github.event.client_payload.run_id }}
         run: |
-          gh api repos/opper-ai/task-api-v2/contents/openapi.yaml \
-            -H "Accept: application/vnd.github.raw+json" > openapi.yaml
+          if [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" -n openapi-spec -R opper-ai/task-api-v2
+          else
+            gh run download -n openapi-spec -R opper-ai/task-api-v2
+          fi
 
       - uses: opper-ai/opper-openapi-sdks@v1
         id: generate
