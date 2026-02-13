@@ -1,9 +1,5 @@
-// =============================================================================
-// Task API SDK - System Client
-// =============================================================================
-
 import { BaseClient } from '../client-base.js';
-import { ClientConfig, RequestOptions } from '../types.js';
+import type { ErrorResponse } from '../types.js';
 
 /** Response from the health check endpoint. */
 export interface HealthCheckResponse {
@@ -11,22 +7,17 @@ export interface HealthCheckResponse {
 }
 
 /**
- * SystemClient extending BaseClient.
- * Provides access to system-level endpoints such as health checks.
- * No authentication required for these endpoints.
+ * SystemClient provides access to system-level endpoints.
+ * Covers GET /v3/health. No auth required.
  */
 export class SystemClient extends BaseClient {
-  constructor(config: ClientConfig) {
-    super(config);
-  }
-
   /**
-   * Health check.
    * Returns server health and readiness status.
-   * No authentication required.
+   *
+   * @returns The health status of the server.
    */
-  async healthCheck(options?: RequestOptions): Promise<HealthCheckResponse> {
-    return this.get<HealthCheckResponse>('/health', undefined, options);
+  async healthCheck(): Promise<HealthCheckResponse> {
+    return this.get<HealthCheckResponse>('/v3/health');
   }
 }
 
