@@ -1,7 +1,3 @@
-// =============================================================================
-// Task API SDK - Interactions Client (Google-compatible + Anthropic Messages)
-// =============================================================================
-
 import { BaseClient } from '../client-base.js';
 import type {
   InteractionsRequest,
@@ -11,99 +7,97 @@ import type {
   RequestOptions,
 } from '../types.js';
 
-/** Path for the Google-compatible interactions endpoint. */
-const INTERACTIONS_PATH = '/v1/interactions';
-
-/** Path for the Anthropic-compatible messages endpoint. */
-const MESSAGES_PATH = '/v1/messages';
-
 /**
- * Client for the Google-compatible Interactions API and Anthropic-compatible
- * Messages API.
- *
- * Provides methods for creating interactions and messages with optional
- * streaming support.
+ * Client for Google-compatible interactions endpoints and Anthropic-compatible
+ * messages endpoints.
  */
 export class InteractionsClient extends BaseClient {
-  // ---------------------------------------------------------------------------
-  // Interactions (Google-compatible)
-  // ---------------------------------------------------------------------------
-
   /**
-   * Create an interaction.
+   * Generate content using the Google-compatible interactions endpoint.
    *
-   * Sends an interaction request and returns the complete response.
-   * For streaming responses, use {@link createStream} instead.
-   *
-   * @param body - The interaction request body.
-   * @param options - Optional request options (headers, signal).
-   * @returns The interaction response.
+   * @param model - The model identifier to use for generation.
+   * @param body - The interactions request body.
+   * @param options - Optional request options.
+   * @returns The interactions response with generated candidates.
    */
-  async create(
+  async generateContent(
+    model: string,
     body: InteractionsRequest,
     options?: RequestOptions,
   ): Promise<InteractionsResponse> {
-    return this.post<InteractionsResponse>(INTERACTIONS_PATH, body, options);
+    const encodedModel = encodeURIComponent(model);
+    return this.post<InteractionsResponse>(
+      `/v3/interactions/${encodedModel}:generateContent`,
+      body,
+      options,
+    );
   }
 
   /**
-   * Create an interaction with streaming.
+   * Stream generated content using the Google-compatible interactions endpoint.
    *
-   * Sends an interaction request with `stream: true` and returns an async
-   * generator that yields partial interaction response chunks as they arrive
-   * via Server-Sent Events.
-   *
-   * @param body - The interaction request body. The `stream` field will be set to `true`.
-   * @param options - Optional request options (headers, signal).
-   * @returns An async generator yielding interaction response chunks.
+   * @param model - The model identifier to use for generation.
+   * @param body - The interactions request body.
+   * @param options - Optional request options.
+   * @returns An async generator yielding streamed interaction response chunks.
    */
-  async *createStream(
+  async *streamGenerateContent(
+    model: string,
     body: InteractionsRequest,
     options?: RequestOptions,
-  ): AsyncGenerator<InteractionsResponse, void, undefined> {
-    const streamBody: InteractionsRequest = { ...body, stream: true };
-    yield* this.stream<InteractionsResponse>(INTERACTIONS_PATH, streamBody, options);
+  ): AsyncGenerator<InteractionsResponse> {
+    const encodedModel = encodeURIComponent(model);
+    // Build a request body with stream: true without relying on the
+    // InteractionsRequest type having a stream field.
+    const streamBody: Record<string, unknown> = {
+      ...(body as Record<string, unknown>),
+      stream: true,
+    };
+    yield* this.stream<InteractionsResponse>(
+      `/v3/interactions/${encodedModel}:streamGenerateContent`,
+      streamBody,
+      options,
+    );
   }
 
-  // ---------------------------------------------------------------------------
-  // Messages (Anthropic-compatible)
-  // ---------------------------------------------------------------------------
-
   /**
-   * Create a message.
-   *
-   * Sends an Anthropic-compatible messages request and returns the complete
-   * response. For streaming responses, use {@link createMessageStream} instead.
+   * Create a message using the Anthropic-compatible messages endpoint.
    *
    * @param body - The messages request body.
-   * @param options - Optional request options (headers, signal).
+   * @param options - Optional request options.
    * @returns The messages response.
    */
   async createMessage(
     body: MessagesRequest,
     options?: RequestOptions,
   ): Promise<MessagesResponse> {
-    const requestBody: MessagesRequest = { ...body, stream: false };
-    return this.post<MessagesResponse>(MESSAGES_PATH, requestBody, options);
+    return this.post<MessagesResponse>(
+      '/v3/messages',
+      body,
+      options,
+    );
   }
 
   /**
-   * Create a message with streaming.
+   * Stream a message using the Anthropic-compatible messages endpoint.
    *
-   * Sends an Anthropic-compatible messages request with `stream: true` and
-   * returns an async generator that yields partial message response chunks
-   * as they arrive via Server-Sent Events.
-   *
-   * @param body - The messages request body. The `stream` field will be set to `true`.
-   * @param options - Optional request options (headers, signal).
-   * @returns An async generator yielding messages response chunks.
+   * @param body - The messages request body.
+   * @param options - Optional request options.
+   * @returns An async generator yielding streamed message response chunks.
    */
-  async *createMessageStream(
-    body: MessagesRequest,
+  async *streamMessage(
+    body: Omit<MessagesRequest, 'stream'> & { readonly stream?: boolean },
     options?: RequestOptions,
-  ): AsyncGenerator<MessagesResponse, void, undefined> {
-    const streamBody: MessagesRequest = { ...body, stream: true };
-    yield* this.stream<MessagesResponse>(MESSAGES_PATH, streamBody, options);
+  ): AsyncGenerator<MessagesResponse> {
+    const streamBody: Record<string, unknown> = {
+      ...(body as Record<string, unknown>),
+      stream: true,
+    };
+    yield* this.stream<MessagesResponse>(
+      '/v3/messages',
+      streamBody,
+      options,
+    );
   }
 }
 

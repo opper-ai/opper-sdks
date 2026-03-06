@@ -3,13 +3,13 @@
 // =============================================================================
 
 import { BaseClient } from '../client-base.js';
-import type { RequestOptions } from '../types.js';
+import { RequestOptions } from '../types.js';
 
 // -----------------------------------------------------------------------------
-// Generations-specific response types
+// Generations-specific Types
 // -----------------------------------------------------------------------------
 
-/** Pagination metadata for list responses. */
+/** Pagination metadata for generation listings. */
 export interface GenerationsListMeta {
   readonly page: number;
   readonly page_size: number;
@@ -23,42 +23,47 @@ export interface GenerationsListResponse {
   readonly meta: GenerationsListMeta;
 }
 
-/** A single recorded generation with request and response data. */
-export type Generation = Record<string, unknown>;
+/** Parameters for listing generations. */
+export interface ListGenerationsParams {
+  /** Semantic search query (uses hybrid dense+sparse search). */
+  query?: string;
+  /** Page number (default 1). */
+  page?: number;
+  /** Items per page (default 50). */
+  page_size?: number;
+}
 
 /** Response from deleting a generation. */
-export interface GenerationDeleteResponse {
+export interface DeleteGenerationResponse {
   readonly deleted: boolean;
 }
 
 // -----------------------------------------------------------------------------
-// Client
+// Generations Client
 // -----------------------------------------------------------------------------
 
 /**
- * Client for the Generations API.
- * Provides methods to list, retrieve, and delete recorded HTTP request/response
- * generations.
+ * Client for the Generations API endpoints.
+ * Provides methods to list, get, and delete recorded HTTP request/response generations.
  */
 export class GenerationsClient extends BaseClient {
   /**
-   * List recorded generations with pagination.
+   * List recorded HTTP request/response generations with pagination.
    *
-   * @param page - Page number (default 1).
-   * @param pageSize - Number of items per page (default 50).
-   * @param options - Optional request options (headers, signal).
-   * @returns A promise that resolves to the paginated list of generations.
+   * @param params - Optional query parameters for filtering and pagination.
+   * @param options - Optional request options.
+   * @returns A paginated list of generations.
    */
   async listGenerations(
-    page?: number,
-    pageSize?: number,
+    params?: ListGenerationsParams,
     options?: RequestOptions,
   ): Promise<GenerationsListResponse> {
     return this.get<GenerationsListResponse>(
       '/v3/generations',
       {
-        page,
-        page_size: pageSize,
+        query: params?.query,
+        page: params?.page,
+        page_size: params?.page_size,
       },
       options,
     );
@@ -68,14 +73,14 @@ export class GenerationsClient extends BaseClient {
    * Get a specific recorded generation by ID.
    *
    * @param id - The generation ID.
-   * @param options - Optional request options (headers, signal).
-   * @returns A promise that resolves to the generation object.
+   * @param options - Optional request options.
+   * @returns The recorded generation with request and response data.
    */
   async getGeneration(
     id: string,
     options?: RequestOptions,
-  ): Promise<Generation> {
-    return this.get<Generation>(
+  ): Promise<Record<string, unknown>> {
+    return this.get<Record<string, unknown>>(
       `/v3/generations/${encodeURIComponent(id)}`,
       undefined,
       options,
@@ -86,14 +91,14 @@ export class GenerationsClient extends BaseClient {
    * Delete a specific recorded generation.
    *
    * @param id - The generation ID.
-   * @param options - Optional request options (headers, signal).
-   * @returns A promise that resolves to the deletion confirmation.
+   * @param options - Optional request options.
+   * @returns Confirmation of deletion.
    */
   async deleteGeneration(
     id: string,
     options?: RequestOptions,
-  ): Promise<GenerationDeleteResponse> {
-    return this.delete<GenerationDeleteResponse>(
+  ): Promise<DeleteGenerationResponse> {
+    return this.delete<DeleteGenerationResponse>(
       `/v3/generations/${encodeURIComponent(id)}`,
       options,
     );
