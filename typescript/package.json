@@ -11,6 +11,11 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check src/",
+    "format": "biome format --write src/",
+    "check": "biome check --write src/",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -23,10 +28,12 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.5.0"
+    "@biomejs/biome": "^2.4.6",
+    "@types/node": "^25.4.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=18.0.0"
   }
 }
-
