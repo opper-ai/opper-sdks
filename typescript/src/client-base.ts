@@ -2,10 +2,10 @@
 // Task API SDK - Base HTTP Client
 // =============================================================================
 
-import { ApiError, ClientConfig, RequestOptions } from './types.js';
+import { ApiError, type ClientConfig, type RequestOptions } from "./types.js";
 
 /** Default base URL for the Task API. */
-const DEFAULT_BASE_URL = 'https://api.opper.ai';
+const DEFAULT_BASE_URL = "https://api.opper.ai";
 
 /**
  * Base HTTP client with configurable baseUrl and API key (Bearer auth).
@@ -18,12 +18,12 @@ export class BaseClient {
   protected readonly defaultHeaders: Record<string, string>;
 
   constructor(config: ClientConfig) {
-    this.baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
-    this.apiKey = config.apiKey;
+    this.baseUrl = (config.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    this.apiKey = config.apiKey ?? "";
     this.defaultHeaders = {
-      'Authorization': `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+      Authorization: `Bearer ${this.apiKey}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
       ...config.headers,
     };
   }
@@ -36,15 +36,17 @@ export class BaseClient {
    * Serialize a record of query parameters into a URL query string.
    * Undefined and null values are omitted.
    */
-  protected buildQueryString(params?: Record<string, string | number | boolean | undefined | null>): string {
-    if (!params) return '';
+  protected buildQueryString(
+    params?: Record<string, string | number | boolean | undefined | null>,
+  ): string {
+    if (!params) return "";
     const parts: string[] = [];
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null) {
         parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
       }
     }
-    return parts.length > 0 ? `?${parts.join('&')}` : '';
+    return parts.length > 0 ? `?${parts.join("&")}` : "";
   }
 
   // ---------------------------------------------------------------------------
@@ -119,8 +121,8 @@ export class BaseClient {
     const response = await this.fetchRaw(url, init, options);
 
     // Handle 204 No Content or empty bodies
-    const contentLength = response.headers.get('content-length');
-    if (response.status === 204 || contentLength === '0') {
+    const contentLength = response.headers.get("content-length");
+    if (response.status === 204 || contentLength === "0") {
       return undefined as T;
     }
 
@@ -142,7 +144,7 @@ export class BaseClient {
     query?: Record<string, string | number | boolean | undefined | null>,
     options?: RequestOptions,
   ): Promise<T> {
-    return this.request<T>('GET', path, { ...options, query });
+    return this.request<T>("GET", path, { ...options, query });
   }
 
   /** Perform a POST request. */
@@ -153,16 +155,17 @@ export class BaseClient {
       query?: Record<string, string | number | boolean | undefined | null>;
     },
   ): Promise<T> {
-    return this.request<T>('POST', path, { ...options, body });
+    return this.request<T>("POST", path, { ...options, body });
   }
 
   /** Perform a PUT request. */
-  protected async put<T>(
-    path: string,
-    body?: unknown,
-    options?: RequestOptions,
-  ): Promise<T> {
-    return this.request<T>('PUT', path, { ...options, body });
+  protected async put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    return this.request<T>("PUT", path, { ...options, body });
+  }
+
+  /** Perform a PATCH request. */
+  protected async patch<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+    return this.request<T>("PATCH", path, { ...options, body });
   }
 
   /** Perform a DELETE request. */
@@ -172,7 +175,7 @@ export class BaseClient {
       query?: Record<string, string | number | boolean | undefined | null>;
     },
   ): Promise<T> {
-    return this.request<T>('DELETE', path, options);
+    return this.request<T>("DELETE", path, options);
   }
 
   // ---------------------------------------------------------------------------
@@ -197,12 +200,12 @@ export class BaseClient {
 
     const headers = {
       ...this.defaultHeaders,
-      'Accept': 'text/event-stream',
+      Accept: "text/event-stream",
       ...options?.headers,
     };
 
     const response = await fetch(url, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: options?.signal,
@@ -228,7 +231,7 @@ export class BaseClient {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
+    let buffer = "";
 
     try {
       while (true) {
@@ -238,24 +241,24 @@ export class BaseClient {
         buffer += decoder.decode(value, { stream: true });
 
         // Process complete lines from the buffer
-        const lines = buffer.split('\n');
+        const lines = buffer.split("\n");
         // Keep the last potentially incomplete line in the buffer
-        buffer = lines.pop() ?? '';
+        buffer = lines.pop() ?? "";
 
         for (const line of lines) {
           const trimmed = line.trim();
 
           // Skip empty lines and SSE comments
-          if (!trimmed || trimmed.startsWith(':')) {
+          if (!trimmed || trimmed.startsWith(":")) {
             continue;
           }
 
           // Process "data:" lines
-          if (trimmed.startsWith('data:')) {
+          if (trimmed.startsWith("data:")) {
             const data = trimmed.slice(5).trim();
 
             // Check for stream termination signal
-            if (data === '[DONE]') {
+            if (data === "[DONE]") {
               return;
             }
 
@@ -266,10 +269,7 @@ export class BaseClient {
 
             try {
               yield JSON.parse(data) as T;
-            } catch {
-              // If the data isn't valid JSON, skip it
-              continue;
-            }
+            } catch {}
           }
         }
       }
@@ -277,9 +277,9 @@ export class BaseClient {
       // Process any remaining data in the buffer
       if (buffer.trim()) {
         const trimmed = buffer.trim();
-        if (trimmed.startsWith('data:')) {
+        if (trimmed.startsWith("data:")) {
           const data = trimmed.slice(5).trim();
-          if (data && data !== '[DONE]') {
+          if (data && data !== "[DONE]") {
             try {
               yield JSON.parse(data) as T;
             } catch {
@@ -293,4 +293,3 @@ export class BaseClient {
     }
   }
 }
-

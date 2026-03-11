@@ -1,83 +1,152 @@
 // =============================================================================
-// Task API TypeScript SDK - Main Entry Point
+// Opper SDK - Main Entry Point
 // =============================================================================
 
-import type { ClientConfig } from './types.js';
-import { FunctionsClient } from './clients/functions.js';
-import { ChatClient } from './clients/chat.js';
-import { ResponsesClient } from './clients/responses.js';
-import { InteractionsClient } from './clients/interactions.js';
-import { ModelsClient } from './clients/models.js';
-import { EmbeddingsClient } from './clients/embeddings.js';
-import { GenerationsClient } from './clients/generations.js';
-import { ParseClient } from './clients/parse.js';
-import { SystemClient } from './clients/system.js';
+import { ChatClient } from "./clients/chat.js";
+import { EmbeddingsClient } from "./clients/embeddings.js";
+import { FunctionsClient } from "./clients/functions.js";
+import { GenerationsClient } from "./clients/generations.js";
+import { InteractionsClient } from "./clients/interactions.js";
+import { MessagesClient } from "./clients/messages.js";
+import { ModelsClient } from "./clients/models.js";
+import { ParseClient } from "./clients/parse.js";
+import { ResponsesClient } from "./clients/responses.js";
+import { SpansClient } from "./clients/spans.js";
+import { SystemClient } from "./clients/system.js";
+import type {
+  ClientConfig,
+  RequestOptions,
+  RunRequest,
+  RunResponse,
+  StreamChunk,
+} from "./types.js";
 
 // ---------------------------------------------------------------------------
-// Unified Client
+// Compat namespace
+// ---------------------------------------------------------------------------
+
+/** Compatibility endpoint clients grouped under a single namespace. */
+export interface CompatClients {
+  /** OpenAI-compatible chat completions. */
+  readonly chat: ChatClient;
+  /** OpenAI Responses API. */
+  readonly responses: ResponsesClient;
+  /** Google-compatible interactions. */
+  readonly interactions: InteractionsClient;
+  /** Anthropic-compatible messages. */
+  readonly messages: MessagesClient;
+  /** OpenAI-compatible embeddings. */
+  readonly embeddings: EmbeddingsClient;
+}
+
+// ---------------------------------------------------------------------------
+// Resolve config from env vars
+// ---------------------------------------------------------------------------
+
+function resolveConfig(config?: ClientConfig): Required<
+  Pick<ClientConfig, "apiKey" | "baseUrl">
+> & {
+  headers?: Record<string, string>;
+} {
+  const apiKey =
+    config?.apiKey || (typeof process !== "undefined" ? process.env.OPPER_API_KEY : undefined);
+  if (!apiKey) {
+    throw new Error(
+      "Missing API key. Pass apiKey in the config or set the OPPER_API_KEY environment variable.",
+    );
+  }
+
+  const baseUrl =
+    config?.baseUrl ||
+    (typeof process !== "undefined" ? process.env.OPPER_BASE_URL : undefined) ||
+    "https://api.opper.ai";
+
+  return { apiKey, baseUrl, headers: config?.headers };
+}
+
+// ---------------------------------------------------------------------------
+// Opper Client
 // ---------------------------------------------------------------------------
 
 /**
- * Unified client for the Task API v3.0.0.
- *
- * Takes a {@link ClientConfig} in the constructor and exposes all API
- * sub-clients as readonly properties.
+ * Unified client for the Opper API.
  *
  * @example
  * ```typescript
- * import { TaskApiClient } from 'task-api-sdk';
+ * import { Opper } from '@opperai/sdk';
  *
- * const client = new TaskApiClient({ apiKey: 'your-api-key' });
+ * // Uses OPPER_API_KEY env var
+ * const client = new Opper();
  *
- * // Use sub-clients
- * const models = await client.models.listModels();
- * const result = await client.functions.runFunction('myFunc', { ... });
+ * // Or pass config explicitly
+ * const client = new Opper({ apiKey: 'op-...' });
+ *
+ * const result = await client.run('my-fn', {
+ *   input_schema: { type: 'object', properties: { q: { type: 'string' } } },
+ *   output_schema: { type: 'object', properties: { a: { type: 'string' } } },
+ *   input: { q: 'Hello' },
+ * });
  * ```
  */
-export class TaskApiClient {
-  /** Client for Function management and execution endpoints. */
+export class Opper {
+  /** Client for function management and execution. */
   readonly functions: FunctionsClient;
 
-  /** Client for OpenAI-compatible chat completion endpoints. */
-  readonly chat: ChatClient;
+  /** Client for trace spans. */
+  readonly spans: SpansClient;
 
-  /** Client for OpenAI Responses API compatible endpoints. */
-  readonly responses: ResponsesClient;
-
-  /** Client for Google-compatible interactions endpoints. */
-  readonly interactions: InteractionsClient;
+  /** Client for recorded generations. */
+  readonly generations: GenerationsClient;
 
   /** Client for listing available models. */
   readonly models: ModelsClient;
 
-  /** Client for OpenAI-compatible embeddings endpoint. */
-  readonly embeddings: EmbeddingsClient;
-
-  /** Client for recorded generation management endpoints. */
-  readonly generations: GenerationsClient;
-
-  /** Client for Starlark script parsing endpoint. */
+  /** Client for Starlark script parsing. */
   readonly parse: ParseClient;
 
-  /** Client for system health and status endpoints. */
+  /** Client for system health checks. */
   readonly system: SystemClient;
 
+  /** Compatibility endpoint clients (OpenAI, Anthropic, Google). */
+  readonly compat: CompatClients;
+
+  constructor(config?: ClientConfig) {
+    const resolved = resolveConfig(config);
+
+    this.functions = new FunctionsClient(resolved);
+    this.spans = new SpansClient(resolved);
+    this.generations = new GenerationsClient(resolved);
+    this.models = new ModelsClient(resolved);
+    this.parse = new ParseClient(resolved);
+    this.system = new SystemClient(resolved);
+
+    this.compat = {
+      chat: new ChatClient(resolved),
+      responses: new ResponsesClient(resolved),
+      interactions: new InteractionsClient(resolved),
+      messages: new MessagesClient(resolved),
+      embeddings: new EmbeddingsClient(resolved),
+    };
+  }
+
   /**
-   * Create a new TaskApiClient.
-   *
-   * @param config - SDK configuration including API key, optional base URL,
-   *   and optional custom headers.
+   * Convenience: execute a function by name.
+   * Equivalent to `client.functions.runFunction(name, request)`.
    */
-  constructor(config: ClientConfig) {
-    this.functions = new FunctionsClient(config);
-    this.chat = new ChatClient(config);
-    this.responses = new ResponsesClient(config);
-    this.interactions = new InteractionsClient(config);
-    this.models = new ModelsClient(config);
-    this.embeddings = new EmbeddingsClient(config);
-    this.generations = new GenerationsClient(config);
-    this.parse = new ParseClient(config);
-    this.system = new SystemClient(config);
+  async run(name: string, request: RunRequest, options?: RequestOptions): Promise<RunResponse> {
+    return this.functions.runFunction(name, request, options);
+  }
+
+  /**
+   * Convenience: stream a function execution by name.
+   * Equivalent to `client.functions.streamFunction(name, request)`.
+   */
+  async *stream(
+    name: string,
+    request: RunRequest,
+    options?: RequestOptions,
+  ): AsyncGenerator<StreamChunk, void, undefined> {
+    yield* this.functions.streamFunction(name, request, options);
   }
 }
 
@@ -85,15 +154,18 @@ export class TaskApiClient {
 // Re-exports: Sub-clients
 // ---------------------------------------------------------------------------
 
-export { FunctionsClient } from './clients/functions.js';
-export { ChatClient } from './clients/chat.js';
-export { ResponsesClient } from './clients/responses.js';
-export { InteractionsClient } from './clients/interactions.js';
-export { ModelsClient } from './clients/models.js';
-export { EmbeddingsClient } from './clients/embeddings.js';
-export { GenerationsClient } from './clients/generations.js';
-export { ParseClient } from './clients/parse.js';
-export { SystemClient } from './clients/system.js';
+export { BaseClient } from "./client-base.js";
+export { ChatClient } from "./clients/chat.js";
+export { EmbeddingsClient } from "./clients/embeddings.js";
+export { FunctionsClient } from "./clients/functions.js";
+export { GenerationsClient } from "./clients/generations.js";
+export { InteractionsClient } from "./clients/interactions.js";
+export { MessagesClient } from "./clients/messages.js";
+export { ModelsClient } from "./clients/models.js";
+export { ParseClient } from "./clients/parse.js";
+export { ResponsesClient } from "./clients/responses.js";
+export { SpansClient } from "./clients/spans.js";
+export { SystemClient } from "./clients/system.js";
 
 // ---------------------------------------------------------------------------
 // Re-exports: Sub-client specific types
@@ -101,103 +173,97 @@ export { SystemClient } from './clients/system.js';
 
 export type {
   CreateRealtimeFunctionRequest,
+  Example,
+  ListExamplesParams,
+  ListExamplesResponse,
   ListFunctionsResponse,
   ListRevisionsResponse,
-} from './clients/functions.js';
+} from "./clients/functions.js";
 
 export type {
+  DeleteGenerationResponse,
   GenerationsListMeta,
   GenerationsListResponse,
   ListGenerationsParams as GenerationsListParams,
-  DeleteGenerationResponse,
-} from './clients/generations.js';
+} from "./clients/generations.js";
 
-export type { HealthCheckResponse } from './clients/system.js';
-
-// ---------------------------------------------------------------------------
-// Re-exports: Base client
-// ---------------------------------------------------------------------------
-
-export { BaseClient } from './client-base.js';
+export type { HealthCheckResponse } from "./clients/system.js";
 
 // ---------------------------------------------------------------------------
 // Re-exports: All types
 // ---------------------------------------------------------------------------
 
 export type {
-  ClientConfig,
-  RequestOptions,
-  ErrorDetail,
-  ErrorResponse,
-  ChatFunctionCall,
-  ChatToolCall,
-  ChatMessage,
   ChatChoice,
-  ChatUsage,
-  ChatRequestMessage,
-  ChatRequestToolFunction,
-  ChatRequestTool,
-  StreamOptions,
+  ChatFunctionCall,
+  ChatMessage,
   ChatRequest,
+  ChatRequestMessage,
+  ChatRequestTool,
+  ChatRequestToolFunction,
   ChatResponse,
-  ChatStreamDelta,
-  ChatStreamToolCall,
-  ChatStreamFunction,
   ChatStreamChoice,
   ChatStreamChunk,
+  ChatStreamDelta,
+  ChatStreamFunction,
+  ChatStreamToolCall,
+  ChatToolCall,
+  ChatUsage,
+  ClientConfig,
+  CreateSpanRequest,
+  CreateSpanResponse,
   EmbeddingsDataItem,
-  EmbeddingsUsageInfo,
   EmbeddingsRequest,
   EmbeddingsResponse,
+  EmbeddingsUsageInfo,
+  ErrorDetail,
+  ErrorResponse,
   FunctionDetails,
   FunctionInfo,
   FunctionRevision,
   GenerationConfig,
-  GuardInfo,
-  GuardrailConfig,
-  Hints,
-  Tool,
-  UsageInfo,
-  ResponseMeta,
-  RunRequest,
-  RunResponse,
-  UpdateFunctionRequest,
-  RevisionInfo,
-  ReasoningConfig,
-  RealtimeCreateRequest,
-  RealtimeCreateResponse,
-  CreateSpanRequest,
-  CreateSpanResponse,
-  UpdateSpanRequest,
-  InteractionsFunction,
-  InteractionsTool,
-  InteractionsContentPart,
-  InteractionsInlineData,
   InteractionsContent,
-  InteractionsRequest,
-  InteractionsOutput,
-  InteractionsUsage,
+  InteractionsContentPart,
   InteractionsError,
+  InteractionsFunction,
+  InteractionsInlineData,
+  InteractionsOutput,
+  InteractionsRequest,
   InteractionsResponse,
+  InteractionsTool,
+  InteractionsUsage,
+  ListGenerationsParams,
   MessagesMessage,
-  MessagesTool,
   MessagesRequest,
-  MessagesResponseBlock,
-  MessagesUsage,
   MessagesResponse,
+  MessagesResponseBlock,
+  MessagesTool,
+  MessagesUsage,
   ModelInfo,
   ModelsResponse,
+  ParseRequest,
+  RealtimeCreateRequest,
+  RealtimeCreateResponse,
+  ReasoningConfig,
+  RequestOptions,
+  ResponseMeta,
   ResponsesError,
   ResponsesOutputContent,
   ResponsesOutputItem,
-  ResponsesTool,
   ResponsesOutputTokensDetails,
-  ResponsesUsage,
   ResponsesRequest,
   ResponsesResponse,
-  ParseRequest,
-  ListGenerationsParams,
-} from './types.js';
+  ResponsesTool,
+  ResponsesUsage,
+  RevisionInfo,
+  RunRequest,
+  RunResponse,
+  StreamChunk,
+  StreamOptions,
+  Tool,
+  UpdateFunctionRequest,
+  UpdateSpanRequest,
+  UsageInfo,
+} from "./types.js";
 
-export { ApiError } from './types.js';
-
+export { ApiError } from "./types.js";
