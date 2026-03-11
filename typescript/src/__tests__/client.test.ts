@@ -12,7 +12,7 @@ describe("Opper client construction", () => {
     const client = new Opper({ apiKey: "test-key" });
     expect(client.functions).toBeDefined();
     expect(client.spans).toBeDefined();
-    expect(client.compat.chat).toBeDefined();
+    expect(client.embeddings).toBeDefined();
   });
 
   it("uses OPPER_API_KEY env var when no apiKey in config", () => {
@@ -39,22 +39,13 @@ describe("Opper client construction", () => {
     expect(client.functions).toBeDefined();
   });
 
-  it("exposes compat namespace with all clients", () => {
-    const client = new Opper({ apiKey: "key" });
-    expect(client.compat.chat).toBeDefined();
-    expect(client.compat.responses).toBeDefined();
-    expect(client.compat.interactions).toBeDefined();
-    expect(client.compat.messages).toBeDefined();
-    expect(client.compat.embeddings).toBeDefined();
-  });
-
-  it("exposes core clients", () => {
+  it("exposes all clients", () => {
     const client = new Opper({ apiKey: "key" });
     expect(client.functions).toBeDefined();
     expect(client.spans).toBeDefined();
     expect(client.generations).toBeDefined();
     expect(client.models).toBeDefined();
-    expect(client.parse).toBeDefined();
+    expect(client.embeddings).toBeDefined();
     expect(client.system).toBeDefined();
   });
 

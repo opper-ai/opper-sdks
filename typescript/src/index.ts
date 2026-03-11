@@ -2,15 +2,10 @@
 // Opper SDK - Main Entry Point
 // =============================================================================
 
-import { ChatClient } from "./clients/chat.js";
 import { EmbeddingsClient } from "./clients/embeddings.js";
 import { FunctionsClient } from "./clients/functions.js";
 import { GenerationsClient } from "./clients/generations.js";
-import { InteractionsClient } from "./clients/interactions.js";
-import { MessagesClient } from "./clients/messages.js";
 import { ModelsClient } from "./clients/models.js";
-import { ParseClient } from "./clients/parse.js";
-import { ResponsesClient } from "./clients/responses.js";
 import { SpansClient } from "./clients/spans.js";
 import { SystemClient } from "./clients/system.js";
 import type {
@@ -20,24 +15,6 @@ import type {
   RunResponse,
   StreamChunk,
 } from "./types.js";
-
-// ---------------------------------------------------------------------------
-// Compat namespace
-// ---------------------------------------------------------------------------
-
-/** Compatibility endpoint clients grouped under a single namespace. */
-export interface CompatClients {
-  /** OpenAI-compatible chat completions. */
-  readonly chat: ChatClient;
-  /** OpenAI Responses API. */
-  readonly responses: ResponsesClient;
-  /** Google-compatible interactions. */
-  readonly interactions: InteractionsClient;
-  /** Anthropic-compatible messages. */
-  readonly messages: MessagesClient;
-  /** OpenAI-compatible embeddings. */
-  readonly embeddings: EmbeddingsClient;
-}
 
 // ---------------------------------------------------------------------------
 // Resolve config from env vars
@@ -73,7 +50,7 @@ function resolveConfig(config?: ClientConfig): Required<
  *
  * @example
  * ```typescript
- * import { Opper } from '@opperai/sdk';
+ * import { Opper } from 'opperai';
  *
  * // Uses OPPER_API_KEY env var
  * const client = new Opper();
@@ -101,14 +78,11 @@ export class Opper {
   /** Client for listing available models. */
   readonly models: ModelsClient;
 
-  /** Client for Starlark script parsing. */
-  readonly parse: ParseClient;
+  /** Client for OpenAI-compatible embeddings. */
+  readonly embeddings: EmbeddingsClient;
 
   /** Client for system health checks. */
   readonly system: SystemClient;
-
-  /** Compatibility endpoint clients (OpenAI, Anthropic, Google). */
-  readonly compat: CompatClients;
 
   constructor(config?: ClientConfig) {
     const resolved = resolveConfig(config);
@@ -117,16 +91,8 @@ export class Opper {
     this.spans = new SpansClient(resolved);
     this.generations = new GenerationsClient(resolved);
     this.models = new ModelsClient(resolved);
-    this.parse = new ParseClient(resolved);
+    this.embeddings = new EmbeddingsClient(resolved);
     this.system = new SystemClient(resolved);
-
-    this.compat = {
-      chat: new ChatClient(resolved),
-      responses: new ResponsesClient(resolved),
-      interactions: new InteractionsClient(resolved),
-      messages: new MessagesClient(resolved),
-      embeddings: new EmbeddingsClient(resolved),
-    };
   }
 
   /**
@@ -155,15 +121,10 @@ export class Opper {
 // ---------------------------------------------------------------------------
 
 export { BaseClient } from "./client-base.js";
-export { ChatClient } from "./clients/chat.js";
 export { EmbeddingsClient } from "./clients/embeddings.js";
 export { FunctionsClient } from "./clients/functions.js";
 export { GenerationsClient } from "./clients/generations.js";
-export { InteractionsClient } from "./clients/interactions.js";
-export { MessagesClient } from "./clients/messages.js";
 export { ModelsClient } from "./clients/models.js";
-export { ParseClient } from "./clients/parse.js";
-export { ResponsesClient } from "./clients/responses.js";
 export { SpansClient } from "./clients/spans.js";
 export { SystemClient } from "./clients/system.js";
 
@@ -194,21 +155,6 @@ export type { HealthCheckResponse } from "./clients/system.js";
 // ---------------------------------------------------------------------------
 
 export type {
-  ChatChoice,
-  ChatFunctionCall,
-  ChatMessage,
-  ChatRequest,
-  ChatRequestMessage,
-  ChatRequestTool,
-  ChatRequestToolFunction,
-  ChatResponse,
-  ChatStreamChoice,
-  ChatStreamChunk,
-  ChatStreamDelta,
-  ChatStreamFunction,
-  ChatStreamToolCall,
-  ChatToolCall,
-  ChatUsage,
   ClientConfig,
   CreateSpanRequest,
   CreateSpanResponse,
@@ -221,45 +167,17 @@ export type {
   FunctionDetails,
   FunctionInfo,
   FunctionRevision,
-  GenerationConfig,
-  InteractionsContent,
-  InteractionsContentPart,
-  InteractionsError,
-  InteractionsFunction,
-  InteractionsInlineData,
-  InteractionsOutput,
-  InteractionsRequest,
-  InteractionsResponse,
-  InteractionsTool,
-  InteractionsUsage,
   ListGenerationsParams,
-  MessagesMessage,
-  MessagesRequest,
-  MessagesResponse,
-  MessagesResponseBlock,
-  MessagesTool,
-  MessagesUsage,
   ModelInfo,
   ModelsResponse,
-  ParseRequest,
   RealtimeCreateRequest,
   RealtimeCreateResponse,
-  ReasoningConfig,
   RequestOptions,
   ResponseMeta,
-  ResponsesError,
-  ResponsesOutputContent,
-  ResponsesOutputItem,
-  ResponsesOutputTokensDetails,
-  ResponsesRequest,
-  ResponsesResponse,
-  ResponsesTool,
-  ResponsesUsage,
   RevisionInfo,
   RunRequest,
   RunResponse,
   StreamChunk,
-  StreamOptions,
   Tool,
   UpdateFunctionRequest,
   UpdateSpanRequest,

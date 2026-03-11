@@ -14,14 +14,9 @@ describe("Public API surface", () => {
 
   it("exports all sub-client classes", () => {
     expect(sdk.FunctionsClient).toBeDefined();
-    expect(sdk.ChatClient).toBeDefined();
-    expect(sdk.ResponsesClient).toBeDefined();
-    expect(sdk.InteractionsClient).toBeDefined();
-    expect(sdk.MessagesClient).toBeDefined();
     expect(sdk.ModelsClient).toBeDefined();
     expect(sdk.EmbeddingsClient).toBeDefined();
     expect(sdk.GenerationsClient).toBeDefined();
-    expect(sdk.ParseClient).toBeDefined();
     expect(sdk.SystemClient).toBeDefined();
     expect(sdk.SpansClient).toBeDefined();
     expect(sdk.BaseClient).toBeDefined();

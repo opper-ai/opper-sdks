@@ -8,7 +8,7 @@
 - [x] Create `PLAN.md` (this file)
 - [x] Add `vitest` test framework
 - [x] Add `biome` for linting + formatting
-- [x] Update `package.json` with scripts: `test`, `lint`, `format`, `check`
+- [x] Update `package.json` with scripts: `test`, `lint`, `format`, `check`, `examples`
 - [x] Add `biome.json` config
 - [x] Create first test: `client-base.test.ts`
 - [x] Update `README.md`
@@ -29,35 +29,30 @@
 - [x] SSE parsing tests for all 5 chunk types: content, tool_call_start, tool_call_delta, done, error
 - [x] Integration test stub (skipped without `OPPER_API_KEY`)
 
-### Phase 3: Fix Compat Clients + Missing Endpoints
-- [x] Fix `ChatClient` path: `/v3/compat/chat/completions`
-- [x] Fix `EmbeddingsClient` path: `/v3/compat/embeddings`
-- [x] Fix `ResponsesClient` path: `/v3/compat/responses`
-- [x] Fix `InteractionsClient` path: `/v3/compat/v1beta/interactions`
-- [x] Fix Messages path: `/v3/compat/v1/messages`
+### Phase 3: Missing Endpoints + Cleanup
 - [x] Add `SpansClient` with `create()` (POST) and `update()` (PATCH)
 - [x] Add examples methods: `createExample`, `createExamplesBatch`, `listExamples`, `deleteExample`
 - [x] Wire `SpansClient` into `Opper` as `client.spans`
-- [x] Separate `MessagesClient` from `InteractionsClient`
-- [x] Tests for all compat clients verifying correct URL paths
+- [x] Keep `EmbeddingsClient` as `client.embeddings`
+- [x] Remove compat clients (chat, responses, interactions, messages) — not in SDK surface
+- [x] Remove parse client
+- [x] Tests for all remaining clients
 
-### Phase 4: Namespace Restructure + Exports + Coverage
-- [x] Group compat endpoints under `client.compat.*`
-- [x] Clean up exports
-- [x] Coverage test: verify every spec endpoint has a method
-- [x] Exports test: verify public API surface
-- [x] Update `README.md` with final API surface
-- [x] Update `PLAN.md` — mark base client complete
+### Phase 4: Examples + Runner
+- [x] Write getting-started examples (00-08)
+- [x] Create `examples/run-all.ts` runner script
+- [x] Add `npm run examples` script
+- [x] Package renamed to `opperai`
 
 ## Verification Checklist
 - [x] `npm run lint` — no errors
-- [x] `npm test` — all unit tests pass (92 tests)
+- [x] `npm test` — all unit tests pass
 - [x] `tsc --noEmit` — compiles cleanly
-- [x] Every endpoint in BASE_CLIENT_SPEC.md §3 has a method (verified by coverage.test.ts)
-- [x] Every method has a unit test verifying URL path and request shape
+- [x] Every endpoint has a method (verified by coverage.test.ts)
 - [x] `StreamChunk` SSE parsing handles all 5 chunk types
-- [x] README documents all methods and namespaces
+- [x] README documents all methods
 - [x] PLAN.md reflects current status
+- [ ] `npm run examples` — all examples pass against live API
 
 ---
 

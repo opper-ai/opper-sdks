@@ -1,7 +1,7 @@
 {
-  "name": "task-api-sdk",
+  "name": "opperai",
   "version": "3.0.0",
-  "description": "TypeScript SDK for the Task API - Schema-driven generative API that uses Starlark scripts to orchestrate LLM-powered workflows.",
+  "description": "Opper TypeScript SDK — execute functions, stream results, and build AI agents.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,6 +16,7 @@
     "lint": "biome check src/",
     "format": "biome format --write src/",
     "check": "biome check --write src/",
+    "examples": "tsx examples/run-all.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
     "@types/node": "^25.4.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.5.0",
     "vitest": "^4.0.18"
   },

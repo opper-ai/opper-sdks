@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Opper } from "../index.js";
 
 /**
- * Verifies that every endpoint in BASE_CLIENT_SPEC.md §3 has a corresponding
+ * Verifies that every endpoint in the SDK surface has a corresponding
  * method on the Opper client. This is a completeness test.
  */
 describe("Spec endpoint coverage", () => {
@@ -92,50 +92,14 @@ describe("Spec endpoint coverage", () => {
     expect(typeof client.generations.deleteGeneration).toBe("function");
   });
 
-  // COMPATIBILITY
-  it("POST /v3/compat/chat/completions → client.compat.chat.createCompletion", () => {
-    expect(typeof client.compat.chat.createCompletion).toBe("function");
-  });
-
-  it("POST /v3/compat/chat/completions (stream) → client.compat.chat.streamCompletion", () => {
-    expect(typeof client.compat.chat.streamCompletion).toBe("function");
-  });
-
-  it("POST /v3/compat/responses → client.compat.responses.create", () => {
-    expect(typeof client.compat.responses.create).toBe("function");
-  });
-
-  it("POST /v3/compat/responses (stream) → client.compat.responses.createStream", () => {
-    expect(typeof client.compat.responses.createStream).toBe("function");
-  });
-
-  it("POST /v3/compat/v1beta/interactions → client.compat.interactions.generateContent", () => {
-    expect(typeof client.compat.interactions.generateContent).toBe("function");
-  });
-
-  it("POST /v3/compat/v1beta/interactions (stream) → client.compat.interactions.streamGenerateContent", () => {
-    expect(typeof client.compat.interactions.streamGenerateContent).toBe("function");
-  });
-
-  it("POST /v3/compat/v1/messages → client.compat.messages.create", () => {
-    expect(typeof client.compat.messages.create).toBe("function");
-  });
-
-  it("POST /v3/compat/v1/messages (stream) → client.compat.messages.createStream", () => {
-    expect(typeof client.compat.messages.createStream).toBe("function");
-  });
-
-  it("POST /v3/compat/embeddings → client.compat.embeddings.createEmbedding", () => {
-    expect(typeof client.compat.embeddings.createEmbedding).toBe("function");
+  // EMBEDDINGS
+  it("POST /v3/compat/embeddings → client.embeddings.createEmbedding", () => {
+    expect(typeof client.embeddings.createEmbedding).toBe("function");
   });
 
   // UTILITY
   it("GET /v3/models → client.models.listModels", () => {
     expect(typeof client.models.listModels).toBe("function");
-  });
-
-  it("POST /v3/parse → client.parse.parseStarlark", () => {
-    expect(typeof client.parse.parseStarlark).toBe("function");
   });
 
   it("GET /health → client.system.healthCheck", () => {

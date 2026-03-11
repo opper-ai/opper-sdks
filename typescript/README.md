@@ -1,17 +1,17 @@
 # Opper TypeScript SDK
 
-TypeScript client for the [Opper](https://opper.ai) API — execute functions, stream results, and access compatibility endpoints for OpenAI, Anthropic, and Google formats.
+TypeScript client for the [Opper](https://opper.ai) API — execute functions, stream results, and build AI agents.
 
 ## Install
 
 ```bash
-npm install task-api-sdk
+npm install opperai
 ```
 
 ## Quick Start
 
 ```typescript
-import { Opper } from 'task-api-sdk';
+import { Opper } from 'opperai';
 
 // Uses OPPER_API_KEY and OPPER_BASE_URL env vars
 const client = new Opper();
@@ -54,9 +54,7 @@ If `apiKey` is not provided, the client reads from `OPPER_API_KEY`. If neither i
 | `client.run(name, request)` | Execute a function (shortcut for `client.functions.runFunction`) |
 | `client.stream(name, request)` | Stream a function execution (shortcut for `client.functions.streamFunction`) |
 
-### Core Clients
-
-#### `client.functions` — Function Management & Execution
+### `client.functions` — Function Management & Execution
 
 | Method | HTTP | Description |
 |---|---|---|
@@ -76,14 +74,14 @@ If `apiKey` is not provided, the client reads from `OPPER_API_KEY`. If neither i
 | `deleteExample(name, uuid)` | `DELETE /v3/functions/{name}/examples/{uuid}` | Delete example |
 | `getRealtimeWebSocketUrl(name)` | — | Get WebSocket URL |
 
-#### `client.spans` — Observability
+### `client.spans` — Observability
 
 | Method | HTTP | Description |
 |---|---|---|
 | `create(body)` | `POST /v3/spans` | Create a trace span |
 | `update(id, body)` | `PATCH /v3/spans/{id}` | Update a span |
 
-#### `client.generations` — Generation Records
+### `client.generations` — Generation Records
 
 | Method | HTTP | Description |
 |---|---|---|
@@ -91,59 +89,23 @@ If `apiKey` is not provided, the client reads from `OPPER_API_KEY`. If neither i
 | `getGeneration(id)` | `GET /v3/generations/{id}` | Get generation |
 | `deleteGeneration(id)` | `DELETE /v3/generations/{id}` | Delete generation |
 
-#### `client.models` — Available Models (no auth)
+### `client.embeddings` — OpenAI-compatible Embeddings
+
+| Method | HTTP | Description |
+|---|---|---|
+| `createEmbedding(body)` | `POST /v3/compat/embeddings` | Create embeddings |
+
+### `client.models` — Available Models (no auth)
 
 | Method | HTTP | Description |
 |---|---|---|
 | `listModels()` | `GET /v3/models` | List available models |
 
-#### `client.parse` — Starlark Parsing
-
-| Method | HTTP | Description |
-|---|---|---|
-| `parseStarlark(body)` | `POST /v3/parse` | Parse Starlark script |
-
-#### `client.system` — Health (no auth)
+### `client.system` — Health (no auth)
 
 | Method | HTTP | Description |
 |---|---|---|
 | `healthCheck()` | `GET /health` | Health check |
-
-### Compatibility Clients (`client.compat.*`)
-
-#### `client.compat.chat` — OpenAI Chat
-
-| Method | HTTP | Description |
-|---|---|---|
-| `createCompletion(body)` | `POST /v3/compat/chat/completions` | Chat completion |
-| `streamCompletion(body)` | `POST /v3/compat/chat/completions` | Stream chat (SSE) |
-
-#### `client.compat.responses` — OpenAI Responses
-
-| Method | HTTP | Description |
-|---|---|---|
-| `create(body)` | `POST /v3/compat/responses` | Create response |
-| `createStream(body)` | `POST /v3/compat/responses` | Stream response (SSE) |
-
-#### `client.compat.interactions` — Google Interactions
-
-| Method | HTTP | Description |
-|---|---|---|
-| `generateContent(body)` | `POST /v3/compat/v1beta/interactions` | Generate content |
-| `streamGenerateContent(body)` | `POST /v3/compat/v1beta/interactions` | Stream content (SSE) |
-
-#### `client.compat.messages` — Anthropic Messages
-
-| Method | HTTP | Description |
-|---|---|---|
-| `create(body)` | `POST /v3/compat/v1/messages` | Create message |
-| `createStream(body)` | `POST /v3/compat/v1/messages` | Stream message (SSE) |
-
-#### `client.compat.embeddings` — OpenAI Embeddings
-
-| Method | HTTP | Description |
-|---|---|---|
-| `createEmbedding(body)` | `POST /v3/compat/embeddings` | Create embeddings |
 
 ## Streaming
 
@@ -160,7 +122,7 @@ The `streamFunction` method returns `AsyncGenerator<StreamChunk>`. Each chunk ha
 ## Error Handling
 
 ```typescript
-import { Opper, ApiError } from 'task-api-sdk';
+import { Opper, ApiError } from 'opperai';
 
 try {
   await client.run('missing-fn', { ... });
@@ -169,6 +131,17 @@ try {
     console.error(e.status, e.statusText, e.body);
   }
 }
+```
+
+## Examples
+
+See [`examples/getting-started/`](./examples/getting-started/) for working examples.
+
+Run all examples as a sanity check:
+
+```bash
+export OPPER_API_KEY="your-key"
+npm run examples
 ```
 
 ## Requirements
@@ -183,6 +156,7 @@ npm test        # Run tests
 npm run lint    # Lint with Biome
 npm run format  # Format with Biome
 npm run build   # Compile TypeScript
+npm run examples # Run all examples against live API
 ```
 
 See [PLAN.md](./PLAN.md) for development status.
