@@ -1,5 +1,5 @@
-import { BaseClient } from '../client-base.js';
-import type { ParseRequest } from '../types.js';
+import { BaseClient } from "../client-base.js";
+import type { ParseRequest } from "../types.js";
 
 /**
  * Client for the Parse API endpoints.
@@ -13,7 +13,6 @@ export class ParseClient extends BaseClient {
    * @returns The parsed script information.
    */
   async parseStarlark(body: ParseRequest): Promise<Record<string, unknown>> {
-    return this.post<Record<string, unknown>>('/v3/parse', body);
+    return this.post<Record<string, unknown>>("/v3/parse", body);
   }
 }
-

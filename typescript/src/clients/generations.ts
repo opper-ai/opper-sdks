@@ -2,8 +2,8 @@
 // Task API SDK - Generations Client
 // =============================================================================
 
-import { BaseClient } from '../client-base.js';
-import { RequestOptions } from '../types.js';
+import { BaseClient } from "../client-base.js";
+import type { RequestOptions } from "../types.js";
 
 // -----------------------------------------------------------------------------
 // Generations-specific Types
@@ -59,7 +59,7 @@ export class GenerationsClient extends BaseClient {
     options?: RequestOptions,
   ): Promise<GenerationsListResponse> {
     return this.get<GenerationsListResponse>(
-      '/v3/generations',
+      "/v3/generations",
       {
         query: params?.query,
         page: params?.page,
@@ -76,10 +76,7 @@ export class GenerationsClient extends BaseClient {
    * @param options - Optional request options.
    * @returns The recorded generation with request and response data.
    */
-  async getGeneration(
-    id: string,
-    options?: RequestOptions,
-  ): Promise<Record<string, unknown>> {
+  async getGeneration(id: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.get<Record<string, unknown>>(
       `/v3/generations/${encodeURIComponent(id)}`,
       undefined,
@@ -94,14 +91,10 @@ export class GenerationsClient extends BaseClient {
    * @param options - Optional request options.
    * @returns Confirmation of deletion.
    */
-  async deleteGeneration(
-    id: string,
-    options?: RequestOptions,
-  ): Promise<DeleteGenerationResponse> {
+  async deleteGeneration(id: string, options?: RequestOptions): Promise<DeleteGenerationResponse> {
     return this.delete<DeleteGenerationResponse>(
       `/v3/generations/${encodeURIComponent(id)}`,
       options,
     );
   }
 }
-

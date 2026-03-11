@@ -2,16 +2,11 @@
 // Task API SDK - Chat Client
 // =============================================================================
 
-import { BaseClient } from '../client-base.js';
-import type {
-  ChatRequest,
-  ChatResponse,
-  ChatStreamChunk,
-  RequestOptions,
-} from '../types.js';
+import { BaseClient } from "../client-base.js";
+import type { ChatRequest, ChatResponse, ChatStreamChunk, RequestOptions } from "../types.js";
 
 /** Path for the OpenAI-compatible chat completions endpoint. */
-const CHAT_COMPLETIONS_PATH = '/v1/chat/completions';
+const CHAT_COMPLETIONS_PATH = "/v3/compat/chat/completions";
 
 /**
  * ChatClient extending BaseClient.
@@ -29,10 +24,7 @@ export class ChatClient extends BaseClient {
    * @param options - Optional request options (headers, signal).
    * @returns The chat completion response.
    */
-  async createCompletion(
-    body: ChatRequest,
-    options?: RequestOptions,
-  ): Promise<ChatResponse> {
+  async createCompletion(body: ChatRequest, options?: RequestOptions): Promise<ChatResponse> {
     // Ensure stream is not set or is false for non-streaming requests
     const requestBody: ChatRequest = { ...body, stream: false };
     return this.post<ChatResponse>(CHAT_COMPLETIONS_PATH, requestBody, options);
@@ -71,4 +63,3 @@ export class ChatClient extends BaseClient {
     yield* this.stream<ChatStreamChunk>(CHAT_COMPLETIONS_PATH, requestBody, options);
   }
 }
-

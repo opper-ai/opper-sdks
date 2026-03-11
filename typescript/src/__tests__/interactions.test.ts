@@ -1,0 +1,37 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { InteractionsClient } from "../clients/interactions.js";
+
+function mockFetch(response: object) {
+  return vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    statusText: "OK",
+    headers: new Headers({ "content-length": "100" }),
+    text: () => Promise.resolve(JSON.stringify(response)),
+  });
+}
+
+describe("InteractionsClient", () => {
+  const config = { apiKey: "key", baseUrl: "https://api.test.com" };
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("sends POST to /v3/compat/v1beta/interactions", async () => {
+    const fetchMock = mockFetch({ candidates: [] });
+    globalThis.fetch = fetchMock;
+
+    const client = new InteractionsClient(config);
+    await client.generateContent({
+      contents: [{ role: "user", parts: [{ text: "hi" }] }],
+    });
+
+    const [url] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.test.com/v3/compat/v1beta/interactions");
+  });
+});

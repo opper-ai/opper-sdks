@@ -1,5 +1,5 @@
-import { BaseClient } from '../client-base.js';
-import type { RequestOptions } from '../types.js';
+import { BaseClient } from "../client-base.js";
+import type { RequestOptions } from "../types.js";
 
 /** Health check response from the server. */
 export interface HealthCheckResponse {
@@ -22,7 +22,6 @@ export class SystemClient extends BaseClient {
    * @returns A promise that resolves with the health check response.
    */
   async healthCheck(options?: RequestOptions): Promise<HealthCheckResponse> {
-    return this.get<HealthCheckResponse>('/health', undefined, options);
+    return this.get<HealthCheckResponse>("/health", undefined, options);
   }
 }
-

@@ -2,15 +2,11 @@
 // Task API SDK - Responses Client (OpenAI Responses API compatible)
 // =============================================================================
 
-import { BaseClient } from '../client-base.js';
-import type {
-  RequestOptions,
-  ResponsesRequest,
-  ResponsesResponse,
-} from '../types.js';
+import { BaseClient } from "../client-base.js";
+import type { RequestOptions, ResponsesRequest, ResponsesResponse } from "../types.js";
 
 /** Base path for the Responses API endpoints. */
-const RESPONSES_PATH = '/v1/responses';
+const RESPONSES_PATH = "/v3/compat/responses";
 
 /**
  * Client for the OpenAI Responses API compatible endpoints.
@@ -29,10 +25,7 @@ export class ResponsesClient extends BaseClient {
    * @param options - Optional request options (headers, signal).
    * @returns The responses API response.
    */
-  async create(
-    body: ResponsesRequest,
-    options?: RequestOptions,
-  ): Promise<ResponsesResponse> {
+  async create(body: ResponsesRequest, options?: RequestOptions): Promise<ResponsesResponse> {
     // Ensure stream is not set or is false for non-streaming requests
     const requestBody: ResponsesRequest = { ...body, stream: false };
     return this.post<ResponsesResponse>(RESPONSES_PATH, requestBody, options);
@@ -61,4 +54,3 @@ export class ResponsesClient extends BaseClient {
     yield* this.stream<ResponsesResponse>(RESPONSES_PATH, streamBody, options);
   }
 }
-

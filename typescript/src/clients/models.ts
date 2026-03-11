@@ -1,5 +1,5 @@
-import { BaseClient } from '../client-base.js';
-import type { ModelsResponse, RequestOptions } from '../types.js';
+import { BaseClient } from "../client-base.js";
+import type { ModelsResponse, RequestOptions } from "../types.js";
 
 /**
  * Client for the Models API endpoints.
@@ -18,7 +18,6 @@ export class ModelsClient extends BaseClient {
    * @returns A promise that resolves with the models response containing the list of models.
    */
   async listModels(options?: RequestOptions): Promise<ModelsResponse> {
-    return this.get<ModelsResponse>('/v3/models', undefined, options);
+    return this.get<ModelsResponse>("/v3/models", undefined, options);
   }
 }
-

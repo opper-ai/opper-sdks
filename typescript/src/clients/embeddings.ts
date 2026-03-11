@@ -2,15 +2,11 @@
 // Task API SDK - Embeddings Client
 // =============================================================================
 
-import { BaseClient } from '../client-base.js';
-import type {
-  EmbeddingsRequest,
-  EmbeddingsResponse,
-  RequestOptions,
-} from '../types.js';
+import { BaseClient } from "../client-base.js";
+import type { EmbeddingsRequest, EmbeddingsResponse, RequestOptions } from "../types.js";
 
 /** Path for the OpenAI-compatible embeddings endpoint. */
-const EMBEDDINGS_PATH = '/v1/embeddings';
+const EMBEDDINGS_PATH = "/v3/compat/embeddings";
 
 /**
  * EmbeddingsClient extending BaseClient.
@@ -35,4 +31,3 @@ export class EmbeddingsClient extends BaseClient {
     return this.post<EmbeddingsResponse>(EMBEDDINGS_PATH, body, options);
   }
 }
-
