@@ -3,6 +3,22 @@
 // =============================================================================
 
 // ---------------------------------------------------------------------------
+// JSON Utility Types
+// ---------------------------------------------------------------------------
+
+/** A JSON Schema object. */
+export type JsonSchema = Record<string, unknown>;
+
+/** Any valid JSON value. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+// ---------------------------------------------------------------------------
 // SDK Configuration
 // ---------------------------------------------------------------------------
 
@@ -65,7 +81,7 @@ export interface ErrorResponse {
 export interface Tool {
   readonly name: string;
   readonly description?: string;
-  readonly parameters: Record<string, unknown>;
+  readonly parameters: JsonSchema;
 }
 
 /** Token usage information. */
@@ -97,35 +113,106 @@ export interface ResponseMeta {
 
 /** Request to run a function. */
 export interface RunRequest {
-  readonly input_schema: Record<string, unknown>;
-  readonly output_schema: Record<string, unknown>;
-  readonly input: Record<string, unknown>;
+  /** JSON Schema describing the input shape. */
+  readonly input_schema?: JsonSchema;
+  /** JSON Schema describing the expected output shape. */
+  readonly output_schema?: JsonSchema;
+  /** The input data to send to the function. */
+  readonly input: JsonValue;
+  /** Model to use, e.g. `"anthropic/claude-sonnet-4-6"` or `"gcp/gemini-3-flash-preview"`. */
   readonly model?: string;
+  /** Sampling temperature (0–2). Lower = more deterministic. */
   readonly temperature?: number;
+  /** Maximum tokens in the response. */
   readonly max_tokens?: number;
+  /** Reasoning effort hint, e.g. `"low"`, `"medium"`, `"high"`. */
   readonly reasoning_effort?: string;
+  /** Parent span ID for tracing/observability. */
   readonly parent_span_id?: string;
+  /** Tool definitions available to the function. */
   readonly tools?: Tool[];
 }
 
+/** A JSON Schema or a Standard Schema (Zod, Valibot, ArkType, etc.). */
+export type SchemaLike = JsonSchema | import("./schema.js").StandardSchemaV1;
+
+/** Tool definition that accepts Standard Schema for parameters. */
+export interface SchemaTool {
+  readonly name: string;
+  readonly description?: string;
+  readonly parameters: SchemaLike;
+}
+
+/** Request to run a function with a Standard Schema for output type inference. */
+export interface SchemaRunRequest<TOutput = unknown> {
+  /** Standard Schema (Zod, Valibot, ArkType, etc.) defining the expected output shape. */
+  // biome-ignore lint/suspicious/noExplicitAny: `any` allows accepting schemas with any input type
+  readonly output: import("./schema.js").StandardSchemaV1<any, TOutput>;
+  /** The input data to send to the function. */
+  readonly input: JsonValue;
+  /** JSON Schema or Standard Schema describing the input shape. */
+  readonly input_schema?: SchemaLike;
+  /** Model to use, e.g. `"anthropic/claude-sonnet-4-6"` or `"gcp/gemini-3-flash-preview"`. */
+  readonly model?: string;
+  /** Sampling temperature (0–2). Lower = more deterministic. */
+  readonly temperature?: number;
+  /** Maximum tokens in the response. */
+  readonly max_tokens?: number;
+  /** Reasoning effort hint, e.g. `"low"`, `"medium"`, `"high"`. */
+  readonly reasoning_effort?: string;
+  /** Parent span ID for tracing/observability. */
+  readonly parent_span_id?: string;
+  /** Tool definitions that accept Standard Schema for parameters. */
+  readonly tools?: SchemaTool[];
+}
+
 /** Response from running a function. */
-export interface RunResponse {
-  readonly output: unknown;
+export interface RunResponse<T = unknown> {
+  readonly output: T;
   readonly meta?: ResponseMeta;
 }
 
-/** SSE stream chunk from /stream endpoint. */
-export interface StreamChunk {
-  readonly type: string;
+/** SSE stream chunk: content text delta. */
+export interface ContentChunk {
+  readonly type: "content";
   readonly delta: string;
-  readonly error: string;
+}
+
+/** SSE stream chunk: start of a tool call. */
+export interface ToolCallStartChunk {
+  readonly type: "tool_call_start";
   readonly tool_call_index: number;
   readonly tool_call_id: string;
   readonly tool_call_name: string;
-  readonly tool_call_args: string;
-  readonly tool_call_thought_sig: string;
-  readonly usage: UsageInfo;
 }
+
+/** SSE stream chunk: incremental tool call arguments. */
+export interface ToolCallDeltaChunk {
+  readonly type: "tool_call_delta";
+  readonly tool_call_index: number;
+  readonly tool_call_args: string;
+  readonly tool_call_thought_sig?: string;
+}
+
+/** SSE stream chunk: stream completed. */
+export interface DoneChunk {
+  readonly type: "done";
+  readonly usage?: UsageInfo;
+}
+
+/** SSE stream chunk: error occurred. */
+export interface ErrorChunk {
+  readonly type: "error";
+  readonly error: string;
+}
+
+/** SSE stream chunk from /stream endpoint. */
+export type StreamChunk =
+  | ContentChunk
+  | ToolCallStartChunk
+  | ToolCallDeltaChunk
+  | DoneChunk
+  | ErrorChunk;
 
 /** Request to update a function. */
 export interface UpdateFunctionRequest {
@@ -143,8 +230,8 @@ export interface FunctionDetails {
   readonly generated_at: string;
   readonly hit_count: number;
   readonly source: string;
-  readonly input_schema: Record<string, unknown>;
-  readonly output_schema: Record<string, unknown>;
+  readonly input_schema: JsonSchema;
+  readonly output_schema: JsonSchema;
 }
 
 /** Summary function information. */
@@ -162,8 +249,8 @@ export interface FunctionRevision {
   readonly source: string;
   readonly schema_hash: string;
   readonly created_at: string;
-  readonly input_schema: Record<string, unknown>;
-  readonly output_schema: Record<string, unknown>;
+  readonly input_schema: JsonSchema;
+  readonly output_schema: JsonSchema;
 }
 
 /** Revision info summary. */
@@ -248,7 +335,7 @@ export interface EmbeddingsUsageInfo {
 
 /** Embeddings request. */
 export interface EmbeddingsRequest {
-  readonly input: unknown;
+  readonly input: string | string[];
   readonly model: string;
   readonly dimensions?: number;
   readonly encoding_format?: string;
@@ -269,9 +356,9 @@ export interface EmbeddingsResponse {
 
 /** Information about an available model. */
 export interface ModelInfo {
-  readonly id?: string;
-  readonly name?: string;
-  readonly provider?: string;
+  readonly id: string;
+  readonly name: string;
+  readonly provider: string;
   readonly capabilities?: Record<string, unknown>;
   readonly pricing?: Record<string, unknown>;
   readonly parameters?: Record<string, unknown>;
@@ -279,7 +366,7 @@ export interface ModelInfo {
 
 /** Response containing list of models. */
 export interface ModelsResponse {
-  readonly models?: ModelInfo[];
+  readonly models: ModelInfo[];
 }
 
 // ---------------------------------------------------------------------------

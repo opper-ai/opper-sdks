@@ -3,11 +3,22 @@
 // =============================================================================
 
 import { BaseClient } from "../client-base.js";
-import type { RequestOptions } from "../types.js";
+import type { RequestOptions, UsageInfo } from "../types.js";
 
 // -----------------------------------------------------------------------------
 // Generations-specific Types
 // -----------------------------------------------------------------------------
+
+/** A recorded generation (function call). */
+export interface Generation {
+  readonly id: string;
+  readonly function_name: string;
+  readonly input: unknown;
+  readonly output: unknown;
+  readonly created_at: string;
+  readonly model?: string;
+  readonly usage?: UsageInfo;
+}
 
 /** Pagination metadata for generation listings. */
 export interface GenerationsListMeta {
@@ -19,7 +30,7 @@ export interface GenerationsListMeta {
 
 /** Response from listing generations. */
 export interface GenerationsListResponse {
-  readonly data: Record<string, unknown>[];
+  readonly data: Generation[];
   readonly meta: GenerationsListMeta;
 }
 
@@ -76,12 +87,8 @@ export class GenerationsClient extends BaseClient {
    * @param options - Optional request options.
    * @returns The recorded generation with request and response data.
    */
-  async getGeneration(id: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.get<Record<string, unknown>>(
-      `/v3/generations/${encodeURIComponent(id)}`,
-      undefined,
-      options,
-    );
+  async getGeneration(id: string, options?: RequestOptions): Promise<Generation> {
+    return this.get<Generation>(`/v3/generations/${encodeURIComponent(id)}`, undefined, options);
   }
 
   /**

@@ -172,12 +172,16 @@ export class FunctionsClient extends BaseClient {
    * Execute a function with the given input.
    * POST /v3/functions/{name}/run
    */
-  async runFunction(
+  async runFunction<T = unknown>(
     name: string,
     body: RunRequest,
     options?: RequestOptions,
-  ): Promise<RunResponse> {
-    return this.post<RunResponse>(`/v3/functions/${encodeURIComponent(name)}/run`, body, options);
+  ): Promise<RunResponse<T>> {
+    return this.post<RunResponse<T>>(
+      `/v3/functions/${encodeURIComponent(name)}/run`,
+      body,
+      options,
+    );
   }
 
   /**

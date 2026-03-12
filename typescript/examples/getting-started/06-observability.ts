@@ -1,4 +1,5 @@
 // Observability: spans and generations
+import { z } from "zod";
 import { Opper } from "../../src/index.js";
 
 const client = new Opper();
@@ -11,17 +12,8 @@ const span = await client.spans.create({
 console.log("Created span:", span.id, "trace:", span.trace_id);
 
 // Run a function linked to this span
-const result = await client.run("sdk-test/summarize", {
-  input_schema: {
-    type: "object",
-    properties: { text: { type: "string" } },
-    required: ["text"],
-  },
-  output_schema: {
-    type: "object",
-    properties: { summary: { type: "string" } },
-    required: ["summary"],
-  },
+const result = await client.run("sdk-test-summarize", {
+  output: z.object({ summary: z.string() }),
   input: { text: "Observability is key to understanding system behavior in production." },
   parent_span_id: span.id,
 });
@@ -39,5 +31,5 @@ console.log("Span updated with output");
 const generations = await client.generations.listGenerations({ page: 1, page_size: 3 });
 console.log(`\nRecent generations: ${generations.meta.total} total`);
 for (const gen of generations.data) {
-  console.log(`  - ${(gen as Record<string, unknown>).id}`);
+  console.log(`  - ${gen.id}`);
 }

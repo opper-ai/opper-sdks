@@ -1,21 +1,13 @@
 // Streaming function execution
+import { z } from "zod";
 import { Opper } from "../../src/index.js";
 
 const client = new Opper();
 
 process.stdout.write("Streaming: ");
 
-for await (const chunk of client.stream("sdk-test/explain", {
-  input_schema: {
-    type: "object",
-    properties: { topic: { type: "string" } },
-    required: ["topic"],
-  },
-  output_schema: {
-    type: "object",
-    properties: { explanation: { type: "string" } },
-    required: ["explanation"],
-  },
+for await (const chunk of client.stream("sdk-test-explain", {
+  output: z.object({ explanation: z.string() }),
   input: { topic: "How do SSE streams work?" },
 })) {
   if (chunk.type === "content") {

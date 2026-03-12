@@ -41,9 +41,7 @@ describe("FunctionsClient.streamFunction", () => {
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
     for await (const chunk of client.streamFunction("my-fn", {
-      input_schema: {},
-      output_schema: {},
-      input: {},
+      input: "test",
     })) {
       chunks.push(chunk);
     }
@@ -64,17 +62,15 @@ describe("FunctionsClient.streamFunction", () => {
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
     for await (const chunk of client.streamFunction("fn", {
-      input_schema: {},
-      output_schema: {},
-      input: {},
+      input: "test",
     })) {
       chunks.push(chunk);
     }
 
     expect(chunks).toHaveLength(2);
     expect(chunks[0].type).toBe("content");
-    expect(chunks[0].delta).toBe("Hello");
-    expect(chunks[1].delta).toBe(" world");
+    if (chunks[0].type === "content") expect(chunks[0].delta).toBe("Hello");
+    if (chunks[1].type === "content") expect(chunks[1].delta).toBe(" world");
   });
 
   it("handles tool_call_start chunks", async () => {
@@ -87,18 +83,18 @@ describe("FunctionsClient.streamFunction", () => {
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
     for await (const chunk of client.streamFunction("fn", {
-      input_schema: {},
-      output_schema: {},
-      input: {},
+      input: "test",
     })) {
       chunks.push(chunk);
     }
 
     expect(chunks).toHaveLength(1);
     expect(chunks[0].type).toBe("tool_call_start");
-    expect(chunks[0].tool_call_id).toBe("call_123");
-    expect(chunks[0].tool_call_name).toBe("get_metric");
-    expect(chunks[0].tool_call_index).toBe(0);
+    if (chunks[0].type === "tool_call_start") {
+      expect(chunks[0].tool_call_id).toBe("call_123");
+      expect(chunks[0].tool_call_name).toBe("get_metric");
+      expect(chunks[0].tool_call_index).toBe(0);
+    }
   });
 
   it("handles tool_call_delta chunks", async () => {
@@ -112,16 +108,14 @@ describe("FunctionsClient.streamFunction", () => {
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
     for await (const chunk of client.streamFunction("fn", {
-      input_schema: {},
-      output_schema: {},
-      input: {},
+      input: "test",
     })) {
       chunks.push(chunk);
     }
 
     expect(chunks).toHaveLength(2);
     expect(chunks[0].type).toBe("tool_call_delta");
-    expect(chunks[0].tool_call_args).toBe('{"metric":');
+    if (chunks[0].type === "tool_call_delta") expect(chunks[0].tool_call_args).toBe('{"metric":');
   });
 
   it("handles done chunk with usage", async () => {
@@ -134,17 +128,17 @@ describe("FunctionsClient.streamFunction", () => {
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
     for await (const chunk of client.streamFunction("fn", {
-      input_schema: {},
-      output_schema: {},
-      input: {},
+      input: "test",
     })) {
       chunks.push(chunk);
     }
 
     expect(chunks).toHaveLength(1);
     expect(chunks[0].type).toBe("done");
-    expect(chunks[0].usage.input_tokens).toBe(100);
-    expect(chunks[0].usage.output_tokens).toBe(50);
+    if (chunks[0].type === "done") {
+      expect(chunks[0].usage?.input_tokens).toBe(100);
+      expect(chunks[0].usage?.output_tokens).toBe(50);
+    }
   });
 
   it("handles error chunk", async () => {
@@ -157,16 +151,14 @@ describe("FunctionsClient.streamFunction", () => {
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
     for await (const chunk of client.streamFunction("fn", {
-      input_schema: {},
-      output_schema: {},
-      input: {},
+      input: "test",
     })) {
       chunks.push(chunk);
     }
 
     expect(chunks).toHaveLength(1);
     expect(chunks[0].type).toBe("error");
-    expect(chunks[0].error).toBe("something went wrong");
+    if (chunks[0].type === "error") expect(chunks[0].error).toBe("something went wrong");
   });
 
   it("handles full stream with all chunk types", async () => {
@@ -182,9 +174,7 @@ describe("FunctionsClient.streamFunction", () => {
     const client = new FunctionsClient(config);
     const types: string[] = [];
     for await (const chunk of client.streamFunction("fn", {
-      input_schema: {},
-      output_schema: {},
-      input: {},
+      input: "test",
     })) {
       types.push(chunk.type);
     }

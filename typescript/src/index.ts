@@ -8,11 +8,14 @@ import { GenerationsClient } from "./clients/generations.js";
 import { ModelsClient } from "./clients/models.js";
 import { SpansClient } from "./clients/spans.js";
 import { SystemClient } from "./clients/system.js";
+import type { InferOutput, StandardSchemaV1 } from "./schema.js";
+import { isStandardSchema, resolveSchema, toJsonSchema } from "./schema.js";
 import type {
   ClientConfig,
   RequestOptions,
   RunRequest,
   RunResponse,
+  SchemaRunRequest,
   StreamChunk,
 } from "./types.js";
 
@@ -48,21 +51,18 @@ function resolveConfig(config?: ClientConfig): Required<
 /**
  * Unified client for the Opper API.
  *
+ * @param config - Optional configuration object:
+ *   - `apiKey` — API key (falls back to `OPPER_API_KEY` env var)
+ *   - `baseUrl` — API host URL (falls back to `OPPER_BASE_URL` env var, default: `https://api.opper.ai`). Do not include `/v3` — it is added automatically.
+ *   - `headers` — Additional headers to include in every request
+ *
  * @example
  * ```typescript
- * import { Opper } from 'opperai';
- *
  * // Uses OPPER_API_KEY env var
  * const client = new Opper();
  *
- * // Or pass config explicitly
- * const client = new Opper({ apiKey: 'op-...' });
- *
- * const result = await client.run('my-fn', {
- *   input_schema: { type: 'object', properties: { q: { type: 'string' } } },
- *   output_schema: { type: 'object', properties: { a: { type: 'string' } } },
- *   input: { q: 'Hello' },
- * });
+ * // Explicit config
+ * const client = new Opper({ apiKey: 'op-...', baseUrl: 'https://api.opper.ai' });
  * ```
  */
 export class Opper {
@@ -96,23 +96,104 @@ export class Opper {
   }
 
   /**
-   * Convenience: execute a function by name.
-   * Equivalent to `client.functions.runFunction(name, request)`.
+   * Execute a function by name and return the result.
+   *
+   * Accepts either a Standard Schema (`output`) or a raw JSON Schema (`output_schema`).
+   * When a Standard Schema is provided, the response type is inferred automatically.
+   *
+   * @example
+   * ```typescript
+   * // With Zod schema (inferred output type)
+   * import { z } from "zod";
+   * const result = await client.run("summarize", {
+   *   output: z.object({ summary: z.string() }),
+   *   input: { text: "Long article..." },
+   * });
+   * result.output.summary; // string — inferred!
+   *
+   * // With raw JSON Schema (manual generic)
+   * const result = await client.run<{ summary: string }>("summarize", {
+   *   output_schema: { type: "object", properties: { summary: { type: "string" } } },
+   *   input: { text: "Long article..." },
+   * });
+   * ```
    */
-  async run(name: string, request: RunRequest, options?: RequestOptions): Promise<RunResponse> {
-    return this.functions.runFunction(name, request, options);
-  }
-
-  /**
-   * Convenience: stream a function execution by name.
-   * Equivalent to `client.functions.streamFunction(name, request)`.
-   */
-  async *stream(
+  async run<S extends StandardSchemaV1>(
+    name: string,
+    request: Omit<SchemaRunRequest, "output"> & { output: S },
+    options?: RequestOptions,
+  ): Promise<RunResponse<InferOutput<S>>>;
+  async run<T = unknown>(
     name: string,
     request: RunRequest,
     options?: RequestOptions,
+  ): Promise<RunResponse<T>>;
+  async run(
+    name: string,
+    request: RunRequest | SchemaRunRequest,
+    options?: RequestOptions,
+  ): Promise<RunResponse> {
+    return this.functions.runFunction(name, await this.resolveRequest(request), options);
+  }
+
+  /**
+   * Stream a function execution by name, yielding chunks as they arrive.
+   *
+   * Accepts either a Standard Schema (`output`) or a raw JSON Schema (`output_schema`).
+   *
+   * @example
+   * ```typescript
+   * for await (const chunk of client.stream("summarize", { ... })) {
+   *   if (chunk.type === "content") process.stdout.write(chunk.delta);
+   *   if (chunk.type === "done") console.log(chunk.usage);
+   * }
+   * ```
+   */
+  async *stream(
+    name: string,
+    request: RunRequest | SchemaRunRequest,
+    options?: RequestOptions,
   ): AsyncGenerator<StreamChunk, void, undefined> {
-    yield* this.functions.streamFunction(name, request, options);
+    yield* this.functions.streamFunction(name, await this.resolveRequest(request), options);
+  }
+
+  /** Resolve any Standard Schema fields (output, input_schema, tools) to plain JSON Schema. */
+  private async resolveRequest(request: RunRequest | SchemaRunRequest): Promise<RunRequest> {
+    const wire: Record<string, unknown> = {};
+
+    // output → output_schema
+    if ("output" in request && request.output != null && isStandardSchema(request.output)) {
+      wire.output_schema = await toJsonSchema(request.output);
+    } else if ("output_schema" in request) {
+      wire.output_schema = (request as RunRequest).output_schema;
+    }
+
+    // input_schema
+    if (request.input_schema != null) {
+      wire.input_schema = await resolveSchema(request.input_schema);
+    }
+
+    // tools — resolve each tool's parameters
+    const tools = request.tools;
+    if (tools != null) {
+      wire.tools = await Promise.all(
+        tools.map(async (tool) => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: await resolveSchema(tool.parameters),
+        })),
+      );
+    }
+
+    // Pass through remaining fields
+    wire.input = request.input;
+    if (request.model) wire.model = request.model;
+    if (request.temperature != null) wire.temperature = request.temperature;
+    if (request.max_tokens != null) wire.max_tokens = request.max_tokens;
+    if (request.reasoning_effort) wire.reasoning_effort = request.reasoning_effort;
+    if (request.parent_span_id) wire.parent_span_id = request.parent_span_id;
+
+    return wire as unknown as RunRequest;
   }
 }
 
@@ -143,6 +224,7 @@ export type {
 
 export type {
   DeleteGenerationResponse,
+  Generation,
   GenerationsListMeta,
   GenerationsListResponse,
   ListGenerationsParams as GenerationsListParams,
@@ -151,22 +233,34 @@ export type {
 export type { HealthCheckResponse } from "./clients/system.js";
 
 // ---------------------------------------------------------------------------
+// Re-exports: Schema utilities
+// ---------------------------------------------------------------------------
+
+export type { InferOutput, StandardSchemaV1 } from "./schema.js";
+export { isStandardSchema, jsonSchema } from "./schema.js";
+
+// ---------------------------------------------------------------------------
 // Re-exports: All types
 // ---------------------------------------------------------------------------
 
 export type {
   ClientConfig,
+  ContentChunk,
   CreateSpanRequest,
   CreateSpanResponse,
+  DoneChunk,
   EmbeddingsDataItem,
   EmbeddingsRequest,
   EmbeddingsResponse,
   EmbeddingsUsageInfo,
+  ErrorChunk,
   ErrorDetail,
   ErrorResponse,
   FunctionDetails,
   FunctionInfo,
   FunctionRevision,
+  JsonSchema,
+  JsonValue,
   ListGenerationsParams,
   ModelInfo,
   ModelsResponse,
@@ -177,8 +271,13 @@ export type {
   RevisionInfo,
   RunRequest,
   RunResponse,
+  SchemaLike,
+  SchemaRunRequest,
+  SchemaTool,
   StreamChunk,
   Tool,
+  ToolCallDeltaChunk,
+  ToolCallStartChunk,
   UpdateFunctionRequest,
   UpdateSpanRequest,
   UsageInfo,
