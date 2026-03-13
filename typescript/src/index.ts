@@ -8,6 +8,7 @@ import { GenerationsClient } from "./clients/generations.js";
 import { ModelsClient } from "./clients/models.js";
 import { SpansClient } from "./clients/spans.js";
 import { SystemClient } from "./clients/system.js";
+import { getTraceContext, runWithTraceContext } from "./context.js";
 import type { InferOutput, StandardSchemaV1 } from "./schema.js";
 import { isStandardSchema, resolveSchema, toJsonSchema } from "./schema.js";
 import type {
@@ -16,7 +17,9 @@ import type {
   RunRequest,
   RunResponse,
   SchemaRunRequest,
+  SpanHandle,
   StreamChunk,
+  TracedOptions,
 } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -157,6 +160,88 @@ export class Opper {
     yield* this.functions.streamFunction(name, await this.resolveRequest(request), options);
   }
 
+  /**
+   * Wrap a block of code in a trace span. All `run()` and `stream()` calls
+   * inside the callback automatically inherit the span as their parent.
+   *
+   * Supports three call signatures:
+   * - `traced(fn)` — uses default name `"traced"`
+   * - `traced("my-span", fn)` — uses the given name
+   * - `traced({ name, input, meta, tags }, fn)` — full options
+   *
+   * The callback receives a {@link SpanHandle} for accessing the span/trace IDs
+   * or passing them explicitly. Nesting is supported — inner `traced()` calls
+   * create child spans of the outer one.
+   *
+   * @example
+   * ```typescript
+   * // Automatic context — no manual wiring
+   * const result = await client.traced("my-flow", async () => {
+   *   const r1 = await client.run("step1", { input: "hello" });
+   *   const r2 = await client.run("step2", { input: r1.output });
+   *   return r2;
+   * });
+   *
+   * // Explicit span handle for metadata
+   * await client.traced("my-flow", async (span) => {
+   *   console.log("trace:", span.traceId, "span:", span.id);
+   *   await client.run("step1", { input: "hello" });
+   * });
+   * ```
+   */
+  async traced<T>(fn: (span: SpanHandle) => Promise<T>): Promise<T>;
+  async traced<T>(name: string, fn: (span: SpanHandle) => Promise<T>): Promise<T>;
+  async traced<T>(options: TracedOptions, fn: (span: SpanHandle) => Promise<T>): Promise<T>;
+  async traced<T>(
+    fnOrNameOrOptions: ((span: SpanHandle) => Promise<T>) | string | TracedOptions,
+    maybeFn?: (span: SpanHandle) => Promise<T>,
+  ): Promise<T> {
+    // Parse overloads
+    let opts: TracedOptions;
+    let fn: (span: SpanHandle) => Promise<T>;
+    if (typeof fnOrNameOrOptions === "function") {
+      opts = {};
+      fn = fnOrNameOrOptions;
+    } else if (typeof fnOrNameOrOptions === "string") {
+      opts = { name: fnOrNameOrOptions };
+      fn = maybeFn!;
+    } else {
+      opts = fnOrNameOrOptions;
+      fn = maybeFn!;
+    }
+
+    // If nested inside another traced() block, inherit trace_id and set parent
+    const parentCtx = getTraceContext();
+
+    const span = await this.spans.create({
+      name: opts.name ?? "traced",
+      start_time: new Date().toISOString(),
+      input: opts.input,
+      meta: opts.meta,
+      tags: opts.tags,
+      ...(parentCtx ? { trace_id: parentCtx.traceId, parent_id: parentCtx.spanId } : {}),
+    });
+
+    const handle: SpanHandle = { id: span.id, traceId: span.trace_id };
+
+    let result: T;
+    try {
+      result = await runWithTraceContext({ spanId: span.id, traceId: span.trace_id }, () => fn(handle));
+    } catch (error) {
+      await this.spans.update(span.id, {
+        error: error instanceof Error ? error.message : String(error),
+        end_time: new Date().toISOString(),
+      });
+      throw error;
+    }
+
+    await this.spans.update(span.id, {
+      end_time: new Date().toISOString(),
+    });
+
+    return result;
+  }
+
   /** Resolve any Standard Schema fields (output, input_schema, tools) to plain JSON Schema. */
   private async resolveRequest(request: RunRequest | SchemaRunRequest): Promise<RunRequest> {
     const wire: Record<string, unknown> = {};
@@ -191,7 +276,13 @@ export class Opper {
     if (request.temperature != null) wire.temperature = request.temperature;
     if (request.max_tokens != null) wire.max_tokens = request.max_tokens;
     if (request.reasoning_effort) wire.reasoning_effort = request.reasoning_effort;
-    if (request.parent_span_id) wire.parent_span_id = request.parent_span_id;
+    // Explicit parent_span_id takes priority, then ALS context
+    if (request.parent_span_id) {
+      wire.parent_span_id = request.parent_span_id;
+    } else {
+      const ctx = getTraceContext();
+      if (ctx) wire.parent_span_id = ctx.spanId;
+    }
 
     return wire as unknown as RunRequest;
   }
@@ -240,6 +331,13 @@ export type { InferOutput, StandardSchemaV1 } from "./schema.js";
 export { isStandardSchema, jsonSchema } from "./schema.js";
 
 // ---------------------------------------------------------------------------
+// Re-exports: Trace context
+// ---------------------------------------------------------------------------
+
+export type { TraceContext } from "./context.js";
+export { getTraceContext } from "./context.js";
+
+// ---------------------------------------------------------------------------
 // Re-exports: All types
 // ---------------------------------------------------------------------------
 
@@ -274,10 +372,12 @@ export type {
   SchemaLike,
   SchemaRunRequest,
   SchemaTool,
+  SpanHandle,
   StreamChunk,
   Tool,
   ToolCallDeltaChunk,
   ToolCallStartChunk,
+  TracedOptions,
   UpdateFunctionRequest,
   UpdateSpanRequest,
   UsageInfo,

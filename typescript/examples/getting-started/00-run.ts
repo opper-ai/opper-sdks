@@ -2,10 +2,11 @@
 import { z } from "zod";
 import { Opper } from "../../src/index.js";
 
-const client = new Opper();
+const opper = new Opper();
 
-const result = await client.run("sdk-test-summarize", {
+const result = await opper.run("sdk-test-summarize", {
   output: z.object({ summary: z.string() }),
+  input_schema: z.object({ text: z.string() }),
   input: {
     text: "TypeScript is a strongly typed programming language that builds on JavaScript, giving you better tooling at any scale.",
   },

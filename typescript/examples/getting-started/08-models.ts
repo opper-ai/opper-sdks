@@ -1,9 +1,9 @@
 // List available models
 import { Opper } from "../../src/index.js";
 
-const client = new Opper();
+const opper = new Opper();
 
-const response = await client.models.listModels();
+const response = await opper.models.listModels();
 const models = response.models ?? [];
 
 console.log(`Available models: ${models.length}`);

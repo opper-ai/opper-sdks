@@ -317,6 +317,30 @@ export interface UpdateSpanRequest {
 }
 
 // ---------------------------------------------------------------------------
+// Tracing Types
+// ---------------------------------------------------------------------------
+
+/** Options for the `traced()` method. */
+export interface TracedOptions {
+  /** Name for the trace span. Defaults to `"traced"`. */
+  readonly name?: string;
+  /** Input to record on the span. */
+  readonly input?: string;
+  /** Custom metadata for the span. */
+  readonly meta?: Record<string, unknown>;
+  /** Tags for filtering. */
+  readonly tags?: Record<string, unknown>;
+}
+
+/** Handle to the current span inside a `traced()` callback. */
+export interface SpanHandle {
+  /** The span ID. */
+  readonly id: string;
+  /** The trace ID. */
+  readonly traceId: string;
+}
+
+// ---------------------------------------------------------------------------
 // Embeddings Types
 // ---------------------------------------------------------------------------
 
