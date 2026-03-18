@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Opper } from "../index.js";
 
 // Track all fetch calls for inspection
-let fetchCalls: Array<{ url: string; init: RequestInit; body?: unknown }>;
+let _fetchCalls: Array<{ url: string; init: RequestInit; body?: unknown }>;
 
 function mockFetchSequence(responses: Array<{ body: object; status?: number }>) {
   let callIndex = 0;
@@ -135,13 +135,13 @@ describe("Opper.traced", () => {
 
     const client = new Opper(config);
     await client.traced("flow", async () => {
-      await client.run("my-fn", { input: "hello" });
+      await client.call("my-fn", { input: "hello" });
     });
 
     const calls = getCalls();
     // The run() call should have parent_span_id injected
     const runCall = calls[1];
-    expect(runCall.url).toBe("https://api.test.com/v3/functions/my-fn/run");
+    expect(runCall.url).toBe("https://api.test.com/v3/functions/my-fn/call");
     expect(runCall.body.parent_span_id).toBe("span-1");
   });
 
@@ -156,7 +156,7 @@ describe("Opper.traced", () => {
 
     const client = new Opper(config);
     await client.traced("flow", async () => {
-      await client.run("my-fn", { input: "hello", parent_span_id: "explicit-id" });
+      await client.call("my-fn", { input: "hello", parent_span_id: "explicit-id" });
     });
 
     const calls = getCalls();
@@ -183,7 +183,7 @@ describe("Opper.traced", () => {
     const client = new Opper(config);
     await client.traced("outer", async () => {
       await client.traced("inner", async () => {
-        await client.run("my-fn", { input: "hello" });
+        await client.call("my-fn", { input: "hello" });
       });
     });
 
@@ -227,7 +227,7 @@ describe("Opper.traced", () => {
     const getCalls = captureFetch(mock);
 
     const client = new Opper(config);
-    await client.run("my-fn", { input: "hello" });
+    await client.call("my-fn", { input: "hello" });
 
     const calls = getCalls();
     expect(calls[0].body.parent_span_id).toBeUndefined();

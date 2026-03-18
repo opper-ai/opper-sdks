@@ -25,7 +25,7 @@ describe("FunctionsClient.runFunction", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("sends POST to /v3/functions/{name}/run", async () => {
+  it("sends POST to /v3/functions/{name}/call", async () => {
     const fetchMock = mockFetch({ output: "hello", meta: {} });
     globalThis.fetch = fetchMock;
 
@@ -38,7 +38,7 @@ describe("FunctionsClient.runFunction", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.test.com/v3/functions/my-fn/run");
+    expect(url).toBe("https://api.test.com/v3/functions/my-fn/call");
     expect(init.method).toBe("POST");
   });
 
@@ -54,7 +54,7 @@ describe("FunctionsClient.runFunction", () => {
     });
 
     const [url] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.test.com/v3/functions/my%20fn%2Fspecial/run");
+    expect(url).toBe("https://api.test.com/v3/functions/my%20fn%2Fspecial/call");
   });
 
   it("parses RunResponse correctly", async () => {

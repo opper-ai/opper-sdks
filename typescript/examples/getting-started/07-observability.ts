@@ -9,9 +9,8 @@ const opper = new Opper();
 // inside automatically get parent_span_id set — no manual wiring needed.
 
 const result = await opper.traced("summarize-flow", async () => {
-  const summary = await opper.run("sdk-test-summarize", {
+  const summary = await opper.call("sdk-test-summarize", {
     output: z.object({ summary: z.string() }),
-    input_schema: z.object({ text: z.string() }),
     input: { text: "Observability is key to understanding system behavior in production." },
   });
 
@@ -23,18 +22,16 @@ const result = await opper.traced("summarize-flow", async () => {
 // Nesting works naturally — inner traced() calls create child spans.
 
 await opper.traced("multi-step-pipeline", async () => {
-  const extracted = await opper.run("sdk-test-extract", {
+  const extracted = await opper.call("sdk-test-extract", {
     output: z.object({ keywords: z.array(z.string()) }),
-    input_schema: z.object({ text: z.string() }),
     input: { text: "What is the story of Arthur?" },
   });
 
   console.log("Keywords:", extracted.output.keywords);
 
   await opper.traced("enrich", async () => {
-    const enriched = await opper.run("sdk-test-summarize", {
+    const enriched = await opper.call("sdk-test-summarize", {
       output: z.object({ summary: z.string() }),
-      input_schema: z.object({ keywords: z.array(z.string()) }),
       input: { keywords: extracted.output.keywords },
     });
 
@@ -50,7 +47,7 @@ await opper.traced(
   async (span) => {
     console.log("Trace:", span.traceId, "Span:", span.id);
 
-    await opper.run("sdk-test-summarize", {
+    await opper.call("sdk-test-summarize", {
       output: z.object({ summary: z.string() }),
       input_schema: z.object({ text: z.string() }),
       input: { text: "Span handle gives access to trace and span IDs." },

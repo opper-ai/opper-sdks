@@ -109,13 +109,14 @@ export interface ResponseMeta {
   readonly usage?: UsageInfo;
   readonly models_used?: string[];
   readonly model_warnings?: string[];
+  readonly guards?: unknown[];
 }
 
 /** Request to run a function. */
 export interface RunRequest {
-  /** JSON Schema describing the input shape. */
+  /** JSON Schema describing the input shape. Defaults to text when omitted. */
   readonly input_schema?: JsonSchema;
-  /** JSON Schema describing the expected output shape. */
+  /** JSON Schema describing the expected output shape. Defaults to text when omitted. */
   readonly output_schema?: JsonSchema;
   /** The input data to send to the function. */
   readonly input: JsonValue;
@@ -127,6 +128,8 @@ export interface RunRequest {
   readonly max_tokens?: number;
   /** Reasoning effort hint, e.g. `"low"`, `"medium"`, `"high"`. */
   readonly reasoning_effort?: string;
+  /** Instructions for the function. */
+  readonly instructions?: string;
   /** Parent span ID for tracing/observability. */
   readonly parent_span_id?: string;
   /** Tool definitions available to the function. */
@@ -150,7 +153,7 @@ export interface SchemaRunRequest<TOutput = unknown> {
   readonly output: import("./schema.js").StandardSchemaV1<any, TOutput>;
   /** The input data to send to the function. */
   readonly input: JsonValue;
-  /** JSON Schema or Standard Schema describing the input shape. */
+  /** JSON Schema or Standard Schema describing the input shape. Defaults to text when omitted. */
   readonly input_schema?: SchemaLike;
   /** Model to use, e.g. `"anthropic/claude-sonnet-4-6"` or `"gcp/gemini-3-flash-preview"`. */
   readonly model?: string;
@@ -160,6 +163,8 @@ export interface SchemaRunRequest<TOutput = unknown> {
   readonly max_tokens?: number;
   /** Reasoning effort hint, e.g. `"low"`, `"medium"`, `"high"`. */
   readonly reasoning_effort?: string;
+  /** Instructions for the function. */
+  readonly instructions?: string;
   /** Parent span ID for tracing/observability. */
   readonly parent_span_id?: string;
   /** Tool definitions that accept Standard Schema for parameters. */
@@ -402,4 +407,35 @@ export interface ListGenerationsParams {
   readonly query?: string;
   readonly page?: number;
   readonly page_size?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Web Tools Types
+// ---------------------------------------------------------------------------
+
+/** Request to fetch a URL. */
+export interface WebFetchRequest {
+  readonly url: string;
+}
+
+/** Response from fetching a URL. */
+export interface WebFetchResponse {
+  readonly content: string;
+}
+
+/** Request to search the web. */
+export interface WebSearchRequest {
+  readonly query: string;
+}
+
+/** A single web search result. */
+export interface WebSearchResult {
+  readonly title: string;
+  readonly url: string;
+  readonly snippet: string;
+}
+
+/** Response from a web search. */
+export interface WebSearchResponse {
+  readonly results: WebSearchResult[];
 }

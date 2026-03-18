@@ -8,7 +8,6 @@ process.stdout.write("Streaming: ");
 
 for await (const chunk of opper.stream("sdk-test-explain", {
   output: z.object({ explanation: z.string() }),
-  input_schema: z.object({ topic: z.string() }),
   input: { topic: "How do SSE streams work?" },
 })) {
   if (chunk.type === "content") {

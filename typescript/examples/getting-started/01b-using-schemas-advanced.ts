@@ -13,7 +13,7 @@ const input = {
 // 1. Zod everywhere — input_schema, output, and tools all use Zod
 // ---------------------------------------------------------------------------
 
-const zodResult = await opper.run("sdk-test-extract-entities", {
+const zodResult = await opper.call("sdk-test-extract-entities", {
   input_schema: z.object({ text: z.string() }),
   output: z.object({
     people: z.array(z.object({ name: z.string(), role: z.string().optional() })),
@@ -51,7 +51,7 @@ const outputSchema = {
   required: ["people", "locations"],
 };
 
-const jsonSchemaResult = await opper.run("sdk-test-extract-entities", {
+const jsonSchemaResult = await opper.call("sdk-test-extract-entities", {
   input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   output: jsonSchema<ExtractedEntities>(outputSchema),
   input,
@@ -64,7 +64,7 @@ console.log("[jsonSchema] Locations:", jsonSchemaResult.output.locations); // ty
 // 3. Raw output_schema + generic — escape hatch, no extra deps
 // ---------------------------------------------------------------------------
 
-const rawResult = await opper.run<ExtractedEntities>("sdk-test-extract-entities", {
+const rawResult = await opper.call<ExtractedEntities>("sdk-test-extract-entities", {
   input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   output_schema: outputSchema,
   input,
@@ -77,7 +77,7 @@ console.log("[raw] Locations:", rawResult.output.locations);
 // 4. No output type — output is `unknown`, cast as needed
 // ---------------------------------------------------------------------------
 
-const untypedResult = await opper.run("sdk-test-extract-entities", {
+const untypedResult = await opper.call("sdk-test-extract-entities", {
   input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   output_schema: { type: "object" },
   input,

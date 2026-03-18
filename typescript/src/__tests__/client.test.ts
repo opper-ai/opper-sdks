@@ -49,9 +49,9 @@ describe("Opper client construction", () => {
     expect(client.system).toBeDefined();
   });
 
-  it("has run() convenience method", () => {
+  it("has call() convenience method", () => {
     const client = new Opper({ apiKey: "key" });
-    expect(typeof client.run).toBe("function");
+    expect(typeof client.call).toBe("function");
   });
 
   it("has stream() convenience method", () => {

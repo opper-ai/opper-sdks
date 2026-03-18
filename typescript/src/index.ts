@@ -8,6 +8,7 @@ import { GenerationsClient } from "./clients/generations.js";
 import { ModelsClient } from "./clients/models.js";
 import { SpansClient } from "./clients/spans.js";
 import { SystemClient } from "./clients/system.js";
+import { WebToolsClient } from "./clients/web-tools.js";
 import { getTraceContext, runWithTraceContext } from "./context.js";
 import type { InferOutput, StandardSchemaV1 } from "./schema.js";
 import { isStandardSchema, resolveSchema, toJsonSchema } from "./schema.js";
@@ -87,6 +88,9 @@ export class Opper {
   /** Client for system health checks. */
   readonly system: SystemClient;
 
+  /** Client for web tools (fetch, search). */
+  readonly web: WebToolsClient;
+
   constructor(config?: ClientConfig) {
     const resolved = resolveConfig(config);
 
@@ -96,10 +100,11 @@ export class Opper {
     this.models = new ModelsClient(resolved);
     this.embeddings = new EmbeddingsClient(resolved);
     this.system = new SystemClient(resolved);
+    this.web = new WebToolsClient(resolved);
   }
 
   /**
-   * Execute a function by name and return the result.
+   * Call a function by name and return the result.
    *
    * Accepts either a Standard Schema (`output`) or a raw JSON Schema (`output_schema`).
    * When a Standard Schema is provided, the response type is inferred automatically.
@@ -108,30 +113,30 @@ export class Opper {
    * ```typescript
    * // With Zod schema (inferred output type)
    * import { z } from "zod";
-   * const result = await client.run("summarize", {
+   * const result = await opper.call("summarize", {
    *   output: z.object({ summary: z.string() }),
    *   input: { text: "Long article..." },
    * });
    * result.output.summary; // string — inferred!
    *
    * // With raw JSON Schema (manual generic)
-   * const result = await client.run<{ summary: string }>("summarize", {
+   * const result = await opper.call<{ summary: string }>("summarize", {
    *   output_schema: { type: "object", properties: { summary: { type: "string" } } },
    *   input: { text: "Long article..." },
    * });
    * ```
    */
-  async run<S extends StandardSchemaV1>(
+  async call<S extends StandardSchemaV1>(
     name: string,
     request: Omit<SchemaRunRequest, "output"> & { output: S },
     options?: RequestOptions,
   ): Promise<RunResponse<InferOutput<S>>>;
-  async run<T = unknown>(
+  async call<T = unknown>(
     name: string,
     request: RunRequest,
     options?: RequestOptions,
   ): Promise<RunResponse<T>>;
-  async run(
+  async call(
     name: string,
     request: RunRequest | SchemaRunRequest,
     options?: RequestOptions,
@@ -146,7 +151,7 @@ export class Opper {
    *
    * @example
    * ```typescript
-   * for await (const chunk of client.stream("summarize", { ... })) {
+   * for await (const chunk of opper.stream("summarize", { ... })) {
    *   if (chunk.type === "content") process.stdout.write(chunk.delta);
    *   if (chunk.type === "done") console.log(chunk.usage);
    * }
@@ -161,7 +166,7 @@ export class Opper {
   }
 
   /**
-   * Wrap a block of code in a trace span. All `run()` and `stream()` calls
+   * Wrap a block of code in a trace span. All `call()` and `stream()` calls
    * inside the callback automatically inherit the span as their parent.
    *
    * Supports three call signatures:
@@ -176,16 +181,16 @@ export class Opper {
    * @example
    * ```typescript
    * // Automatic context — no manual wiring
-   * const result = await client.traced("my-flow", async () => {
-   *   const r1 = await client.run("step1", { input: "hello" });
-   *   const r2 = await client.run("step2", { input: r1.output });
+   * const result = await opper.traced("my-flow", async () => {
+   *   const r1 = await opper.call("step1", { input: "hello" });
+   *   const r2 = await opper.call("step2", { input: r1.output });
    *   return r2;
    * });
    *
    * // Explicit span handle for metadata
-   * await client.traced("my-flow", async (span) => {
+   * await opper.traced("my-flow", async (span) => {
    *   console.log("trace:", span.traceId, "span:", span.id);
-   *   await client.run("step1", { input: "hello" });
+   *   await opper.call("step1", { input: "hello" });
    * });
    * ```
    */
@@ -204,9 +209,11 @@ export class Opper {
       fn = fnOrNameOrOptions;
     } else if (typeof fnOrNameOrOptions === "string") {
       opts = { name: fnOrNameOrOptions };
+      // biome-ignore lint/style/noNonNullAssertion: guaranteed by overload signatures
       fn = maybeFn!;
     } else {
       opts = fnOrNameOrOptions;
+      // biome-ignore lint/style/noNonNullAssertion: guaranteed by overload signatures
       fn = maybeFn!;
     }
 
@@ -226,7 +233,9 @@ export class Opper {
 
     let result: T;
     try {
-      result = await runWithTraceContext({ spanId: span.id, traceId: span.trace_id }, () => fn(handle));
+      result = await runWithTraceContext({ spanId: span.id, traceId: span.trace_id }, () =>
+        fn(handle),
+      );
     } catch (error) {
       await this.spans.update(span.id, {
         error: error instanceof Error ? error.message : String(error),
@@ -276,6 +285,7 @@ export class Opper {
     if (request.temperature != null) wire.temperature = request.temperature;
     if (request.max_tokens != null) wire.max_tokens = request.max_tokens;
     if (request.reasoning_effort) wire.reasoning_effort = request.reasoning_effort;
+    if (request.instructions) wire.instructions = request.instructions;
     // Explicit parent_span_id takes priority, then ALS context
     if (request.parent_span_id) {
       wire.parent_span_id = request.parent_span_id;
@@ -299,6 +309,7 @@ export { GenerationsClient } from "./clients/generations.js";
 export { ModelsClient } from "./clients/models.js";
 export { SpansClient } from "./clients/spans.js";
 export { SystemClient } from "./clients/system.js";
+export { WebToolsClient } from "./clients/web-tools.js";
 
 // ---------------------------------------------------------------------------
 // Re-exports: Sub-client specific types
@@ -381,6 +392,11 @@ export type {
   UpdateFunctionRequest,
   UpdateSpanRequest,
   UsageInfo,
+  WebFetchRequest,
+  WebFetchResponse,
+  WebSearchRequest,
+  WebSearchResponse,
+  WebSearchResult,
 } from "./types.js";
 
 export { ApiError } from "./types.js";

@@ -9,7 +9,7 @@ describe("Spec endpoint coverage", () => {
   const client = new Opper({ apiKey: "test-key" });
 
   // CORE (Functions)
-  it("POST /v3/functions/{name}/run → client.functions.runFunction", () => {
+  it("POST /v3/functions/{name}/call → client.functions.runFunction", () => {
     expect(typeof client.functions.runFunction).toBe("function");
   });
 
@@ -107,8 +107,8 @@ describe("Spec endpoint coverage", () => {
   });
 
   // Convenience methods
-  it("client.run() convenience method", () => {
-    expect(typeof client.run).toBe("function");
+  it("client.call() convenience method", () => {
+    expect(typeof client.call).toBe("function");
   });
 
   it("client.stream() convenience method", () => {

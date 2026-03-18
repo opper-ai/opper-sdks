@@ -62,7 +62,7 @@ describe("Opper.run with Zod schema", () => {
 
     const client = new Opper({ apiKey: "test-key" });
 
-    const result = await client.run("extract", {
+    const result = await client.call("extract", {
       output: z.object({ name: z.string(), role: z.string() }),
       input: "Marie Curie was a scientist",
     });
@@ -102,7 +102,7 @@ describe("Opper.run with Zod schema", () => {
 
     const client = new Opper({ apiKey: "test-key" });
 
-    await client.run("ask", {
+    await client.call("ask", {
       output: z.object({ answer: z.string() }),
       input_schema: z.object({ question: z.string() }),
       input: { question: "What is the meaning of life?" },

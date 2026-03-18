@@ -5,7 +5,7 @@ import { Opper } from "../../src/index.js";
 
 const opper = new Opper();
 
-const result = await opper.run("sdk-test-extract-entities", {
+const result = await opper.call("sdk-test-extract-entities", {
   input_schema: z.object({ text: z.string() }),
   output: z.object({
     people: z.array(z.object({ name: z.string(), role: z.string().optional() })),
