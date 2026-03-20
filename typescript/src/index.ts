@@ -117,7 +117,7 @@ export class Opper {
    *   output: z.object({ summary: z.string() }),
    *   input: { text: "Long article..." },
    * });
-   * result.output.summary; // string — inferred!
+   * result.data.summary; // string — inferred!
    *
    * // With raw JSON Schema (manual generic)
    * const result = await opper.call<{ summary: string }>("summarize", {
@@ -193,7 +193,7 @@ export class Opper {
    * // Automatic context — no manual wiring
    * const result = await opper.traced("my-flow", async () => {
    *   const r1 = await opper.call("step1", { input: "hello" });
-   *   const r2 = await opper.call("step2", { input: r1.output });
+   *   const r2 = await opper.call("step2", { input: r1.data });
    *   return r2;
    * });
    *

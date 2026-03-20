@@ -166,7 +166,7 @@ describe("FunctionsClient.streamFunction", () => {
       'data: {"type":"content","delta":"Hello"}\n\n',
       'data: {"type":"done","usage":{"input_tokens":10,"output_tokens":5}}\n\n',
       "event: complete\n" +
-        'data: {"meta":{"function_name":"test-fn","execution_ms":500,"script_cached":false,"llm_calls":1,"tts_calls":0,"image_gen_calls":0},"output":{"summary":"Hello world"}}\n\n',
+        'data: {"meta":{"function_name":"test-fn","execution_ms":500,"script_cached":false,"llm_calls":1,"tts_calls":0,"image_gen_calls":0},"data":{"summary":"Hello world"}}\n\n',
       "data: [DONE]\n\n",
     ]);
     globalThis.fetch = fetchMock;
@@ -182,7 +182,7 @@ describe("FunctionsClient.streamFunction", () => {
     expect(chunks).toHaveLength(3);
     expect(chunks[2].type).toBe("complete");
     if (chunks[2].type === "complete") {
-      expect(chunks[2].output).toEqual({ summary: "Hello world" });
+      expect(chunks[2].data).toEqual({ summary: "Hello world" });
       expect(chunks[2].meta?.function_name).toBe("test-fn");
       expect(chunks[2].meta?.execution_ms).toBe(500);
     }
@@ -195,7 +195,7 @@ describe("FunctionsClient.streamFunction", () => {
       'data: {"type":"tool_call_delta","tool_call_index":0,"tool_call_args":"{\\"q\\":\\"test\\"}"}\n\n',
       'data: {"type":"done","usage":{"input_tokens":10,"output_tokens":5}}\n\n',
       "event: complete\n" +
-        'data: {"meta":{"function_name":"fn","execution_ms":100,"script_cached":false,"llm_calls":1,"tts_calls":0,"image_gen_calls":0},"output":"Hello"}\n\n',
+        'data: {"meta":{"function_name":"fn","execution_ms":100,"script_cached":false,"llm_calls":1,"tts_calls":0,"image_gen_calls":0},"data":"Hello"}\n\n',
       "data: [DONE]\n\n",
     ]);
     globalThis.fetch = fetchMock;

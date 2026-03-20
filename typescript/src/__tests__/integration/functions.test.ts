@@ -19,7 +19,7 @@ describe.skipIf(SKIP)("Integration: functions", () => {
       input: { question: "What is 2+2?" },
     });
 
-    expect(result.output).toBeDefined();
+    expect(result.data).toBeDefined();
     expect(result.meta).toBeDefined();
   });
 

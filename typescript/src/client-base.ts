@@ -281,7 +281,7 @@ export class BaseClient {
 
             try {
               const parsed = JSON.parse(data);
-              // "event: complete" carries the final {output, meta} response
+              // "event: complete" carries the final {data, meta} response
               if (currentEvent === "complete") {
                 yield { type: "complete", ...parsed } as T;
               } else {

@@ -14,7 +14,7 @@ const result = await opper.traced("summarize-flow", async () => {
     input: { text: "Observability is key to understanding system behavior in production." },
   });
 
-  console.log("Summary:", summary.output.summary);
+  console.log("Summary:", summary.data.summary);
   return summary;
 });
 
@@ -27,15 +27,15 @@ await opper.traced("multi-step-pipeline", async () => {
     input: { text: "What is the story of Arthur?" },
   });
 
-  console.log("Keywords:", extracted.output.keywords);
+  console.log("Keywords:", extracted.data.keywords);
 
   await opper.traced("enrich", async () => {
     const enriched = await opper.call("sdk-test-summarize", {
       output: z.object({ summary: z.string() }),
-      input: { keywords: extracted.output.keywords },
+      input: { keywords: extracted.data.keywords },
     });
 
-    console.log("Enriched:", enriched.output.summary);
+    console.log("Enriched:", enriched.data.summary);
   });
 });
 
@@ -54,6 +54,34 @@ await opper.traced(
     });
   },
 );
+
+// ── Session tracing ─────────────────────────────────────────────────────────
+// A single traced() call groups multiple interactions under one trace.
+// Great for chat sessions, multi-turn conversations, or iterative workflows.
+
+import * as readline from "node:readline/promises";
+
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+await opper.traced("chat-session", async (span) => {
+  console.log(`\nChat session started (trace: ${span.traceId})`);
+  console.log('Type a message, or "quit" to end.\n');
+
+  while (true) {
+    const userInput = await rl.question("You: ");
+    if (userInput.toLowerCase() === "quit") break;
+
+    const reply = await opper.call("sdk-test-summarize", {
+      output: z.object({ summary: z.string() }),
+      input: { text: userInput },
+    });
+
+    console.log("Assistant:", reply.data.summary, "\n");
+  }
+});
+
+rl.close();
+console.log("Session ended — all calls are grouped under the same trace.");
 
 // ── Generations ──────────────────────────────────────────────────────────────
 const generations = await opper.generations.listGenerations({ page: 1, page_size: 3 });

@@ -110,6 +110,7 @@ export interface ResponseMeta {
   readonly models_used?: string[];
   readonly model_warnings?: string[];
   readonly guards?: unknown[];
+  readonly message?: string;
 }
 
 /** Request to run a function. */
@@ -173,7 +174,7 @@ export interface SchemaRunRequest<TOutput = unknown> {
 
 /** Response from running a function. */
 export interface RunResponse<T = unknown> {
-  readonly output: T;
+  readonly data: T;
   readonly meta?: ResponseMeta;
 }
 
@@ -216,7 +217,7 @@ export interface ErrorChunk {
 /** SSE stream chunk: final parsed result from `event: complete`. */
 export interface CompleteChunk<T = unknown> {
   readonly type: "complete";
-  readonly output: T;
+  readonly data: T;
   readonly meta?: ResponseMeta;
 }
 

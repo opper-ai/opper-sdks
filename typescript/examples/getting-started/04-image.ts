@@ -13,6 +13,6 @@ const result = await opper.call("sdk-test-describe-scene", {
   input: { scene: "A sunset over a calm ocean with a single sailboat" },
 });
 
-console.log("Description:", result.output.description); // typed!
-console.log("Mood:", result.output.mood); // typed!
-console.log("Colors:", result.output.colors); // typed!
+console.log("Description:", result.data.description); // typed!
+console.log("Mood:", result.data.mood); // typed!
+console.log("Colors:", result.data.colors); // typed!

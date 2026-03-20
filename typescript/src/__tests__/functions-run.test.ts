@@ -26,7 +26,7 @@ describe("FunctionsClient.runFunction", () => {
   });
 
   it("sends POST to /v3/functions/{name}/call", async () => {
-    const fetchMock = mockFetch({ output: "hello", meta: {} });
+    const fetchMock = mockFetch({ data: "hello", meta: {} });
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
@@ -43,7 +43,7 @@ describe("FunctionsClient.runFunction", () => {
   });
 
   it("encodes function name in URL", async () => {
-    const fetchMock = mockFetch({ output: null });
+    const fetchMock = mockFetch({ data: null });
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
@@ -59,7 +59,7 @@ describe("FunctionsClient.runFunction", () => {
 
   it("parses RunResponse correctly", async () => {
     const fetchMock = mockFetch({
-      output: { answer: "42" },
+      data: { answer: "42" },
       meta: { function_name: "test", execution_ms: 100, llm_calls: 1 },
     });
     globalThis.fetch = fetchMock;
@@ -71,13 +71,13 @@ describe("FunctionsClient.runFunction", () => {
       input: {},
     });
 
-    expect(result.output).toEqual({ answer: "42" });
+    expect(result.data).toEqual({ answer: "42" });
     expect(result.meta?.function_name).toBe("test");
     expect(result.meta?.execution_ms).toBe(100);
   });
 
   it("sends request body as JSON", async () => {
-    const fetchMock = mockFetch({ output: null });
+    const fetchMock = mockFetch({ data: null });
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
@@ -108,7 +108,7 @@ describe("FunctionsClient.runFunction", () => {
   });
 
   it("includes Authorization header", async () => {
-    const fetchMock = mockFetch({ output: null });
+    const fetchMock = mockFetch({ data: null });
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);

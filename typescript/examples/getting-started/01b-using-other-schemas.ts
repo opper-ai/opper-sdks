@@ -23,8 +23,8 @@ const zodResult = await opper.call("sdk-test-extract-entities", {
   model: "anthropic/claude-sonnet-4.6",
 });
 
-console.log("[Zod] People:", zodResult.output.people); // typed!
-console.log("[Zod] Locations:", zodResult.output.locations); // typed!
+console.log("[Zod] People:", zodResult.data.people); // typed!
+console.log("[Zod] Locations:", zodResult.data.locations); // typed!
 
 // ---------------------------------------------------------------------------
 // 2. jsonSchema() helper — raw JSON Schema wrapped in Standard Schema
@@ -59,8 +59,8 @@ const jsonSchemaResult = await opper.call("sdk-test-extract-entities", {
   model: "anthropic/claude-sonnet-4.6",
 });
 
-console.log("[jsonSchema] People:", jsonSchemaResult.output.people); // typed!
-console.log("[jsonSchema] Locations:", jsonSchemaResult.output.locations); // typed!
+console.log("[jsonSchema] People:", jsonSchemaResult.data.people); // typed!
+console.log("[jsonSchema] Locations:", jsonSchemaResult.data.locations); // typed!
 
 // ---------------------------------------------------------------------------
 // 3. Raw output_schema + generic — escape hatch, no extra deps
@@ -72,8 +72,8 @@ const rawResult = await opper.call<ExtractedEntities>("sdk-test-extract-entities
   input,
 });
 
-console.log("[raw] People:", rawResult.output.people); // typed via generic
-console.log("[raw] Locations:", rawResult.output.locations);
+console.log("[raw] People:", rawResult.data.people); // typed via generic
+console.log("[raw] Locations:", rawResult.data.locations);
 
 // ---------------------------------------------------------------------------
 // 4. No output type — output is `unknown`, cast as needed
@@ -86,4 +86,4 @@ const untypedResult = await opper.call("sdk-test-extract-entities", {
   model: "anthropic/claude-sonnet-4.6",
 });
 
-console.log("[untyped] Output:", untypedResult.output); // unknown
+console.log("[untyped] Output:", untypedResult.data); // unknown

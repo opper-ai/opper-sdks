@@ -21,7 +21,7 @@ for await (const chunk of opper.stream("sdk-test-explain", {
   // Once completed you have access to the full output and metadata, without needing to accumulate the content deltas yourself.
   if (chunk.type === "complete") {
     console.log("Final Output ##########")
-    console.log("Output:", chunk.output.explanation);
+    console.log("Output:", chunk.data.explanation);
     console.log("Meta:", chunk.meta);
   }
   if (chunk.type === "error") {

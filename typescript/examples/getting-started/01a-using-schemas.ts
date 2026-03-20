@@ -17,6 +17,6 @@ const result = await opper.call("sdk-test-extract-entities", {
   model: "anthropic/claude-sonnet-4.6",
 });
 console.log("Full result object:", JSON.stringify(result, null, 2));
-console.log("People:", result.output.people); // typed!
-console.log("Locations:", result.output.locations); // typed!
+console.log("People:", result.data.people); // typed!
+console.log("Locations:", result.data.locations); // typed!
 

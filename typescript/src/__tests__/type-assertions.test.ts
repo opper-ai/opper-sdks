@@ -14,13 +14,13 @@ import type {
 } from "../types.js";
 
 describe("Type assertions (compile-time)", () => {
-  it("RunResponse<T> narrows output type", () => {
+  it("RunResponse<T> narrows data type", () => {
     type Typed = RunResponse<{ summary: string }>;
-    expectTypeOf<Typed["output"]>().toEqualTypeOf<{ summary: string }>();
+    expectTypeOf<Typed["data"]>().toEqualTypeOf<{ summary: string }>();
   });
 
-  it("RunResponse defaults to unknown output", () => {
-    expectTypeOf<RunResponse["output"]>().toEqualTypeOf<unknown>();
+  it("RunResponse defaults to unknown data", () => {
+    expectTypeOf<RunResponse["data"]>().toEqualTypeOf<unknown>();
   });
 
   it("StreamChunk narrows with type discriminant", () => {

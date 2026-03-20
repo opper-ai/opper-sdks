@@ -16,6 +16,6 @@ const result = await opper.call("sdk-test-transcription-summary", {
   },
 });
 
-console.log("Summary:", result.output.summary); // typed!
-console.log("Key points:", result.output.key_points); // typed!
+console.log("Summary:", result.data.summary); // typed!
+console.log("Key points:", result.data.key_points); // typed!
 console.log("Usage:", result.meta?.usage);

@@ -41,7 +41,7 @@ describe("Opper.run with Zod schema", () => {
 
   it("converts Zod schema to output_schema on the wire", async () => {
     const responseBody = JSON.stringify({
-      output: { name: "Marie", role: "scientist" },
+      data: { name: "Marie", role: "scientist" },
       meta: {
         function_name: "extract",
         execution_ms: 100,
@@ -75,13 +75,13 @@ describe("Opper.run with Zod schema", () => {
     expect(body.output).toBeUndefined();
 
     // Verify the response
-    expect(result.output.name).toBe("Marie");
-    expect(result.output.role).toBe("scientist");
+    expect(result.data.name).toBe("Marie");
+    expect(result.data.role).toBe("scientist");
   });
 
   it("resolves Zod input_schema and tool parameters on the wire", async () => {
     const responseBody = JSON.stringify({
-      output: { answer: "42" },
+      data: { answer: "42" },
       meta: {
         function_name: "ask",
         execution_ms: 50,
