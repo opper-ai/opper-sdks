@@ -157,6 +157,16 @@ export class Opper {
    * }
    * ```
    */
+  stream<S extends StandardSchemaV1>(
+    name: string,
+    request: Omit<SchemaRunRequest, "output"> & { output: S },
+    options?: RequestOptions,
+  ): AsyncGenerator<StreamChunk<InferOutput<S>>, void, undefined>;
+  stream<T = unknown>(
+    name: string,
+    request: RunRequest,
+    options?: RequestOptions,
+  ): AsyncGenerator<StreamChunk<T>, void, undefined>;
   async *stream(
     name: string,
     request: RunRequest | SchemaRunRequest,

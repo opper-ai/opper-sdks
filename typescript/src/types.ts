@@ -214,20 +214,20 @@ export interface ErrorChunk {
 }
 
 /** SSE stream chunk: final parsed result from `event: complete`. */
-export interface CompleteChunk {
+export interface CompleteChunk<T = unknown> {
   readonly type: "complete";
-  readonly output: unknown;
+  readonly output: T;
   readonly meta?: ResponseMeta;
 }
 
 /** SSE stream chunk from /stream endpoint. */
-export type StreamChunk =
+export type StreamChunk<T = unknown> =
   | ContentChunk
   | ToolCallStartChunk
   | ToolCallDeltaChunk
   | DoneChunk
   | ErrorChunk
-  | CompleteChunk;
+  | CompleteChunk<T>;
 
 /** Request to update a function. */
 export interface UpdateFunctionRequest {
