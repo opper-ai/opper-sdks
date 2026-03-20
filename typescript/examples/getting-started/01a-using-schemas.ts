@@ -12,9 +12,11 @@ const result = await opper.call("sdk-test-extract-entities", {
     locations: z.array(z.string()),
   }),
   input: {
-    text: "Marie Curie conducted groundbreaking research on radioactivity in Paris. She was the first woman to win a Nobel Prize.",
+    text: "Marie Curie conducted groundbreaking research on radioactivity in Paris. She was the first woman to win a Nobel Prize. Her husband was Pierre Curie.",
   },
+  model: "anthropic/claude-sonnet-4.6",
 });
-
+console.log("Full result object:", JSON.stringify(result, null, 2));
 console.log("People:", result.output.people); // typed!
 console.log("Locations:", result.output.locations); // typed!
+

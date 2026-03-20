@@ -20,6 +20,7 @@ const zodResult = await opper.call("sdk-test-extract-entities", {
     locations: z.array(z.string()),
   }),
   input,
+  model: "anthropic/claude-sonnet-4.6",
 });
 
 console.log("[Zod] People:", zodResult.output.people); // typed!
@@ -55,6 +56,7 @@ const jsonSchemaResult = await opper.call("sdk-test-extract-entities", {
   input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   output: jsonSchema<ExtractedEntities>(outputSchema),
   input,
+  model: "anthropic/claude-sonnet-4.6",
 });
 
 console.log("[jsonSchema] People:", jsonSchemaResult.output.people); // typed!
@@ -81,6 +83,7 @@ const untypedResult = await opper.call("sdk-test-extract-entities", {
   input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
   output_schema: { type: "object" },
   input,
+  model: "anthropic/claude-sonnet-4.6",
 });
 
 console.log("[untyped] Output:", untypedResult.output); // unknown
