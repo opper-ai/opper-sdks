@@ -233,6 +233,8 @@ export class BaseClient {
     const decoder = new TextDecoder();
     let buffer = "";
 
+    let currentEvent = "";
+
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -248,8 +250,18 @@ export class BaseClient {
         for (const line of lines) {
           const trimmed = line.trim();
 
-          // Skip empty lines and SSE comments
-          if (!trimmed || trimmed.startsWith(":")) {
+          // Skip empty lines (also resets event type per SSE spec) and comments
+          if (!trimmed) {
+            currentEvent = "";
+            continue;
+          }
+          if (trimmed.startsWith(":")) {
+            continue;
+          }
+
+          // Track SSE event type (e.g. "event: complete")
+          if (trimmed.startsWith("event:")) {
+            currentEvent = trimmed.slice(6).trim();
             continue;
           }
 
@@ -268,8 +280,16 @@ export class BaseClient {
             }
 
             try {
-              yield JSON.parse(data) as T;
+              const parsed = JSON.parse(data);
+              // "event: complete" carries the final {output, meta} response
+              if (currentEvent === "complete") {
+                yield { type: "complete", ...parsed } as T;
+              } else {
+                yield parsed as T;
+              }
             } catch {}
+
+            currentEvent = "";
           }
         }
       }

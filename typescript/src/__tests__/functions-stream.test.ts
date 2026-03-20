@@ -161,12 +161,41 @@ describe("FunctionsClient.streamFunction", () => {
     if (chunks[0].type === "error") expect(chunks[0].error).toBe("something went wrong");
   });
 
+  it("handles event: complete chunk with output and meta", async () => {
+    const fetchMock = mockStreamFetch([
+      'data: {"type":"content","delta":"Hello"}\n\n',
+      'data: {"type":"done","usage":{"input_tokens":10,"output_tokens":5}}\n\n',
+      "event: complete\n" +
+        'data: {"meta":{"function_name":"test-fn","execution_ms":500,"script_cached":false,"llm_calls":1,"tts_calls":0,"image_gen_calls":0},"output":{"summary":"Hello world"}}\n\n',
+      "data: [DONE]\n\n",
+    ]);
+    globalThis.fetch = fetchMock;
+
+    const client = new FunctionsClient(config);
+    const chunks: StreamChunk[] = [];
+    for await (const chunk of client.streamFunction("fn", {
+      input: "test",
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks).toHaveLength(3);
+    expect(chunks[2].type).toBe("complete");
+    if (chunks[2].type === "complete") {
+      expect(chunks[2].output).toEqual({ summary: "Hello world" });
+      expect(chunks[2].meta?.function_name).toBe("test-fn");
+      expect(chunks[2].meta?.execution_ms).toBe(500);
+    }
+  });
+
   it("handles full stream with all chunk types", async () => {
     const fetchMock = mockStreamFetch([
       'data: {"type":"content","delta":"Hello"}\n\n',
       'data: {"type":"tool_call_start","tool_call_index":0,"tool_call_id":"c1","tool_call_name":"search"}\n\n',
       'data: {"type":"tool_call_delta","tool_call_index":0,"tool_call_args":"{\\"q\\":\\"test\\"}"}\n\n',
       'data: {"type":"done","usage":{"input_tokens":10,"output_tokens":5}}\n\n',
+      "event: complete\n" +
+        'data: {"meta":{"function_name":"fn","execution_ms":100,"script_cached":false,"llm_calls":1,"tts_calls":0,"image_gen_calls":0},"output":"Hello"}\n\n',
       "data: [DONE]\n\n",
     ]);
     globalThis.fetch = fetchMock;
@@ -179,6 +208,6 @@ describe("FunctionsClient.streamFunction", () => {
       types.push(chunk.type);
     }
 
-    expect(types).toEqual(["content", "tool_call_start", "tool_call_delta", "done"]);
+    expect(types).toEqual(["content", "tool_call_start", "tool_call_delta", "done", "complete"]);
   });
 });

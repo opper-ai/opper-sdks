@@ -181,6 +181,7 @@ export interface RunResponse<T = unknown> {
 export interface ContentChunk {
   readonly type: "content";
   readonly delta: string;
+  readonly tool_call_index?: number;
 }
 
 /** SSE stream chunk: start of a tool call. */
@@ -203,6 +204,7 @@ export interface ToolCallDeltaChunk {
 export interface DoneChunk {
   readonly type: "done";
   readonly usage?: UsageInfo;
+  readonly tool_call_index?: number;
 }
 
 /** SSE stream chunk: error occurred. */
@@ -211,13 +213,21 @@ export interface ErrorChunk {
   readonly error: string;
 }
 
+/** SSE stream chunk: final parsed result from `event: complete`. */
+export interface CompleteChunk {
+  readonly type: "complete";
+  readonly output: unknown;
+  readonly meta?: ResponseMeta;
+}
+
 /** SSE stream chunk from /stream endpoint. */
 export type StreamChunk =
   | ContentChunk
   | ToolCallStartChunk
   | ToolCallDeltaChunk
   | DoneChunk
-  | ErrorChunk;
+  | ErrorChunk
+  | CompleteChunk;
 
 /** Request to update a function. */
 export interface UpdateFunctionRequest {

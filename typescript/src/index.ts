@@ -354,6 +354,7 @@ export { getTraceContext } from "./context.js";
 
 export type {
   ClientConfig,
+  CompleteChunk,
   ContentChunk,
   CreateSpanRequest,
   CreateSpanResponse,

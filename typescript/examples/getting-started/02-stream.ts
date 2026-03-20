@@ -9,6 +9,7 @@ process.stdout.write("Streaming: ");
 for await (const chunk of opper.stream("sdk-test-explain", {
   output: z.object({ explanation: z.string() }),
   input: { topic: "How do SSE streams work?" },
+  model: "anthropic/claude-sonnet-4.6",
 })) {
   if (chunk.type === "content") {
     process.stdout.write(chunk.delta);
@@ -16,6 +17,10 @@ for await (const chunk of opper.stream("sdk-test-explain", {
   if (chunk.type === "done") {
     console.log();
     console.log("Usage:", chunk.usage);
+  }
+  if (chunk.type === "complete") {
+    console.log("Output:", chunk.output);
+    console.log("Meta:", chunk.meta);
   }
   if (chunk.type === "error") {
     console.error("Stream error:", chunk.error);
