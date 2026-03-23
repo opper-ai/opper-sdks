@@ -7,6 +7,7 @@ import type {
   JsonValue,
   RunRequest,
   RunResponse,
+  SchemaLike,
   SchemaRunRequest,
   StreamChunk,
   ToolCallDeltaChunk,
@@ -59,7 +60,7 @@ describe("Type assertions (compile-time)", () => {
 
   it("RunRequest allows optional schemas", () => {
     const req: RunRequest = { input: "hello" };
-    expectTypeOf(req.input_schema).toEqualTypeOf<Record<string, unknown> | undefined>();
+    expectTypeOf(req.input_schema).toEqualTypeOf<SchemaLike | undefined>();
     expectTypeOf(req.output_schema).toEqualTypeOf<Record<string, unknown> | undefined>();
   });
 
@@ -73,7 +74,8 @@ describe("Type assertions (compile-time)", () => {
     type Req = SchemaRunRequest<{ summary: string }>;
     type OutputSchema = Req["output_schema"];
     // biome-ignore lint/suspicious/noExplicitAny: needed to match the schema's input type parameter
-    expectTypeOf<OutputSchema>().toMatchTypeOf<StandardSchemaV1<any, { summary: string }>>();
+    type Expected = StandardSchemaV1<any, { summary: string }> | Record<string, unknown>;
+    expectTypeOf<OutputSchema>().toEqualTypeOf<Expected>();
   });
 
   it("JsonValue accepts all JSON primitives and nested structures", () => {

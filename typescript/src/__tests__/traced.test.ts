@@ -23,7 +23,7 @@ function mockFetchSequence(responses: Array<{ body: object; status?: number }>) 
 
 function captureFetch(mock: ReturnType<typeof vi.fn>) {
   return () =>
-    mock.mock.calls.map(([url, init]: [string, RequestInit]) => ({
+    (mock.mock.calls as [string, RequestInit][]).map(([url, init]) => ({
       url,
       init,
       body: init.body ? JSON.parse(init.body as string) : undefined,

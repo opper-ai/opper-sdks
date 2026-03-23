@@ -7,7 +7,7 @@ describe.skipIf(SKIP)("Integration: functions", () => {
   it("runs a function and returns output", async () => {
     const client = new Opper();
 
-    const result = await client.run("sdk-integration-test", {
+    const result = await client.call("sdk-integration-test", {
       input_schema: {
         type: "object",
         properties: { question: { type: "string" } },
