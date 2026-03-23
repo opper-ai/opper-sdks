@@ -5,7 +5,7 @@ import { Opper } from "../../src/index.js";
 
 const opper = new Opper();
 
-process.stdout.write("Streaming with tools:\n");
+console.log("Streaming with tools:");
 
 for await (const chunk of opper.stream("sdk-test-tool-use", {
   input: "What is the current weather in Stockholm?",

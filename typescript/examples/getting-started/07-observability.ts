@@ -10,7 +10,7 @@ const opper = new Opper();
 
 const result = await opper.traced("summarize-flow", async () => {
   const summary = await opper.call("sdk-test-summarize", {
-    output: z.object({ summary: z.string() }),
+    output_schema: z.object({ summary: z.string() }),
     input: { text: "Observability is key to understanding system behavior in production." },
   });
 
@@ -23,7 +23,7 @@ const result = await opper.traced("summarize-flow", async () => {
 
 await opper.traced("multi-step-pipeline", async () => {
   const extracted = await opper.call("sdk-test-extract", {
-    output: z.object({ keywords: z.array(z.string()) }),
+    output_schema: z.object({ keywords: z.array(z.string()) }),
     input: { text: "What is the story of Arthur?" },
   });
 
@@ -31,7 +31,7 @@ await opper.traced("multi-step-pipeline", async () => {
 
   await opper.traced("enrich", async () => {
     const enriched = await opper.call("sdk-test-summarize", {
-      output: z.object({ summary: z.string() }),
+      output_schema: z.object({ summary: z.string() }),
       input: { keywords: extracted.data.keywords },
     });
 
@@ -48,7 +48,7 @@ await opper.traced(
     console.log("Trace:", span.traceId, "Span:", span.id);
 
     await opper.call("sdk-test-summarize", {
-      output: z.object({ summary: z.string() }),
+      output_schema: z.object({ summary: z.string() }),
       input_schema: z.object({ text: z.string() }),
       input: { text: "Span handle gives access to trace and span IDs." },
     });
@@ -72,7 +72,7 @@ await opper.traced("chat-session", async (span) => {
     if (userInput.toLowerCase() === "quit") break;
 
     const reply = await opper.call("sdk-test-summarize", {
-      output: z.object({ summary: z.string() }),
+      output_schema: z.object({ summary: z.string() }),
       input: { text: userInput },
     });
 

@@ -10,12 +10,12 @@ const input = {
 };
 
 // ---------------------------------------------------------------------------
-// 1. Zod everywhere — input_schema, output, and tools all use Zod
+// 1. Zod everywhere — input_schema, output_schema, and tools all use Zod
 // ---------------------------------------------------------------------------
 
 const zodResult = await opper.call("sdk-test-extract-entities", {
   input_schema: z.object({ text: z.string() }),
-  output: z.object({
+  output_schema: z.object({
     people: z.array(z.object({ name: z.string(), role: z.string().optional() })),
     locations: z.array(z.string()),
   }),
@@ -28,7 +28,7 @@ console.log("[Zod] Locations:", zodResult.data.locations); // typed!
 
 // ---------------------------------------------------------------------------
 // 2. jsonSchema() helper — raw JSON Schema wrapped in Standard Schema
-//    Same `output` overload, type via generic annotation.
+//    Same `output_schema` overload, type via generic annotation.
 // ---------------------------------------------------------------------------
 
 interface ExtractedEntities {
@@ -54,7 +54,7 @@ const outputSchema = {
 
 const jsonSchemaResult = await opper.call("sdk-test-extract-entities", {
   input_schema: { type: "object", properties: { text: { type: "string" } }, required: ["text"] },
-  output: jsonSchema<ExtractedEntities>(outputSchema),
+  output_schema: jsonSchema<ExtractedEntities>(outputSchema),
   input,
   model: "anthropic/claude-sonnet-4.6",
 });

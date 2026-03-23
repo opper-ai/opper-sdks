@@ -71,7 +71,7 @@ describe("Type assertions (compile-time)", () => {
 
   it("SchemaRunRequest narrows output type from Standard Schema", () => {
     type Req = SchemaRunRequest<{ summary: string }>;
-    type OutputSchema = Req["output"];
+    type OutputSchema = Req["output_schema"];
     // biome-ignore lint/suspicious/noExplicitAny: needed to match the schema's input type parameter
     expectTypeOf<OutputSchema>().toMatchTypeOf<StandardSchemaV1<any, { summary: string }>>();
   });

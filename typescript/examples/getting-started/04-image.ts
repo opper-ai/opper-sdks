@@ -5,7 +5,7 @@ import { Opper } from "../../src/index.js";
 const opper = new Opper();
 
 const result = await opper.call("sdk-test-describe-scene", {
-  output: z.object({
+  output_schema: z.object({
     description: z.string(),
     mood: z.string(),
     colors: z.array(z.string()),

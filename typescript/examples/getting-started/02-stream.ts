@@ -4,10 +4,11 @@ import { Opper } from "../../src/index.js";
 
 const opper = new Opper();
 
-process.stdout.write("Streaming: ");
+console.log("── Streaming deltas ──");
+process.stdout.write("");
 
 for await (const chunk of opper.stream("sdk-test-explain", {
-  output: z.object({ explanation: z.string() }),
+  output_schema: z.object({ explanation: z.string() }),
   input: { topic: "How do SSE streams work?" },
   model: "anthropic/claude-sonnet-4.6",
 })) {
@@ -18,9 +19,11 @@ for await (const chunk of opper.stream("sdk-test-explain", {
     console.log();
     console.log("Usage:", chunk.usage);
   }
-  // Once completed you have access to the full output and metadata, without needing to accumulate the content deltas yourself.
+
+  // The "complete" event gives you the fully parsed & typed output in one shot,
+  // so you don't need to accumulate the content deltas yourself.
   if (chunk.type === "complete") {
-    console.log("Final Output ##########")
+    console.log("\n── Accumulated output (from complete event) ──");
     console.log("Output:", chunk.data.explanation);
     console.log("Meta:", chunk.meta);
   }

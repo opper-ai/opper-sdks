@@ -63,16 +63,15 @@ describe("Opper.run with Zod schema", () => {
     const client = new Opper({ apiKey: "test-key" });
 
     const result = await client.call("extract", {
-      output: z.object({ name: z.string(), role: z.string() }),
+      output_schema: z.object({ name: z.string(), role: z.string() }),
       input: "Marie Curie was a scientist",
     });
 
-    // Verify the wire request has output_schema, not output
+    // Verify the wire request has output_schema as JSON Schema
     const [, init] = fetchMock.mock.calls[0];
     const body = JSON.parse(init.body);
     expect(body.output_schema).toBeDefined();
     expect(body.output_schema.type).toBe("object");
-    expect(body.output).toBeUndefined();
 
     // Verify the response
     expect(result.data.name).toBe("Marie");
@@ -103,7 +102,7 @@ describe("Opper.run with Zod schema", () => {
     const client = new Opper({ apiKey: "test-key" });
 
     await client.call("ask", {
-      output: z.object({ answer: z.string() }),
+      output_schema: z.object({ answer: z.string() }),
       input_schema: z.object({ question: z.string() }),
       input: { question: "What is the meaning of life?" },
       tools: [

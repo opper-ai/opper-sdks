@@ -106,7 +106,7 @@ export class Opper {
   /**
    * Call a function by name and return the result.
    *
-   * Accepts either a Standard Schema (`output`) or a raw JSON Schema (`output_schema`).
+   * `output_schema` accepts either a Standard Schema (Zod, Valibot, etc.) or raw JSON Schema.
    * When a Standard Schema is provided, the response type is inferred automatically.
    *
    * @example
@@ -114,7 +114,7 @@ export class Opper {
    * // With Zod schema (inferred output type)
    * import { z } from "zod";
    * const result = await opper.call("summarize", {
-   *   output: z.object({ summary: z.string() }),
+   *   output_schema: z.object({ summary: z.string() }),
    *   input: { text: "Long article..." },
    * });
    * result.data.summary; // string — inferred!
@@ -128,7 +128,7 @@ export class Opper {
    */
   async call<S extends StandardSchemaV1>(
     name: string,
-    request: Omit<SchemaRunRequest, "output"> & { output: S },
+    request: Omit<SchemaRunRequest, "output_schema"> & { output_schema: S },
     options?: RequestOptions,
   ): Promise<RunResponse<InferOutput<S>>>;
   async call<T = unknown>(
@@ -147,7 +147,7 @@ export class Opper {
   /**
    * Stream a function execution by name, yielding chunks as they arrive.
    *
-   * Accepts either a Standard Schema (`output`) or a raw JSON Schema (`output_schema`).
+   * `output_schema` accepts either a Standard Schema (Zod, Valibot, etc.) or raw JSON Schema.
    *
    * @example
    * ```typescript
@@ -159,7 +159,7 @@ export class Opper {
    */
   stream<S extends StandardSchemaV1>(
     name: string,
-    request: Omit<SchemaRunRequest, "output"> & { output: S },
+    request: Omit<SchemaRunRequest, "output_schema"> & { output_schema: S },
     options?: RequestOptions,
   ): AsyncGenerator<StreamChunk<InferOutput<S>>, void, undefined>;
   stream<T = unknown>(
@@ -261,15 +261,17 @@ export class Opper {
     return result;
   }
 
-  /** Resolve any Standard Schema fields (output, input_schema, tools) to plain JSON Schema. */
+  /** Resolve any Standard Schema fields (output_schema, input_schema, tools) to plain JSON Schema. */
   private async resolveRequest(request: RunRequest | SchemaRunRequest): Promise<RunRequest> {
     const wire: Record<string, unknown> = {};
 
-    // output → output_schema
-    if ("output" in request && request.output != null && isStandardSchema(request.output)) {
-      wire.output_schema = await toJsonSchema(request.output);
-    } else if ("output_schema" in request) {
-      wire.output_schema = (request as RunRequest).output_schema;
+    // output_schema — resolve Standard Schema to JSON Schema, or pass through raw JSON Schema
+    if (request.output_schema != null) {
+      if (isStandardSchema(request.output_schema)) {
+        wire.output_schema = await toJsonSchema(request.output_schema);
+      } else {
+        wire.output_schema = request.output_schema;
+      }
     }
 
     // input_schema
@@ -393,7 +395,6 @@ export type {
   RunResponse,
   SchemaLike,
   SchemaRunRequest,
-  SchemaTool,
   SpanHandle,
   StreamChunk,
   Tool,

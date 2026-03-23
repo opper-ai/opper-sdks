@@ -5,7 +5,7 @@ import { Opper } from "../../src/index.js";
 const opper = new Opper();
 
 const result = await opper.call("sdk-test-transcription-summary", {
-  output: z.object({
+  output_schema: z.object({
     summary: z.string(),
     key_points: z.array(z.string()),
     language_detected: z.string().optional(),

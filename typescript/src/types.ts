@@ -77,11 +77,14 @@ export interface ErrorResponse {
 // Core Types
 // ---------------------------------------------------------------------------
 
+/** A JSON Schema or a Standard Schema (Zod, Valibot, ArkType, etc.). */
+export type SchemaLike = JsonSchema | import("./schema.js").StandardSchemaV1;
+
 /** Tool definition for function execution. */
 export interface Tool {
   readonly name: string;
   readonly description?: string;
-  readonly parameters: JsonSchema;
+  readonly parameters: SchemaLike;
 }
 
 /** Token usage information. */
@@ -115,8 +118,8 @@ export interface ResponseMeta {
 
 /** Request to run a function. */
 export interface RunRequest {
-  /** JSON Schema describing the input shape. Defaults to text when omitted. */
-  readonly input_schema?: JsonSchema;
+  /** JSON Schema or Standard Schema describing the input shape. Defaults to text when omitted. */
+  readonly input_schema?: SchemaLike;
   /** JSON Schema describing the expected output shape. Defaults to text when omitted. */
   readonly output_schema?: JsonSchema;
   /** The input data to send to the function. */
@@ -137,21 +140,11 @@ export interface RunRequest {
   readonly tools?: Tool[];
 }
 
-/** A JSON Schema or a Standard Schema (Zod, Valibot, ArkType, etc.). */
-export type SchemaLike = JsonSchema | import("./schema.js").StandardSchemaV1;
-
-/** Tool definition that accepts Standard Schema for parameters. */
-export interface SchemaTool {
-  readonly name: string;
-  readonly description?: string;
-  readonly parameters: SchemaLike;
-}
-
 /** Request to run a function with a Standard Schema for output type inference. */
 export interface SchemaRunRequest<TOutput = unknown> {
-  /** Standard Schema (Zod, Valibot, ArkType, etc.) defining the expected output shape. */
+  /** Standard Schema (Zod, Valibot, ArkType, etc.) or raw JSON Schema defining the expected output shape. */
   // biome-ignore lint/suspicious/noExplicitAny: `any` allows accepting schemas with any input type
-  readonly output: import("./schema.js").StandardSchemaV1<any, TOutput>;
+  readonly output_schema: import("./schema.js").StandardSchemaV1<any, TOutput> | JsonSchema;
   /** The input data to send to the function. */
   readonly input: JsonValue;
   /** JSON Schema or Standard Schema describing the input shape. Defaults to text when omitted. */
@@ -168,8 +161,8 @@ export interface SchemaRunRequest<TOutput = unknown> {
   readonly instructions?: string;
   /** Parent span ID for tracing/observability. */
   readonly parent_span_id?: string;
-  /** Tool definitions that accept Standard Schema for parameters. */
-  readonly tools?: SchemaTool[];
+  /** Tool definitions available to the function. */
+  readonly tools?: Tool[];
 }
 
 /** Response from running a function. */

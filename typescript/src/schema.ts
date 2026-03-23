@@ -63,16 +63,16 @@ export type JsonSchemaWrapper<T> = StandardSchemaV1<T, T> & {
 };
 
 /**
- * Wrap a raw JSON Schema object so it can be passed as the `output` option
- * in `run()` — flows through the same overload as Zod / Valibot schemas.
+ * Wrap a raw JSON Schema object so it can be passed as `output_schema`
+ * in `call()` — flows through the same overload as Zod / Valibot schemas.
  *
  * @example
  * ```typescript
- * const result = await client.run("fn", {
- *   output: jsonSchema<{ name: string }>({ type: "object", properties: { name: { type: "string" } } }),
+ * const result = await client.call("fn", {
+ *   output_schema: jsonSchema<{ name: string }>({ type: "object", properties: { name: { type: "string" } } }),
  *   input: "...",
  * });
- * result.output.name; // string
+ * result.data.name; // string
  * ```
  */
 export function jsonSchema<T = unknown>(schema: Record<string, unknown>): JsonSchemaWrapper<T> {

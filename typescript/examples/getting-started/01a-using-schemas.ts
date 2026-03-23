@@ -7,7 +7,7 @@ const opper = new Opper();
 
 const result = await opper.call("sdk-test-extract-entities", {
   input_schema: z.object({ text: z.string() }),
-  output: z.object({
+  output_schema: z.object({
     people: z.array(z.object({ name: z.string(), role: z.string().optional() })),
     locations: z.array(z.string()),
   }),
