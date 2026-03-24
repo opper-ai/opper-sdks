@@ -89,8 +89,8 @@ export class Opper {
   /** Client for system health checks. */
   readonly system: SystemClient;
 
-  /** Client for web tools (fetch, search). */
-  readonly web: WebToolsClient;
+  /** Beta API endpoints — these may change. */
+  readonly beta: { readonly web: WebToolsClient };
 
   /** Client for knowledge base operations (v2 API). */
   readonly knowledge: KnowledgeClient;
@@ -104,7 +104,7 @@ export class Opper {
     this.models = new ModelsClient(resolved);
     this.embeddings = new EmbeddingsClient(resolved);
     this.system = new SystemClient(resolved);
-    this.web = new WebToolsClient(resolved);
+    this.beta = { web: new WebToolsClient(resolved) };
     this.knowledge = new KnowledgeClient(resolved);
   }
 
