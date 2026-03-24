@@ -81,10 +81,16 @@ await opper.traced("my-pipeline", async () => {
 | 10 | [Models](./examples/getting-started/10-models.ts) | List available models |
 | 11 | [Realtime](./examples/getting-started/11-real-time.ts) | WebSocket URL for voice agents |
 
-Run all examples:
+Run a single example:
 
 ```bash
 export OPPER_API_KEY="your-key"
+npx tsx examples/getting-started/00-your-first-call.ts
+```
+
+Run all examples:
+
+```bash
 npm run examples
 ```
 

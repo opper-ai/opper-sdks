@@ -319,6 +319,7 @@ export { EmbeddingsClient } from "./clients/embeddings.js";
 export { FunctionsClient } from "./clients/functions.js";
 export { GenerationsClient } from "./clients/generations.js";
 export { ModelsClient } from "./clients/models.js";
+export type { ListModelsParams } from "./clients/models.js";
 export { SpansClient } from "./clients/spans.js";
 export { SystemClient } from "./clients/system.js";
 export { WebToolsClient } from "./clients/web-tools.js";
