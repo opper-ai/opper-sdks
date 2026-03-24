@@ -17,6 +17,7 @@ const result = await opper.call("sdk-test-embed", {
   input: {
     text: "The quick brown fox jumps over the lazy dog",
   },
+  model: "openai/text-embedding-3-small",
 });
 
 console.log("── Single embedding ──");
@@ -29,18 +30,21 @@ const a = await opper.call("sdk-test-embed", {
   input_schema: z.object({ text: z.string().describe("Text to embed") }),
   output_schema: z.object({ embedding: z.array(z.number()).describe("Vector embedding") }),
   input: { text: "I love programming in TypeScript" },
+  model: "openai/text-embedding-3-small",
 });
 
 const b = await opper.call("sdk-test-embed", {
   input_schema: z.object({ text: z.string().describe("Text to embed") }),
   output_schema: z.object({ embedding: z.array(z.number()).describe("Vector embedding") }),
   input: { text: "TypeScript is my favorite language for coding" },
+  model: "openai/text-embedding-3-small",
 });
 
 const c = await opper.call("sdk-test-embed", {
   input_schema: z.object({ text: z.string().describe("Text to embed") }),
   output_schema: z.object({ embedding: z.array(z.number()).describe("Vector embedding") }),
   input: { text: "The weather in Stockholm is cold today" },
+  model: "openai/text-embedding-3-small",
 });
 
 function cosineSimilarity(a: number[], b: number[]): number {
