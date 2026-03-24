@@ -443,3 +443,162 @@ export interface WebSearchResult {
 export interface WebSearchResponse {
   readonly results: WebSearchResult[];
 }
+
+// ---------------------------------------------------------------------------
+// Knowledge Base Types (v2 API)
+// ---------------------------------------------------------------------------
+
+/** Paginated response wrapper. */
+export interface PaginatedResponse<T> {
+  readonly data: T[];
+  readonly meta: { readonly total_count: number };
+}
+
+/** Request to create a knowledge base. */
+export interface CreateKnowledgeBaseRequest {
+  readonly name: string;
+  readonly embedding_model?: string;
+}
+
+/** Response from creating a knowledge base. */
+export interface CreateKnowledgeBaseResponse {
+  readonly id: string;
+  readonly name: string;
+  readonly created_at: string;
+  readonly embedding_model: string;
+}
+
+/** Knowledge base summary in list responses. */
+export interface KnowledgeBaseInfo {
+  readonly id: string;
+  readonly name: string;
+  readonly created_at: string;
+  readonly embedding_model: string;
+}
+
+/** Detailed knowledge base response including document count. */
+export interface GetKnowledgeBaseResponse {
+  readonly id: string;
+  readonly name: string;
+  readonly created_at: string;
+  readonly embedding_model: string;
+  readonly count: number;
+}
+
+/** Text processing configuration for chunking. */
+export interface TextProcessingConfiguration {
+  readonly chunk_size?: number;
+  readonly chunk_overlap?: number;
+}
+
+/** Request to add a document to a knowledge base. */
+export interface AddDocumentRequest {
+  readonly content: string;
+  readonly key?: string;
+  readonly metadata?: Record<string, unknown>;
+  readonly configuration?: TextProcessingConfiguration;
+}
+
+/** Response from adding a document. */
+export interface AddDocumentResponse {
+  readonly id: string;
+  readonly key: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
+/** Filter operation for knowledge base queries. */
+export type FilterOp = "=" | "!=" | ">" | "<" | "in";
+
+/** A filter condition for knowledge base queries. */
+export interface KnowledgeBaseFilter {
+  readonly field: string;
+  readonly operation: FilterOp;
+  readonly value: string | number | (string | number)[];
+}
+
+/** Request to query a knowledge base. */
+export interface QueryKnowledgeBaseRequest {
+  readonly query: string;
+  readonly prefilter_limit?: number;
+  readonly top_k?: number;
+  readonly filters?: KnowledgeBaseFilter[];
+  readonly rerank?: boolean;
+  readonly parent_span_id?: string;
+}
+
+/** A single query result from a knowledge base. */
+export interface QueryKnowledgeBaseResponse {
+  readonly id: string;
+  readonly key: string;
+  readonly content: string;
+  readonly metadata: Record<string, unknown>;
+  readonly score: number;
+}
+
+/** A document segment. */
+export interface DocumentSegment {
+  readonly id: string;
+  readonly content: string;
+}
+
+/** Response from getting a document by key. */
+export interface GetDocumentResponse {
+  readonly id: string;
+  readonly key: string;
+  readonly segments: DocumentSegment[];
+  readonly metadata?: Record<string, unknown>;
+}
+
+/** Request to delete documents from a knowledge base. */
+export interface DeleteDocumentsRequest {
+  readonly filters?: KnowledgeBaseFilter[];
+}
+
+/** Response from deleting documents. */
+export interface DeleteDocumentsResponse {
+  readonly deleted_count: number;
+}
+
+/** Response from getting a presigned upload URL. */
+export interface GetUploadUrlResponse {
+  readonly url: string;
+  readonly fields: Record<string, unknown>;
+  readonly id: string;
+}
+
+/** Request to register a file after S3 upload. */
+export interface RegisterFileUploadRequest {
+  readonly filename: string;
+  readonly file_id: string;
+  readonly content_type: string;
+  readonly configuration?: TextProcessingConfiguration;
+  readonly metadata?: Record<string, unknown>;
+}
+
+/** Response from registering a file upload. */
+export interface RegisterFileUploadResponse {
+  readonly id: string;
+  readonly key: string;
+  readonly original_filename: string;
+  readonly document_id: number;
+  readonly metadata?: Record<string, unknown>;
+}
+
+/** Response from direct file upload. */
+export interface UploadFileResponse {
+  readonly id: string;
+  readonly key: string;
+  readonly original_filename: string;
+  readonly document_id: number;
+  readonly metadata?: Record<string, unknown>;
+}
+
+/** File information in list responses. */
+export interface ListFilesResponse {
+  readonly id: string;
+  readonly original_filename: string;
+  readonly size: number;
+  readonly status: string;
+  readonly document_id: number;
+  readonly metadata: Record<string, unknown>;
+}

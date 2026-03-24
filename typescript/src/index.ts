@@ -5,6 +5,7 @@
 import { EmbeddingsClient } from "./clients/embeddings.js";
 import { FunctionsClient } from "./clients/functions.js";
 import { GenerationsClient } from "./clients/generations.js";
+import { KnowledgeClient } from "./clients/knowledge.js";
 import { ModelsClient } from "./clients/models.js";
 import { SpansClient } from "./clients/spans.js";
 import { SystemClient } from "./clients/system.js";
@@ -91,6 +92,9 @@ export class Opper {
   /** Client for web tools (fetch, search). */
   readonly web: WebToolsClient;
 
+  /** Client for knowledge base operations (v2 API). */
+  readonly knowledge: KnowledgeClient;
+
   constructor(config?: ClientConfig) {
     const resolved = resolveConfig(config);
 
@@ -101,6 +105,7 @@ export class Opper {
     this.embeddings = new EmbeddingsClient(resolved);
     this.system = new SystemClient(resolved);
     this.web = new WebToolsClient(resolved);
+    this.knowledge = new KnowledgeClient(resolved);
   }
 
   /**
@@ -318,6 +323,7 @@ export { BaseClient } from "./client-base.js";
 export { EmbeddingsClient } from "./clients/embeddings.js";
 export { FunctionsClient } from "./clients/functions.js";
 export { GenerationsClient } from "./clients/generations.js";
+export { KnowledgeClient } from "./clients/knowledge.js";
 export { ModelsClient } from "./clients/models.js";
 export type { ListModelsParams } from "./clients/models.js";
 export { SpansClient } from "./clients/spans.js";
@@ -366,11 +372,18 @@ export { getTraceContext } from "./context.js";
 // ---------------------------------------------------------------------------
 
 export type {
+  AddDocumentRequest,
+  AddDocumentResponse,
   ClientConfig,
   CompleteChunk,
   ContentChunk,
+  CreateKnowledgeBaseRequest,
+  CreateKnowledgeBaseResponse,
   CreateSpanRequest,
   CreateSpanResponse,
+  DeleteDocumentsRequest,
+  DeleteDocumentsResponse,
+  DocumentSegment,
   DoneChunk,
   EmbeddingsDataItem,
   EmbeddingsRequest,
@@ -379,16 +392,28 @@ export type {
   ErrorChunk,
   ErrorDetail,
   ErrorResponse,
+  FilterOp,
   FunctionDetails,
   FunctionInfo,
   FunctionRevision,
+  GetDocumentResponse,
+  GetKnowledgeBaseResponse,
+  GetUploadUrlResponse,
   JsonSchema,
   JsonValue,
+  KnowledgeBaseFilter,
+  KnowledgeBaseInfo,
+  ListFilesResponse,
   ListGenerationsParams,
   ModelInfo,
   ModelsResponse,
+  PaginatedResponse,
+  QueryKnowledgeBaseRequest,
+  QueryKnowledgeBaseResponse,
   RealtimeCreateRequest,
   RealtimeCreateResponse,
+  RegisterFileUploadRequest,
+  RegisterFileUploadResponse,
   RequestOptions,
   ResponseMeta,
   RevisionInfo,
@@ -398,12 +423,14 @@ export type {
   SchemaRunRequest,
   SpanHandle,
   StreamChunk,
+  TextProcessingConfiguration,
   Tool,
   ToolCallDeltaChunk,
   ToolCallStartChunk,
   TracedOptions,
   UpdateFunctionRequest,
   UpdateSpanRequest,
+  UploadFileResponse,
   UsageInfo,
   WebFetchRequest,
   WebFetchResponse,
