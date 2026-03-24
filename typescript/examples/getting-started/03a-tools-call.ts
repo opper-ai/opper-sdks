@@ -5,7 +5,7 @@ import { Opper } from "../../src/index.js";
 
 const opper = new Opper();
 
-const result = await opper.call("sdk-test-tool-use", {
+const result = await opper.call("sdk-test-tool-use1", {
   input: "What is the current weather in Stockholm?",
   model: "anthropic/claude-sonnet-4.6",
   tools: [
