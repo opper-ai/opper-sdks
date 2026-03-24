@@ -1,5 +1,10 @@
 // Knowledge Base — store, index, and query documents using semantic search.
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Opper } from "../../src/index.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const opper = new Opper();
 const KB_NAME = "sdk-example-kb";
@@ -50,6 +55,25 @@ const filtered = await opper.knowledge.query(kb.id, {
 console.log("\n── Filtered query (topic=rust) ──");
 for (const r of filtered) {
   console.log(`  [${r.score.toFixed(3)}] ${r.content.slice(0, 80)}...`);
+}
+
+// ── Upload a file ───────────────────────────────────────────────────────────
+
+const pdfBuffer = readFileSync(resolve(__dirname, "media/sample.pdf"));
+const pdfBlob = new Blob([pdfBuffer], { type: "application/pdf" });
+
+const uploaded = await opper.knowledge.uploadFile(kb.id, pdfBlob, {
+  filename: "sample.pdf",
+  metadata: { source: "file", type: "pdf" },
+});
+console.log("\nUploaded file:", uploaded.original_filename, "→ document", uploaded.document_id);
+
+// ── List files ──────────────────────────────────────────────────────────────
+
+const files = await opper.knowledge.listFiles(kb.id);
+console.log("\nFiles in KB:");
+for (const f of files.data) {
+  console.log(`  ${f.original_filename} (${f.size} bytes, status: ${f.status})`);
 }
 
 // ── Get KB info ─────────────────────────────────────────────────────────────

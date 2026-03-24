@@ -210,6 +210,7 @@ export class KnowledgeClient extends BaseClient {
     knowledgeBaseId: string,
     file: Blob,
     params?: {
+      filename?: string;
       chunkSize?: number;
       chunkOverlap?: number;
       metadata?: Record<string, unknown>;
@@ -217,7 +218,7 @@ export class KnowledgeClient extends BaseClient {
     options?: RequestOptions,
   ): Promise<UploadFileResponse> {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", file, params?.filename);
     if (params?.chunkSize != null) {
       formData.append("text_processing.chunk_size", String(params.chunkSize));
     }
