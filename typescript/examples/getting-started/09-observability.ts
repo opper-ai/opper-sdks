@@ -63,6 +63,8 @@ import * as readline from "node:readline/promises";
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
+const history: { role: string; content: string }[] = [];
+
 await opper.traced("chat-session", async (span) => {
   console.log(`\nChat session started (trace: ${span.traceId})`);
   console.log('Type a message, or "quit" to end.\n');
@@ -71,12 +73,22 @@ await opper.traced("chat-session", async (span) => {
     const userInput = await rl.question("You: ");
     if (userInput.toLowerCase() === "quit") break;
 
-    const reply = await opper.call("sdk-test-summarize", {
-      output_schema: z.object({ summary: z.string() }),
-      input: { text: userInput },
+    history.push({ role: "user", content: userInput });
+
+    const reply = await opper.call("sdk-test-chat", {
+      input_schema: z.object({
+        messages: z.array(z.object({ role: z.string(), content: z.string() }))
+          .describe("Conversation history"),
+      }),
+      output_schema: z.object({
+        reply: z.string().describe("The assistant's response to the conversation"),
+      }),
+      input: { messages: history },
+      model: "anthropic/claude-sonnet-4.6",
     });
 
-    console.log("Assistant:", reply.data.summary, "\n");
+    history.push({ role: "assistant", content: reply.data.reply });
+    console.log("Assistant:", reply.data.reply, "\n");
   }
 });
 

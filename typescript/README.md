@@ -1,6 +1,6 @@
 # Opper TypeScript SDK
 
-TypeScript client for the [Opper](https://opper.ai) API — execute functions, stream results, and build AI agents.
+TypeScript client for the [Opper](https://opper.ai) API.
 
 ## Install
 
@@ -11,155 +11,109 @@ npm install opperai
 ## Quick Start
 
 ```typescript
-import { Opper } from 'opperai';
+import { Opper } from "opperai";
 
-// Uses OPPER_API_KEY and OPPER_BASE_URL env vars
-const client = new Opper();
+const opper = new Opper(); // uses OPPER_API_KEY env var
 
-// Or pass config explicitly
-const client = new Opper({ apiKey: 'op-...', baseUrl: 'https://api.opper.ai' });
-
-// Run a function
-const result = await client.run('my-function', {
-  input_schema: { type: 'object', properties: { question: { type: 'string' } } },
-  output_schema: { type: 'object', properties: { answer: { type: 'string' } } },
-  input: { question: 'What is 2+2?' },
-  model: 'anthropic/claude-sonnet-4-6',
+// Call a function
+const result = await opper.call("summarize", {
+  input_schema: z.object({ text: z.string() }),
+  output_schema: z.object({ summary: z.string() }),
+  input: { text: "Long article..." },
+  model: "anthropic/claude-sonnet-4.6",
 });
-console.log(result.output);
+console.log(result.data.summary); // typed!
 
 // Stream a function
-for await (const chunk of client.stream('my-function', { ... })) {
-  if (chunk.type === 'content') process.stdout.write(chunk.delta);
-  if (chunk.type === 'done') console.log(chunk.usage);
+for await (const chunk of opper.stream("summarize", { ... })) {
+  if (chunk.type === "content") process.stdout.write(chunk.delta);
+  if (chunk.type === "complete") console.log(chunk.data.summary);
 }
 ```
 
-## Configuration
+## Schema Support
 
-| Parameter | Type | Default | Env Var |
-|---|---|---|---|
-| `apiKey` | string | — | `OPPER_API_KEY` |
-| `baseUrl` | string | `https://api.opper.ai` | `OPPER_BASE_URL` |
-| `headers` | `Record<string, string>` | `{}` | — |
-
-If `apiKey` is not provided, the client reads from `OPPER_API_KEY`. If neither is set, construction throws.
-
-## Client API
-
-### Top-Level Convenience
-
-| Method | Description |
-|---|---|
-| `client.run(name, request)` | Execute a function (shortcut for `client.functions.runFunction`) |
-| `client.stream(name, request)` | Stream a function execution (shortcut for `client.functions.streamFunction`) |
-
-### `client.functions` — Function Management & Execution
-
-| Method | HTTP | Description |
-|---|---|---|
-| `runFunction(name, body)` | `POST /v3/functions/{name}/run` | Execute a function |
-| `streamFunction(name, body)` | `POST /v3/functions/{name}/stream` | Stream execution (SSE → `AsyncGenerator<StreamChunk>`) |
-| `listFunctions()` | `GET /v3/functions` | List functions |
-| `getFunction(name)` | `GET /v3/functions/{name}` | Get function details |
-| `updateFunction(name, body)` | `PUT /v3/functions/{name}` | Update function source |
-| `deleteFunction(name)` | `DELETE /v3/functions/{name}` | Delete function |
-| `createRealtimeFunction(name, body)` | `POST /v3/functions/{name}/realtime` | Create voice agent |
-| `listRevisions(name)` | `GET /v3/functions/{name}/revisions` | List revisions |
-| `getRevision(name, id)` | `GET /v3/functions/{name}/revisions/{id}` | Get revision |
-| `revertRevision(name, id)` | `POST /v3/functions/{name}/revisions/{id}/revert` | Revert to revision |
-| `createExample(name, body)` | `POST /v3/functions/{name}/examples` | Create example |
-| `createExamplesBatch(name, body)` | `POST /v3/functions/{name}/examples/batch` | Batch create examples |
-| `listExamples(name, params?)` | `GET /v3/functions/{name}/examples` | List examples |
-| `deleteExample(name, uuid)` | `DELETE /v3/functions/{name}/examples/{uuid}` | Delete example |
-| `getRealtimeWebSocketUrl(name)` | — | Get WebSocket URL |
-
-### `client.spans` — Observability
-
-| Method | HTTP | Description |
-|---|---|---|
-| `create(body)` | `POST /v3/spans` | Create a trace span |
-| `update(id, body)` | `PATCH /v3/spans/{id}` | Update a span |
-
-### `client.generations` — Generation Records
-
-| Method | HTTP | Description |
-|---|---|---|
-| `listGenerations(params?)` | `GET /v3/generations` | List generations |
-| `getGeneration(id)` | `GET /v3/generations/{id}` | Get generation |
-| `deleteGeneration(id)` | `DELETE /v3/generations/{id}` | Delete generation |
-
-### `client.embeddings` — OpenAI-compatible Embeddings
-
-| Method | HTTP | Description |
-|---|---|---|
-| `createEmbedding(body)` | `POST /v3/compat/embeddings` | Create embeddings |
-
-### `client.models` — Available Models (no auth)
-
-| Method | HTTP | Description |
-|---|---|---|
-| `listModels()` | `GET /v3/models` | List available models |
-
-### `client.system` — Health (no auth)
-
-| Method | HTTP | Description |
-|---|---|---|
-| `healthCheck()` | `GET /health` | Health check |
-
-## Streaming
-
-The `streamFunction` method returns `AsyncGenerator<StreamChunk>`. Each chunk has a `type` field:
-
-| Type | Key Fields | Description |
-|---|---|---|
-| `content` | `delta` | Incremental text |
-| `tool_call_start` | `tool_call_id`, `tool_call_name`, `tool_call_index` | New tool call |
-| `tool_call_delta` | `tool_call_index`, `tool_call_args` | Tool call argument fragment |
-| `done` | `usage` | Stream complete with usage metadata |
-| `error` | `error` | Server-side error |
-
-## Error Handling
+Pass [Zod](https://zod.dev) schemas (or any Standard Schema) for `input_schema`, `output_schema`, and tool `parameters` — the SDK resolves them to JSON Schema automatically and infers the response type.
 
 ```typescript
-import { Opper, ApiError } from 'opperai';
+import { z } from "zod";
 
-try {
-  await client.run('missing-fn', { ... });
-} catch (e) {
-  if (e instanceof ApiError) {
-    console.error(e.status, e.statusText, e.body);
-  }
-}
+const result = await opper.call("extract", {
+  output_schema: z.object({
+    people: z.array(z.object({ name: z.string(), role: z.string().optional() })),
+  }),
+  input: { text: "Marie Curie was a physicist in Paris." },
+});
+result.data.people; // { name: string; role?: string }[] — inferred!
+```
+
+Raw JSON Schema and the `jsonSchema<T>()` helper also work. See [`01a-using-schemas.ts`](./examples/getting-started/01a-using-schemas.ts) and [`01b-using-other-schemas.ts`](./examples/getting-started/01b-using-other-schemas.ts).
+
+## Observability
+
+Wrap any block in `traced()` to group calls under a single trace span. Nesting works naturally.
+
+```typescript
+await opper.traced("my-pipeline", async () => {
+  const a = await opper.call("step-1", { ... });
+  const b = await opper.call("step-2", { input: a.data });
+});
 ```
 
 ## Examples
 
-See [`examples/getting-started/`](./examples/getting-started/) for working examples.
+| # | Example | What it shows |
+|---|---|---|
+| 00 | [First call](./examples/getting-started/00-your-first-call.ts) | Simplest possible call |
+| 01a | [Zod schemas](./examples/getting-started/01a-using-schemas.ts) | Type-safe input/output with Zod |
+| 01b | [Other schemas](./examples/getting-started/01b-using-other-schemas.ts) | jsonSchema helper, raw JSON Schema, generics |
+| 02 | [Streaming](./examples/getting-started/02-stream.ts) | Stream deltas + complete event |
+| 03a | [Tools (call)](./examples/getting-started/03a-tools-call.ts) | Tool definitions with call() |
+| 03b | [Tools (stream)](./examples/getting-started/03b-tools-stream.ts) | Tool call chunks in streaming |
+| 04a | [Generate image](./examples/getting-started/04a-generate-image.ts) | Image generation |
+| 04b | [Describe image](./examples/getting-started/04b-describe-image.ts) | Vision / image description |
+| 04c | [Edit image](./examples/getting-started/04c-edit-image.ts) | Image editing |
+| 05 | [Audio](./examples/getting-started/05-audio.ts) | Text-to-speech + speech-to-text |
+| 06 | [Video](./examples/getting-started/06-video.ts) | Video generation |
+| 07 | [Embeddings](./examples/getting-started/07-embeddings.ts) | Vector embeddings + similarity |
+| 08 | [Function mgmt](./examples/getting-started/08-function-management.ts) | List, get, revisions, delete |
+| 09 | [Observability](./examples/getting-started/09-observability.ts) | Tracing, nested spans, sessions |
+| 10 | [Models](./examples/getting-started/10-models.ts) | List available models |
+| 11 | [Realtime](./examples/getting-started/11-real-time.ts) | WebSocket URL for voice agents |
 
-Run all examples as a sanity check:
+Run all examples:
 
 ```bash
 export OPPER_API_KEY="your-key"
 npm run examples
 ```
 
-## Requirements
+## Configuration
 
-- Node.js 18+ (native `fetch`)
-- TypeScript 5.0+
+| Parameter | Default | Env Var |
+|---|---|---|
+| `apiKey` | — | `OPPER_API_KEY` |
+| `baseUrl` | `https://api.opper.ai` | `OPPER_BASE_URL` |
+| `headers` | `{}` | — |
 
-## Development
+## Error Handling
 
-```bash
-npm test        # Run tests
-npm run lint    # Lint with Biome
-npm run format  # Format with Biome
-npm run build   # Compile TypeScript
-npm run examples # Run all examples against live API
+```typescript
+import { ApiError } from "opperai";
+
+try {
+  await opper.call("my-fn", { input: "hello" });
+} catch (e) {
+  if (e instanceof ApiError) {
+    console.error(e.status, e.body);
+  }
+}
 ```
 
-See [PLAN.md](./PLAN.md) for development status.
+## Requirements
+
+- Node.js 18+
+- TypeScript 5.0+
 
 ## License
 
