@@ -7,8 +7,18 @@ const opper = new Opper();
 
 console.log("Streaming with tools:");
 
-for await (const chunk of opper.stream("sdk-test-tool-use", {
-  input: "What is the current weather in Stockholm?",
+for await (const chunk of opper.stream("sdk-test-tool-use-stream", {
+  input_schema: z.object({
+    question: z.string().describe("The user's question"),
+  }),
+  output_schema: z.object({
+    answer: z.string().optional().describe("The assistant's text response"),
+    tool_calls: z.array(z.object({
+      name: z.string(),
+      arguments: z.record(z.string(), z.unknown()),
+    })).optional().describe("Tool calls requested by the model"),
+  }),
+  input: { question: "What is the current weather in Stockholm?" },
   model: "anthropic/claude-sonnet-4.6",
   tools: [
     {
@@ -35,8 +45,7 @@ for await (const chunk of opper.stream("sdk-test-tool-use", {
       console.log("\n[done]", chunk.usage);
       break;
     case "complete":
-      console.log("[complete] data:", chunk.data);
-      console.log("[complete] meta:", chunk.meta);
+      console.log("[complete] data:", JSON.stringify(chunk.data, null, 2));
       break;
     case "error":
       console.error("[error]", chunk.error);
