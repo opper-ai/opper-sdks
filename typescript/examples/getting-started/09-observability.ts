@@ -58,22 +58,49 @@ await opper.traced(
 // ── Session tracing ─────────────────────────────────────────────────────────
 // A single traced() call groups multiple interactions under one trace.
 // Great for chat sessions, multi-turn conversations, or iterative workflows.
+// When run interactively (with a TTY), this starts an interactive chat.
 
-import * as readline from "node:readline/promises";
+const isInteractive = process.stdin.isTTY;
 
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+if (isInteractive) {
+  const readline = await import("node:readline/promises");
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-const history: { role: string; content: string }[] = [];
+  const history: { role: string; content: string }[] = [];
 
-await opper.traced("chat-session", async (span) => {
-  console.log(`\nChat session started (trace: ${span.traceId})`);
-  console.log('Type a message, or "quit" to end.\n');
+  await opper.traced("chat-session", async (span) => {
+    console.log(`\nChat session started (trace: ${span.traceId})`);
+    console.log('Type a message, or "quit" to end.\n');
 
-  while (true) {
-    const userInput = await rl.question("You: ");
-    if (userInput.toLowerCase() === "quit") break;
+    while (true) {
+      const userInput = await rl.question("You: ");
+      if (userInput.toLowerCase() === "quit") break;
 
-    history.push({ role: "user", content: userInput });
+      history.push({ role: "user", content: userInput });
+
+      const reply = await opper.call("sdk-test-chat", {
+        input_schema: z.object({
+          messages: z.array(z.object({ role: z.string(), content: z.string() }))
+            .describe("Conversation history"),
+        }),
+        output_schema: z.object({
+          reply: z.string().describe("The assistant's response to the conversation"),
+        }),
+        input: { messages: history },
+        model: "anthropic/claude-sonnet-4.6",
+      });
+
+      history.push({ role: "assistant", content: reply.data.reply });
+      console.log("Assistant:", reply.data.reply, "\n");
+    }
+  });
+
+  rl.close();
+  console.log("Session ended — all calls are grouped under the same trace.");
+} else {
+  // Non-interactive: just demonstrate session tracing with a single turn
+  await opper.traced("chat-session", async (span) => {
+    console.log(`\nChat session trace: ${span.traceId}`);
 
     const reply = await opper.call("sdk-test-chat", {
       input_schema: z.object({
@@ -83,17 +110,12 @@ await opper.traced("chat-session", async (span) => {
       output_schema: z.object({
         reply: z.string().describe("The assistant's response to the conversation"),
       }),
-      input: { messages: history },
-      model: "anthropic/claude-sonnet-4.6",
+      input: { messages: [{ role: "user", content: "Hi, my name is Alice" }] },
     });
 
-    history.push({ role: "assistant", content: reply.data.reply });
-    console.log("Assistant:", reply.data.reply, "\n");
-  }
-});
-
-rl.close();
-console.log("Session ended — all calls are grouped under the same trace.");
+    console.log("Assistant:", reply.data.reply);
+  });
+}
 
 // ── Generations ──────────────────────────────────────────────────────────────
 const generations = await opper.generations.listGenerations({ page: 1, page_size: 3 });

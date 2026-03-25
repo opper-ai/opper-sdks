@@ -84,7 +84,8 @@ export type SchemaLike = JsonSchema | import("./schema.js").StandardSchemaV1;
 export interface Tool {
   readonly name: string;
   readonly description?: string;
-  readonly parameters: SchemaLike;
+  readonly parameters?: SchemaLike;
+  readonly type?: string;
 }
 
 /** Token usage information. */
@@ -395,6 +396,8 @@ export interface ModelInfo {
   readonly capabilities?: Record<string, unknown>;
   readonly pricing?: Record<string, unknown>;
   readonly parameters?: Record<string, unknown>;
+  /** Date when this model will be or was retired. */
+  readonly retired_at?: string;
 }
 
 /** Response containing list of models. */
@@ -601,4 +604,85 @@ export interface ListFilesResponse {
   readonly status: string;
   readonly document_id: number;
   readonly metadata: Record<string, unknown>;
+}
+
+// ---------------------------------------------------------------------------
+// Trace Types
+// ---------------------------------------------------------------------------
+
+/** Query parameters for listing traces. */
+export interface ListTracesParams {
+  /** Max items to return (default 100, max 100). */
+  readonly limit?: number;
+  /** Number of items to skip (default 0). */
+  readonly offset?: number;
+  /** Filter by trace name (case-insensitive substring match). */
+  readonly name?: string;
+}
+
+/** A trace item in list responses. */
+export interface ListTracesItem {
+  readonly id: string;
+  readonly name?: string;
+  readonly span_count: number;
+  readonly start_time?: string;
+  readonly end_time?: string;
+  readonly duration_ms?: number;
+  readonly status?: string;
+}
+
+/** Response from listing traces. */
+export interface ListTracesResponse {
+  readonly data: ListTracesItem[];
+  readonly meta: { readonly total_count: number };
+}
+
+/** Span details within a trace. */
+export interface TraceSpan {
+  readonly id: string;
+  readonly trace_id: string;
+  readonly name: string;
+  readonly parent_id?: string;
+  readonly type?: string;
+  readonly input?: unknown;
+  readonly output?: unknown;
+  readonly error?: string;
+  readonly start_time?: string;
+  readonly end_time?: string;
+  readonly created_at?: string;
+  readonly status?: string;
+  readonly meta?: Record<string, unknown>;
+  readonly metadata?: Record<string, unknown>;
+  readonly tags?: Record<string, unknown>;
+}
+
+/** Response from getting a single trace with all its spans. */
+export interface GetTraceResponse {
+  readonly id: string;
+  readonly name?: string;
+  readonly span_count: number;
+  readonly spans: TraceSpan[];
+  readonly start_time?: string;
+  readonly end_time?: string;
+  readonly duration_ms?: number;
+  readonly status?: string;
+}
+
+/** Response from getting a single span. */
+export interface GetSpanResponse {
+  readonly id: string;
+  readonly trace_id: string;
+  readonly name: string;
+  readonly parent_id?: string;
+  readonly type?: string;
+  readonly input?: unknown;
+  readonly output?: unknown;
+  readonly error?: string;
+  readonly start_time?: string;
+  readonly end_time?: string;
+  readonly created_at?: string;
+  readonly status?: string;
+  readonly meta?: Record<string, unknown>;
+  readonly metadata?: Record<string, unknown>;
+  readonly tags?: Record<string, unknown>;
 }

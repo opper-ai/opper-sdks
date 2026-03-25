@@ -1,68 +1,53 @@
 #!/usr/bin/env bash
 #
-# Download the OpenAPI spec from the opper-ai/opper CI artifacts.
+# Download the OpenAPI spec from the Opper API server.
 #
 # Usage:
-#   ./scripts/pull-openapi.sh              # Latest from main
-#   ./scripts/pull-openapi.sh --run-id 123 # Specific CI run
+#   ./scripts/pull-openapi.sh                        # From production API
+#   ./scripts/pull-openapi.sh --url https://custom    # From custom URL
 #
 set -euo pipefail
 
-REPO="opper-ai/opper"
-ARTIFACT="openapi-spec"
+BASE_URL="${OPPER_BASE_URL:-https://api.opper.ai}"
 OUTPUT="openapi.yaml"
 OLD_BACKUP=""
-RUN_ID=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --run-id)
-      RUN_ID="$2"
+    --url)
+      BASE_URL="$2"
       shift 2
       ;;
     *)
-      echo "Usage: $0 [--run-id <id>]" >&2
+      echo "Usage: $0 [--url <base-url>]" >&2
       exit 1
       ;;
   esac
 done
 
-# Check for gh CLI
-if ! command -v gh &>/dev/null; then
-  echo "Error: gh CLI is required. Install from https://cli.github.com" >&2
-  exit 1
-fi
+SPEC_URL="${BASE_URL}/v3/openapi.yaml"
 
 # Back up existing spec for diffing
 if [[ -f "$OUTPUT" ]]; then
   OLD_BACKUP=$(mktemp)
   cp "$OUTPUT" "$OLD_BACKUP"
-  rm "$OUTPUT"
 fi
 
-# Download artifact
-echo "Downloading OpenAPI spec from $REPO..."
-if [[ -n "$RUN_ID" ]]; then
-  gh run download "$RUN_ID" -n "$ARTIFACT" -R "$REPO"
-else
-  gh run download -n "$ARTIFACT" -R "$REPO"
-fi
-
-# Validate the file exists
-if [[ ! -f "$OUTPUT" ]]; then
-  echo "Error: $OUTPUT not found after download" >&2
+# Download spec
+echo "Downloading OpenAPI spec from ${SPEC_URL}..."
+if ! curl -fsSL "$SPEC_URL" -o "$OUTPUT"; then
+  echo "Error: Failed to download spec from $SPEC_URL" >&2
+  # Restore backup if download failed
+  if [[ -n "$OLD_BACKUP" ]] && [[ -f "$OLD_BACKUP" ]]; then
+    mv "$OLD_BACKUP" "$OUTPUT"
+  fi
   exit 1
 fi
 
-# Validate it's parseable YAML (use python since it's widely available)
-if command -v python3 &>/dev/null; then
-  python3 -c "import yaml, sys; yaml.safe_load(open('$OUTPUT'))" 2>/dev/null || {
-    echo "Warning: Could not validate YAML (pyyaml not installed), checking basic structure..." >&2
-    head -1 "$OUTPUT" | grep -q "openapi" || {
-      echo "Error: $OUTPUT does not look like a valid OpenAPI spec" >&2
-      exit 1
-    }
-  }
+# Validate the file exists and is non-empty
+if [[ ! -s "$OUTPUT" ]]; then
+  echo "Error: Downloaded file is empty" >&2
+  exit 1
 fi
 
 # Print summary

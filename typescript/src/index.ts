@@ -9,6 +9,7 @@ import { KnowledgeClient } from "./clients/knowledge.js";
 import { ModelsClient } from "./clients/models.js";
 import { SpansClient } from "./clients/spans.js";
 import { SystemClient } from "./clients/system.js";
+import { TracesClient } from "./clients/traces.js";
 import { WebToolsClient } from "./clients/web-tools.js";
 import { getTraceContext, runWithTraceContext } from "./context.js";
 import {
@@ -109,6 +110,9 @@ export class Opper {
   /** Client for system health checks. */
   readonly system: SystemClient;
 
+  /** Client for trace operations. */
+  readonly traces: TracesClient;
+
   /** Beta API endpoints — these may change. */
   readonly beta: { readonly web: WebToolsClient };
 
@@ -124,6 +128,7 @@ export class Opper {
     this.models = new ModelsClient(resolved);
     this.embeddings = new EmbeddingsClient(resolved);
     this.system = new SystemClient(resolved);
+    this.traces = new TracesClient(resolved);
     this.beta = { web: new WebToolsClient(resolved) };
     this.knowledge = new KnowledgeClient(resolved);
   }
@@ -468,11 +473,13 @@ export class Opper {
     const tools = request.tools;
     if (tools != null) {
       wire.tools = await Promise.all(
-        tools.map(async (tool) => ({
-          name: tool.name,
-          description: tool.description,
-          parameters: await resolveSchema(tool.parameters),
-        })),
+        tools.map(async (tool) => {
+          const resolved: Record<string, unknown> = { name: tool.name };
+          if (tool.description) resolved.description = tool.description;
+          if (tool.parameters != null) resolved.parameters = await resolveSchema(tool.parameters);
+          if (tool.type) resolved.type = tool.type;
+          return resolved;
+        }),
       );
     }
 
@@ -508,6 +515,7 @@ export { ModelsClient } from "./clients/models.js";
 export type { ListModelsParams } from "./clients/models.js";
 export { SpansClient } from "./clients/spans.js";
 export { SystemClient } from "./clients/system.js";
+export { TracesClient } from "./clients/traces.js";
 export { WebToolsClient } from "./clients/web-tools.js";
 
 // ---------------------------------------------------------------------------
@@ -578,6 +586,8 @@ export type {
   FunctionRevision,
   GetDocumentResponse,
   GetKnowledgeBaseResponse,
+  GetSpanResponse,
+  GetTraceResponse,
   GetUploadUrlResponse,
   JsonSchema,
   JsonValue,
@@ -585,6 +595,9 @@ export type {
   KnowledgeBaseInfo,
   ListFilesResponse,
   ListGenerationsParams,
+  ListTracesItem,
+  ListTracesParams,
+  ListTracesResponse,
   ModelInfo,
   ModelsResponse,
   PaginatedResponse,
@@ -607,6 +620,7 @@ export type {
   Tool,
   ToolCallDeltaChunk,
   ToolCallStartChunk,
+  TraceSpan,
   TracedOptions,
   UpdateFunctionRequest,
   UpdateSpanRequest,

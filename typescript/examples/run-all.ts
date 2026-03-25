@@ -3,7 +3,8 @@
 // Example Runner — runs all getting-started examples and reports results
 //
 // Usage:
-//   npx tsx examples/run-all.ts
+//   npx tsx examples/run-all.ts          # skip slow examples
+//   npx tsx examples/run-all.ts --all    # include slow examples (video, realtime)
 //   npm run examples
 //
 // Requires OPPER_API_KEY to be set.
@@ -22,8 +23,13 @@ if (!process.env.OPPER_API_KEY) {
   process.exit(1);
 }
 
+const runAll = process.argv.includes("--all");
+
+// Slow examples that are skipped by default (video generation, websocket realtime)
+const SLOW_EXAMPLES = new Set(["06-video", "11-real-time"]);
+
 const files = readdirSync(examplesDir)
-  .filter((f) => f.endsWith(".ts") && /^\d\d-/.test(f))
+  .filter((f) => f.endsWith(".ts") && /^\d\d[a-z]?-/.test(f))
   .sort();
 
 console.log(`Running ${files.length} examples...\n`);
@@ -33,6 +39,12 @@ const results: { name: string; passed: boolean; error?: string; durationMs: numb
 for (const file of files) {
   const name = file.replace(/\.ts$/, "");
   const filePath = resolve(examplesDir, file);
+
+  if (!runAll && SLOW_EXAMPLES.has(name)) {
+    console.log(`  ${name} ... \x1b[33mSKIP\x1b[0m (slow, use --all to include)`);
+    continue;
+  }
+
   const start = Date.now();
 
   process.stdout.write(`  ${name} ... `);
