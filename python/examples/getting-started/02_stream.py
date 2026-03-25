@@ -24,8 +24,10 @@ for chunk in opper.stream(
             print()
             print("Usage:", chunk.usage)
         case "complete":
+            # The "complete" event gives you the fully parsed output in one shot,
+            # so you don't need to accumulate the content deltas yourself.
             print("\n── Accumulated output (from complete event) ──")
-            print("Output:", chunk.data)
+            print("Explanation:", chunk.data.get("explanation"))
             print("Meta:", chunk.meta)
         case "error":
             print("Stream error:", chunk.error, file=sys.stderr)
