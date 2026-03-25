@@ -11,6 +11,26 @@ import { SpansClient } from "./clients/spans.js";
 import { SystemClient } from "./clients/system.js";
 import { WebToolsClient } from "./clients/web-tools.js";
 import { getTraceContext, runWithTraceContext } from "./context.js";
+import {
+  buildGenerateImageRequest,
+  buildGenerateVideoRequest,
+  buildSpeechToTextRequest,
+  buildTextToSpeechRequest,
+  mediaResponse,
+  resolveMediaArgs,
+  saveMedia,
+} from "./media.js";
+import type {
+  GenerateImageOptions,
+  GenerateVideoOptions,
+  GeneratedImage,
+  GeneratedSpeech,
+  GeneratedVideo,
+  MediaResponse,
+  SpeechToTextOptions,
+  TextToSpeechOptions,
+  Transcription,
+} from "./media.js";
 import type { InferOutput, StandardSchemaV1 } from "./schema.js";
 import { isStandardSchema, resolveSchema, toJsonSchema } from "./schema.js";
 import type {
@@ -266,6 +286,166 @@ export class Opper {
     return result;
   }
 
+  // -------------------------------------------------------------------------
+  // Media Convenience Methods
+  // -------------------------------------------------------------------------
+
+  /**
+   * Generate an image from a text prompt.
+   *
+   * @example
+   * ```typescript
+   * // Generate from scratch
+   * const result = await opper.generateImage({ prompt: "A sunset over a calm ocean" });
+   * writeFileSync("sunset.png", Buffer.from(result.data.image, "base64"));
+   *
+   * // With a reference image
+   * const result = await opper.generateImage("edit-photo", {
+   *   prompt: "Add sunglasses and a party hat",
+   *   reference_image: { path: "./cat.png" },
+   * });
+   *
+   * // With explicit function name and options
+   * const result = await opper.generateImage("hero-image", {
+   *   prompt: "Product photo on white background",
+   *   model: "openai/dall-e-3",
+   *   size: "1792x1024",
+   *   quality: "hd",
+   * });
+   * ```
+   */
+  async generateImage(
+    options: GenerateImageOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedImage>>;
+  async generateImage(
+    name: string,
+    options: GenerateImageOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedImage>>;
+  async generateImage(
+    nameOrOptions: string | GenerateImageOptions,
+    optionsOrRequestOptions?: GenerateImageOptions | RequestOptions,
+    maybeRequestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedImage>> {
+    const [name, opts, reqOpts] = resolveMediaArgs<GenerateImageOptions>(
+      "image-gen",
+      nameOrOptions,
+      optionsOrRequestOptions,
+      maybeRequestOptions,
+    );
+    const result = await this.call<GeneratedImage>(name, buildGenerateImageRequest(opts), reqOpts);
+    return mediaResponse(result, "image", "mime_type");
+  }
+
+  /**
+   * Generate a video from a text prompt.
+   *
+   * @example
+   * ```typescript
+   * const result = await opper.generateVideo({
+   *   prompt: "A cat walking down a city street, cinematic",
+   *   model: "openai/sora-2",
+   *   aspect_ratio: "16:9",
+   * });
+   * result.save("./cat"); // → "./cat.mp4"
+   * ```
+   */
+  async generateVideo(
+    options: GenerateVideoOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedVideo>>;
+  async generateVideo(
+    name: string,
+    options: GenerateVideoOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedVideo>>;
+  async generateVideo(
+    nameOrOptions: string | GenerateVideoOptions,
+    optionsOrRequestOptions?: GenerateVideoOptions | RequestOptions,
+    maybeRequestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedVideo>> {
+    const [name, opts, reqOpts] = resolveMediaArgs<GenerateVideoOptions>(
+      "video-gen",
+      nameOrOptions,
+      optionsOrRequestOptions,
+      maybeRequestOptions,
+    );
+    const result = await this.call<GeneratedVideo>(name, buildGenerateVideoRequest(opts), reqOpts);
+    return mediaResponse(result, "video", "mime_type");
+  }
+
+  /**
+   * Convert text to speech audio.
+   *
+   * @example
+   * ```typescript
+   * const result = await opper.textToSpeech({
+   *   text: "Hello! Welcome to our platform.",
+   *   voice: "alloy",
+   * });
+   * result.save("./welcome.mp3");
+   * ```
+   */
+  async textToSpeech(
+    options: TextToSpeechOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedSpeech>>;
+  async textToSpeech(
+    name: string,
+    options: TextToSpeechOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedSpeech>>;
+  async textToSpeech(
+    nameOrOptions: string | TextToSpeechOptions,
+    optionsOrRequestOptions?: TextToSpeechOptions | RequestOptions,
+    maybeRequestOptions?: RequestOptions,
+  ): Promise<MediaResponse<GeneratedSpeech>> {
+    const [name, opts, reqOpts] = resolveMediaArgs<TextToSpeechOptions>(
+      "tts",
+      nameOrOptions,
+      optionsOrRequestOptions,
+      maybeRequestOptions,
+    );
+    const result = await this.call<GeneratedSpeech>(name, buildTextToSpeechRequest(opts), reqOpts);
+    return mediaResponse(result, "audio");
+  }
+
+  /**
+   * Transcribe audio to text.
+   *
+   * @example
+   * ```typescript
+   * const result = await opper.transcribe({
+   *   audio: { path: "./meeting.mp3" },
+   *   language: "en",
+   * });
+   * console.log(result.data.text, result.data.language);
+   * ```
+   */
+  async transcribe(
+    options: SpeechToTextOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<RunResponse<Transcription>>;
+  async transcribe(
+    name: string,
+    options: SpeechToTextOptions,
+    requestOptions?: RequestOptions,
+  ): Promise<RunResponse<Transcription>>;
+  async transcribe(
+    nameOrOptions: string | SpeechToTextOptions,
+    optionsOrRequestOptions?: SpeechToTextOptions | RequestOptions,
+    maybeRequestOptions?: RequestOptions,
+  ): Promise<RunResponse<Transcription>> {
+    const [name, opts, reqOpts] = resolveMediaArgs<SpeechToTextOptions>(
+      "stt",
+      nameOrOptions,
+      optionsOrRequestOptions,
+      maybeRequestOptions,
+    );
+    return this.call<Transcription>(name, buildSpeechToTextRequest(opts), reqOpts);
+  }
+
   /** Resolve any Standard Schema fields (output_schema, input_schema, tools) to plain JSON Schema. */
   private async resolveRequest(request: RunRequest | SchemaRunRequest): Promise<RunRequest> {
     const wire: Record<string, unknown> = {};
@@ -440,3 +620,22 @@ export type {
 } from "./types.js";
 
 export { ApiError } from "./types.js";
+
+// ---------------------------------------------------------------------------
+// Re-exports: Media types
+// ---------------------------------------------------------------------------
+
+export { saveMedia } from "./media.js";
+export type {
+  GenerateImageOptions,
+  GenerateVideoOptions,
+  GeneratedImage,
+  GeneratedSpeech,
+  GeneratedVideo,
+  MediaBaseOptions,
+  MediaInput,
+  MediaResponse,
+  SpeechToTextOptions,
+  TextToSpeechOptions,
+  Transcription,
+} from "./media.js";

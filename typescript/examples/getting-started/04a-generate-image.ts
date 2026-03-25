@@ -1,12 +1,35 @@
-// Image generation via the image_gen builtin
+// Image generation via the image_gen builtin.
 // The platform routes to image_gen() when the schemas indicate image output.
 import { writeFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { Opper } from "../../src/index.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const opper = new Opper();
 
-const result = await opper.call("sdk-test-generate-image", {
+// ── Option 1: Convenience method ────────────────────────────────────────────
+
+const easy = await opper.generateImage("sdk-test-generate-image", {
+  prompt: "A sunset over a calm ocean with two sailboats",
+  // model: "pruna/p-image",   // specify any model here
+  // size: "1024x1024",        // request a specific size
+  // mime_type: "image/webp",  // request a specific format
+});
+
+console.log("── Convenience method ──");
+console.log("MIME type:", easy.data.mime_type);
+console.log("Image base64 length:", easy.data.image.length);
+console.log("Meta:", easy.meta);
+
+// Save to file — extension auto-appended from mime_type
+const easyPath = easy.save(resolve(__dirname, "media/generated-image"));
+console.log(`Saved to ${easyPath}`);
+
+// ── Option 2: Raw call() with explicit schemas ─────────────────────────────
+
+const raw = await opper.call("sdk-test-generate-image-raw", {
   input_schema: z.object({
     description: z.string().describe("Text description of the image to generate"),
   }),
@@ -17,16 +40,14 @@ const result = await opper.call("sdk-test-generate-image", {
   input: {
     description: "A sunset over a calm ocean with two sailboats",
   },
-  // model: "pruna/p-image", specify any model here
+  // model: "pruna/p-image",
 });
 
+console.log("\n── Raw call() ──");
+console.log("MIME type:", raw.data.mime_type);
+console.log("Image base64 length:", raw.data.image.length);
 
-console.log("MIME type:", result.data.mime_type);
-console.log("Image base64 length:", result.data.image.length);
-console.log("Meta:", result.meta);
-
-// Save to file for preview
-const ext = result.data.mime_type.split("/")[1] || "png";
-const outPath = `generated-image.${ext}`;
-writeFileSync(outPath, Buffer.from(result.data.image, "base64"));
-console.log(`Saved to ${outPath} — open it to preview!`);
+const ext = raw.data.mime_type.split("/")[1] || "png";
+const rawPath = resolve(__dirname, `media/generated-image-raw.${ext}`);
+writeFileSync(rawPath, Buffer.from(raw.data.image, "base64"));
+console.log(`Saved to ${rawPath}`);

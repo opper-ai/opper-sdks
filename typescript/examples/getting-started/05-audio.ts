@@ -8,12 +8,36 @@ import { z } from "zod";
 import { Opper } from "../../src/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
 const opper = new Opper();
 
-// ── Part 1: Text-to-Speech ─────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Option 1: Convenience methods
+// ══════════════════════════════════════════════════════════════════════════════
 
-const ttsResult = await opper.call("sdk-test-tts", {
+const easyTts = await opper.textToSpeech("sdk-test-tts", {
+  text: "Hello! This is a test of the Opper text-to-speech API. Pretty cool, right?",
+  // voice: "alloy",
+});
+
+console.log("── TTS (convenience) ──");
+console.log("Audio base64 length:", easyTts.data.audio.length);
+
+const ttsPath = easyTts.save(resolve(__dirname, "media/generated-speech.mp3"));
+console.log(`Saved to ${ttsPath}`);
+
+const easyStt = await opper.transcribe("sdk-test-stt", {
+  audio: easyTts.data.audio,
+});
+
+console.log("\n── STT (convenience) ──");
+console.log("Transcription:", easyStt.data.text);
+console.log("Language:", easyStt.data.language);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Option 2: Raw call() with explicit schemas
+// ══════════════════════════════════════════════════════════════════════════════
+
+const rawTts = await opper.call("sdk-test-tts-raw", {
   input_schema: z.object({
     text: z.string().describe("Text to convert to speech"),
   }),
@@ -25,17 +49,14 @@ const ttsResult = await opper.call("sdk-test-tts", {
   },
 });
 
-console.log("── Text-to-Speech ──");
-console.log("Audio base64 length:", ttsResult.data.audio.length);
+console.log("\n── TTS (raw call) ──");
+console.log("Audio base64 length:", rawTts.data.audio.length);
 
-// Save to file for playback
-const outPath = resolve(__dirname, "media/generated-speech.mp3");
-writeFileSync(outPath, Buffer.from(ttsResult.data.audio, "base64"));
-console.log(`Saved to ${outPath} — open it to listen!`);
+const rawTtsPath = resolve(__dirname, "media/generated-speech-raw.mp3");
+writeFileSync(rawTtsPath, Buffer.from(rawTts.data.audio, "base64"));
+console.log(`Saved to ${rawTtsPath}`);
 
-// ── Part 2: Speech-to-Text (transcribe the audio we just generated) ────────
-
-const sttResult = await opper.call("sdk-test-stt", {
+const rawStt = await opper.call("sdk-test-stt-raw", {
   input_schema: z.object({
     audio: z.string().describe("Base64-encoded audio to transcribe"),
   }),
@@ -44,10 +65,10 @@ const sttResult = await opper.call("sdk-test-stt", {
     language: z.string().describe("Detected language code"),
   }),
   input: {
-    audio: ttsResult.data.audio,
+    audio: rawTts.data.audio,
   },
 });
 
-console.log("\n── Speech-to-Text ──");
-console.log("Transcription:", sttResult.data.text);
-console.log("Language:", sttResult.data.language);
+console.log("\n── STT (raw call) ──");
+console.log("Transcription:", rawStt.data.text);
+console.log("Language:", rawStt.data.language);
