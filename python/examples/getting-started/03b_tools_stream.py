@@ -11,6 +11,7 @@ print("Streaming with tools:")
 for chunk in opper.stream(
     "sdk-test-tool-use-stream",
     input={"question": "What is the current weather in Stockholm?"},
+    input_schema={"type": "object", "properties": {"question": {"type": "string"}}},
     output_schema={
         "type": "object",
         "properties": {
