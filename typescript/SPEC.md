@@ -1,8 +1,10 @@
-# Opper Agent SDK v2 — Specification
+# Opper SDK — TypeScript Specification
 
 > **Status:** Draft
-> **Date:** 2026-03-09
-> **Scope:** TypeScript/Node.js SDK for the Opper Task API, with an agent-first high-level layer
+> **Date:** 2026-03-25
+> **Scope:** TypeScript/Node.js SDK for the Opper Task API
+> **Package:** `opperai`
+> **Implementation status:** Base client layer is implemented. Agent layer (§2.4–2.8, §3, §5–6) is planned.
 
 > **Design decision: no hints.** This SDK is deterministic. Model selection, temperature, and other generation parameters are set explicitly — not through a hints/preferences bag. The API's `hints` field is excluded from the SDK surface.
 
@@ -67,7 +69,7 @@ This split is important:
 ### 2.1 Defining an Agent
 
 ```typescript
-import { Agent, tool } from '@opperai/agents';
+import { Agent, tool } from 'opperai';
 
 const agent = new Agent({
   name: 'analytics-assistant',
@@ -88,14 +90,14 @@ const agent = new Agent({
 - `instructions` replaces the current split of `description` + `instructions`. One field, one purpose: tell the model what this agent does and how.
 - `model` is a top-level, optional, **deterministic** field. When set, this exact model is used. When omitted, the server picks its own default.
 - Generation parameters (`temperature`, `maxTokens`, `reasoningEffort`) are explicit top-level fields, not grouped into a preferences bag.
-- **No Zod dependency.** Schemas are plain JSON Schema objects — the native format sent to `/run`. This avoids Zod version conflicts and works with any schema library. Optional adapters are provided for popular libraries (see §2.2).
-- `inputSchema` / `outputSchema` are optional. When provided, the SDK sends them to `/run` for the server to enforce, and optionally validates locally.
+- **No Zod dependency.** Schemas are plain JSON Schema objects — the native format sent to `/call`. This avoids Zod version conflicts and works with any schema library. Optional adapters are provided for popular libraries (see §2.2).
+- `inputSchema` / `outputSchema` are optional. When provided, the SDK sends them to `/call` for the server to enforce, and optionally validates locally.
 - No `memory` in v1 of the new SDK. Memory was tightly coupled to the think-act prompt in v1. In v2, if users need persistence, they use tools (e.g., a `readMemory` / `writeMemory` tool backed by Opper indexes or any store). This is simpler, more flexible, and doesn't pollute every LLM call.
 
 ### 2.2 Defining Tools
 
 ```typescript
-import { tool } from '@opperai/agents';
+import { tool } from 'opperai';
 
 // Native — zero dependencies, plain JSON Schema
 const getActivationRate = tool({
@@ -119,82 +121,90 @@ const getActivationRate = tool({
 });
 ```
 
-#### Schema library adapters (optional, zero required dependencies)
+#### Standard Schema support (zero required dependencies)
 
-The SDK accepts plain JSON Schema as the native format. For users who prefer schema libraries, optional adapters convert to JSON Schema:
+The SDK accepts any **Standard Schema V1** object (Zod v4, Valibot, ArkType, etc.) wherever a JSON Schema is accepted — tool parameters, `input_schema`, `output_schema`. The SDK resolves Standard Schema to JSON Schema automatically before sending to the API.
 
 ```typescript
-// With Zod — user installs zod + @opperai/agents/schema/zod
 import { z } from 'zod';
-import { fromZod } from '@opperai/agents/schema/zod';
 
+// Zod schema passed directly — no adapter needed
 const getMetric = tool({
   name: 'get_metric',
-  parameters: fromZod(z.object({
+  parameters: z.object({
     metric: z.string().describe('Metric name'),
     period: z.enum(['7d', '30d', '90d']),
-  })),
+  }),
   execute: async ({ metric, period }) => { ... },
 });
 
-// With TypeBox — user installs @sinclair/typebox + @opperai/agents/schema/typebox
-import { Type } from '@sinclair/typebox';
-import { fromTypebox } from '@opperai/agents/schema/typebox';
-
+// Plain JSON Schema still works too
 const getMetric = tool({
   name: 'get_metric',
-  parameters: fromTypebox(Type.Object({
-    metric: Type.String({ description: 'Metric name' }),
-  })),
+  parameters: {
+    type: 'object',
+    properties: {
+      metric: { type: 'string', description: 'Metric name' },
+    },
+    required: ['metric'],
+  },
   execute: async ({ metric }) => { ... },
 });
 ```
 
-#### Adapters work at every layer
+#### Standard Schema works at every layer
 
-`fromZod()` and other adapters produce plain JSON Schema. The result is usable anywhere — not just tool parameters:
+Standard Schema objects are accepted anywhere JSON Schema is accepted:
 
 ```typescript
-import { Agent, tool } from '@opperai/agents';
-import { fromZod } from '@opperai/agents/schema/zod';
+import { Opper, jsonSchema } from 'opperai';
 import { z } from 'zod';
 
 const QuestionSchema = z.object({ question: z.string() });
 const AnswerSchema = z.object({ answer: z.string(), confidence: z.number() });
 
-// ─── Agent inputSchema / outputSchema ───
+// ─── Base client with Zod (automatic type inference) ───
+const client = new Opper();
+const response = await client.call('my-fn', {
+  output_schema: AnswerSchema,
+  input: { question: 'What is our activation rate?' },
+});
+response.data.answer;     // string — inferred from Zod schema
+response.data.confidence; // number — inferred from Zod schema
+
+// ─── Base client with raw JSON Schema + type inference ───
+const response2 = await client.call<{ answer: string }>('my-fn', {
+  output_schema: { type: 'object', properties: { answer: { type: 'string' } } },
+  input: { question: 'What is our activation rate?' },
+});
+
+// ─── jsonSchema() wrapper for type inference with raw schemas ───
+const response3 = await client.call('my-fn', {
+  output_schema: jsonSchema<{ answer: string }>({
+    type: 'object',
+    properties: { answer: { type: 'string' } },
+  }),
+  input: { question: 'What is our activation rate?' },
+});
+response3.data.answer; // string — inferred via jsonSchema<T>()
+
+// ─── Agent schemas (planned) ───
 const agent = new Agent({
   name: 'analytics-assistant',
   instructions: 'You help users understand their product metrics.',
-  inputSchema: fromZod(QuestionSchema),
-  outputSchema: fromZod(AnswerSchema),
+  inputSchema: QuestionSchema,   // Standard Schema accepted
+  outputSchema: AnswerSchema,    // Standard Schema accepted
   tools: [getActivationRate],
-});
-
-// ─── Tool parameters (shown above) ───
-const getActivationRate = tool({
-  name: 'get_activation_rate',
-  parameters: fromZod(z.object({
-    timeRange: z.enum(['7d', '30d', '90d']),
-  })),
-  execute: async ({ timeRange }) => { ... },
-});
-
-// ─── Base client direct usage ───
-const client = new Opper();
-const response = await client.functions.run('my-fn', {
-  input_schema: fromZod(QuestionSchema),
-  output_schema: fromZod(AnswerSchema),
-  input: { question: 'What is our activation rate?' },
 });
 ```
 
-The adapter is a pure function (`ZodSchema → JsonSchema`). It doesn't know or care which layer consumes the result.
-
 **Design decisions:**
-- Follows the industry standard pattern (OpenAI, Vercel AI SDK): `tool({ name, description, parameters, execute })`.
-- **`parameters` is a JSON Schema object** — the native format sent to `/run`. No conversion needed.
-- Optional `fromZod()`, `fromTypebox()`, `fromValibot()` adapters are thin wrappers (~10 lines each) in subpath exports. The user brings their own schema library as a dependency. The SDK itself has **zero required dependencies** beyond the Opper API client.
+- **Standard Schema V1 protocol** replaces explicit adapter functions. Any conforming schema library works automatically — no `fromZod()` needed.
+- **`parameters` accepts JSON Schema or Standard Schema** — resolved to JSON Schema before sending to the API.
+- The SDK detects Standard Schema at runtime via the `~standard` property (duck typing).
+- For Zod v4, JSON Schema conversion uses Zod's native `toJSONSchema()`.
+- **`jsonSchema<T>()`** wrapper enables type inference when using raw JSON Schema objects.
+- The SDK itself has **zero required dependencies** beyond the Opper API client.
 - `execute` receives the parsed input. Return value is automatically serialized to JSON.
 - No `ToolResult` / `ToolResultFactory` wrapping — just return the value or throw an error. The SDK wraps it.
 - No `outputSchema` on tools — the server doesn't need it, and it was mostly unused.
@@ -224,10 +234,12 @@ Schemas and types are a first-class part of the SDK design, not an optional conv
 
 - Agent `inputSchema` and `outputSchema` define both the runtime contract and the expected shape of structured data.
 - Tool `parameters` schemas define what the model is allowed to call and what the SDK validates before execution.
-- Optional adapters such as `fromZod()` should preserve as much type information and schema metadata as possible while still producing plain JSON Schema.
+- Standard Schema resolution should preserve as much type information and schema metadata as possible while producing plain JSON Schema.
 - The SDK should optimize for "comfortable correctness": easy authoring, strong inference, and clear validation errors when assumptions break.
 
-### 2.4 Running an Agent
+### 2.4 Running an Agent (Planned)
+
+> **Not yet implemented.** The agent layer described in §2.4–2.8 is planned. The base client (`opper.call()`, `opper.stream()`, sub-clients) is the current implementation.
 
 Two explicit methods: `run()` for getting results, `stream()` for observing events.
 
@@ -306,7 +318,7 @@ class AgentStream<TOutput> implements AsyncIterable<AgentStreamEvent<TOutput>> {
 #### Design decisions
 
 **Two methods, one internal code path:**
-- `run()` returns `Promise<RunResult>`. Internally calls `/run` (simple POST) for maximum reliability.
+- `run()` returns `Promise<RunResult>`. Internally calls `/call` (simple POST) for maximum reliability.
 - `stream()` returns `AgentStream` (an `AsyncIterable`). Internally calls `/stream` (SSE) for incremental events.
 - Both use the same request shape, same loop logic, same hooks. The only difference is the transport.
 - Hooks fire in both modes — `onToolStart`, `onTextDelta`, etc. work regardless of whether you use `run()` or `stream()`.
@@ -322,7 +334,7 @@ class AgentStream<TOutput> implements AsyncIterable<AgentStreamEvent<TOutput>> {
 We chose **two explicit methods** because:
 1. **Obvious.** `run()` returns a result. `stream()` returns events. No surprises.
 2. **Simple TypeScript.** `run()` returns `Promise<RunResult>`, `stream()` returns `AgentStream`. No overloads, no dual interfaces.
-3. **Reliable transport.** `run()` uses `/run` (POST) — no SSE failure modes for the simplest path. `stream()` uses `/stream` (SSE) — only when you actually want streaming.
+3. **Reliable transport.** `run()` uses `/call` (POST) — no SSE failure modes for the simplest path. `stream()` uses `/stream` (SSE) — only when you actually want streaming.
 4. **Easy to teach.** Start with `run()`. When you need streaming, switch to `stream()`. Trivial refactor.
 5. **Cross-language.** Every language has clear equivalents for "call and wait" vs "iterate events."
 
@@ -447,7 +459,7 @@ const agent = new Agent({
 ### 2.8 MCP Integration
 
 ```typescript
-import { Agent, mcp } from '@opperai/agents';
+import { Agent, mcp } from 'opperai';
 
 const agent = new Agent({
   name: 'file-assistant',
@@ -465,11 +477,173 @@ const agent = new Agent({
 
 ---
 
-## 3. The Agentic Loop — How It Works
+## 2A. Implemented Base Client Features
+
+> These features are implemented in the current SDK and complement the planned agent layer.
+
+### 2A.1 Top-Level `call()` and `stream()`
+
+The `Opper` class provides `call()` and `stream()` as the primary execution methods. They wrap `functions.runFunction()` and `functions.streamFunction()` with automatic Standard Schema resolution and trace context propagation.
+
+```typescript
+import { Opper } from 'opperai';
+import { z } from 'zod';
+
+const opper = new Opper();
+
+// call() — synchronous execution with type inference from Standard Schema
+const result = await opper.call('summarize', {
+  output_schema: z.object({ summary: z.string() }),
+  input: { text: '...' },
+  instructions: 'Summarize the input text concisely.',
+});
+result.data.summary; // string — inferred from Zod schema
+
+// stream() — SSE streaming
+for await (const chunk of opper.stream('summarize', {
+  input: { text: '...' },
+})) {
+  if (chunk.type === 'content') process.stdout.write(chunk.delta);
+  if (chunk.type === 'complete') console.log(chunk.data); // Final parsed result
+  if (chunk.type === 'done') console.log(chunk.usage);
+}
+```
+
+The response shape is `RunResponse<T>`:
+```typescript
+interface RunResponse<T = unknown> {
+  data: T;         // The function output
+  meta?: ResponseMeta;  // Execution metadata
+}
+```
+
+### 2A.2 Tracing with `traced()`
+
+Wraps code blocks in trace spans with automatic context propagation via AsyncLocalStorage. All `call()` and `stream()` calls inside the callback automatically inherit the span as their parent.
+
+```typescript
+const result = await opper.traced('my-pipeline', async (span) => {
+  console.log('trace:', span.traceId, 'span:', span.id);
+  const r1 = await opper.call('step1', { input: 'hello' });
+  const r2 = await opper.call('step2', { input: r1.data });
+  return r2;
+});
+// Both step1 and step2 are automatically linked to the 'my-pipeline' span
+```
+
+Three call signatures:
+- `traced(fn)` — default name `"traced"`
+- `traced("my-span", fn)` — custom name
+- `traced({ name, input, meta, tags }, fn)` — full options
+
+### 2A.3 Knowledge Base (v2 API)
+
+Full CRUD for knowledge bases with semantic search, document management, and file upload.
+
+```typescript
+// Create a knowledge base
+const kb = await opper.knowledge.create({ name: 'docs' });
+
+// Add documents
+await opper.knowledge.add(kb.id, {
+  content: 'Document text...',
+  key: 'doc-1',
+  metadata: { source: 'wiki' },
+});
+
+// Semantic search with filters
+const results = await opper.knowledge.query(kb.id, {
+  query: 'How does authentication work?',
+  top_k: 5,
+  filters: [{ field: 'source', operation: '=', value: 'wiki' }],
+  rerank: true,
+});
+
+// File upload (with automatic chunking)
+const file = new Blob([fileContent], { type: 'application/pdf' });
+await opper.knowledge.uploadFile(kb.id, file, {
+  filename: 'guide.pdf',
+  chunkSize: 1000,
+  chunkOverlap: 200,
+});
+```
+
+### 2A.4 Media Convenience Methods
+
+High-level methods for media generation built on top of `call()`:
+
+```typescript
+// Image generation
+const img = await opper.generateImage({
+  prompt: 'A sunset over a calm ocean',
+  model: 'openai/dall-e-3',
+  size: '1792x1024',
+  quality: 'hd',
+});
+img.save('./sunset.png'); // Writes base64 to file
+
+// Video generation
+const vid = await opper.generateVideo({
+  prompt: 'A cat walking down a city street',
+  aspect_ratio: '16:9',
+});
+vid.save('./cat'); // → ./cat.mp4
+
+// Text-to-speech
+const speech = await opper.textToSpeech({
+  text: 'Hello! Welcome to our platform.',
+  voice: 'alloy',
+});
+speech.save('./welcome.mp3');
+
+// Speech-to-text
+const transcript = await opper.transcribe({
+  audio: { path: './meeting.mp3' },
+  language: 'en',
+});
+console.log(transcript.data.text);
+```
+
+All media methods support an optional function name as first argument for named caching: `generateImage('hero-image', { ... })`.
+
+### 2A.5 Web Tools (Beta)
+
+```typescript
+// Fetch URL as markdown
+const page = await opper.beta.web.fetch({ url: 'https://example.com' });
+console.log(page.content);
+
+// Web search
+const results = await opper.beta.web.search({ query: 'TypeScript SDK best practices' });
+for (const r of results.results) {
+  console.log(r.title, r.url, r.snippet);
+}
+```
+
+### 2A.6 Sub-Clients
+
+The `Opper` class exposes sub-clients for all API areas:
+
+| Sub-client | Access | Description |
+|---|---|---|
+| `functions` | `opper.functions` | Function CRUD, execution, examples, revisions, realtime |
+| `spans` | `opper.spans` | Create/update trace spans |
+| `generations` | `opper.generations` | List/get/delete recorded generations |
+| `models` | `opper.models` | List available models (with filtering) |
+| `embeddings` | `opper.embeddings` | OpenAI-compatible embeddings |
+| `knowledge` | `opper.knowledge` | Knowledge base v2 API |
+| `beta.web` | `opper.beta.web` | Web fetch/search (beta) |
+| `system` | `opper.system` | Health checks |
+
+---
+
+## 3. The Agentic Loop — How It Works (Planned)
+
+> **Not yet implemented.** This section describes the planned agent loop.
 
 ### 3.1 The Loop (Client-Side)
 
-The loop is the same for both `run()` and `stream()`. The only difference is the transport (`/run` POST vs `/stream` SSE) and whether events are yielded to the caller.
+The loop is the same for both `run()` and `stream()`. The only difference is the transport (`/call` POST vs `/stream` SSE) and whether events are yielded to the caller.
 
 ```
 agent.run(input) / agent.stream(input):
@@ -484,7 +658,7 @@ LOOP (iteration = 1..maxIterations):
      (stream mode: yield { type: 'iteration_start', iteration })
 
   6. Call server:
-     - run() mode:  POST /functions/{agent.name}/run   → JSON response
+     - run() mode:  POST /functions/{agent.name}/call  → JSON response
      - stream() mode: POST /functions/{agent.name}/stream → SSE events
 
      Body: {
@@ -571,17 +745,17 @@ type ToolCallMessage = {
 
 Tool calling differs across providers, but the SDK should not need to care. The server owns provider-specific tool-call behavior and exposes a stable canonical contract to the SDK:
 
-- **In `/run` responses:** A tool call has a stable opaque `id`, a `name`, and fully parsed `arguments`
+- **In `/call` responses:** A tool call has a stable opaque `id`, a `name`, and fully parsed `arguments`
 - **In `/stream` responses:** A tool call is delivered incrementally — `tool_call_start` provides the `id`, `name`, and `index` upfront; `tool_call_delta` events deliver argument fragments. The SDK assembles the complete tool call from these events.
 - The SDK treats the `id` as opaque and only uses it to correlate tool results
 - If a provider does not supply a usable tool call ID, the server generates one
-- The same logical tool call has the same canonical `id` in `/run` responses, `/stream` responses, and tool result messages
+- The same logical tool call has the same canonical `id` in `/call` responses, `/stream` responses, and tool result messages
 
 This keeps provider quirks on the server side and reduces the SDK's responsibility to simple run-local bookkeeping.
 
 ### 3.3 What the Server Does Per Call
 
-Both `/run` and `/stream` share the same execution model:
+Both `/call` and `/stream` share the same execution model:
 
 1. Receives messages + tools + model + generation parameters
 2. Resolves model (from explicit `model` field, or server default)
@@ -589,7 +763,7 @@ Both `/run` and `/stream` share the same execution model:
 4. Applies prompt caching breakpoints (provider-specific)
 5. Calls the LLM with native tool calling enabled
 6. Returns response with `content` and/or `tool_calls`
-   - `/run`: returns complete JSON response
+   - `/call`: returns complete JSON response
    - `/stream`: returns SSE events — `content` (text deltas), `tool_call_start` + `tool_call_delta` (incremental tool calls), and `done` (usage/meta). No final assembled blob.
 7. Tracks usage, creates spans
 
@@ -613,27 +787,27 @@ Both `/run` and `/stream` share the same execution model:
 ### 4.1 Client Initialization
 
 ```typescript
-import { Opper } from '@opperai/agents';
+import { Opper } from 'opperai';
 
 // From environment (OPPER_API_KEY, OPPER_BASE_URL)
 const opper = new Opper();
 
-// Top-level run/stream — name as first parameter, mirrors the API path
-const response = await opper.run('summarize', {
+// Top-level call/stream — name as first parameter, mirrors the API path
+const response = await opper.call('summarize', {
   instructions: 'Summarize the input',
   input: { text: '...' },
-  outputSchema: {
+  output_schema: {
     type: 'object',
     properties: { summary: { type: 'string' } },
     required: ['summary'],
   },
 });
 
-for await (const event of opper.stream('summarize', {
+for await (const chunk of opper.stream('summarize', {
   instructions: 'Summarize the input',
   input: { text: '...' },
 })) {
-  // raw stream events from the Task API
+  if (chunk.type === 'content') process.stdout.write(chunk.delta);
 }
 
 // Explicit
@@ -687,10 +861,10 @@ const agent = new Agent({
 
 ---
 
-## 5. Error Handling
+## 5. Error Handling (Agent Layer — Planned)
 
 ```typescript
-import { AgentError, ToolError, MaxIterationsError, AbortError } from '@opperai/agents';
+import { AgentError, ToolError, MaxIterationsError, AbortError } from 'opperai';
 
 try {
   const result = await agent.run(input);
@@ -727,7 +901,7 @@ const riskyTool = tool({
 
 ---
 
-## 6. Advanced Features
+## 6. Advanced Features (Planned)
 
 ### 6.1 Parallel Tool Execution
 
@@ -802,76 +976,92 @@ The `conversation()` helper:
 ## 7. Package Structure
 
 ```
-@opperai/agents
+opperai
 ├── src/
-│   ├── index.ts              # Public API exports
-│   ├── client.ts             # Base Opper client, aligned with the API
-│   ├── client-types.ts       # Low-level request/response types
-│   ├── agent.ts              # High-level Agent class (run + stream)
-│   ├── tool.ts               # tool() function + types
-│   ├── loop.ts               # Agentic loop (shared by Agent methods)
-│   ├── conversation.ts       # Multi-turn conversation helper
-│   ├── types.ts              # Public high-level types
-│   ├── errors.ts             # Error classes
-│   ├── hooks.ts              # Hook types and dispatch
-│   ├── mcp/
-│   │   ├── provider.ts       # MCP tool provider
-│   │   └── client.ts         # MCP client
-│   ├── schema/               # Optional schema adapters (subpath exports)
-│   │   ├── zod.ts            # fromZod() — requires zod as peer dep
-│   │   ├── typebox.ts        # fromTypebox() — requires @sinclair/typebox
-│   │   └── valibot.ts        # fromValibot() — requires valibot
-│   └── utils/
-│       └── logger.ts         # Logging
+│   ├── index.ts              # Public API exports + Opper class
+│   ├── client-base.ts        # BaseClient with HTTP methods
+│   ├── types.ts              # All type definitions
+│   ├── schema.ts             # Standard Schema V1 support + jsonSchema()
+│   ├── context.ts            # AsyncLocalStorage trace context
+│   ├── media.ts              # Media convenience methods
+│   ├── clients/
+│   │   ├── functions.ts      # FunctionsClient — call, stream, CRUD, examples, revisions, realtime
+│   │   ├── spans.ts          # SpansClient — create/update spans
+│   │   ├── generations.ts    # GenerationsClient — list/get/delete
+│   │   ├── models.ts         # ModelsClient — list models with filtering
+│   │   ├── embeddings.ts     # EmbeddingsClient — OpenAI-compatible
+│   │   ├── knowledge.ts      # KnowledgeClient — knowledge base v2 API
+│   │   ├── web-tools.ts      # WebToolsClient — beta web fetch/search
+│   │   └── system.ts         # SystemClient — health check
+│   └── (planned)
+│       ├── agent.ts          # High-level Agent class (run + stream)
+│       ├── tool.ts           # tool() function + types
+│       ├── loop.ts           # Agentic loop (shared by Agent methods)
+│       ├── conversation.ts   # Multi-turn conversation helper
+│       ├── errors.ts         # Agent error classes
+│       ├── hooks.ts          # Hook types and dispatch
+│       └── mcp/              # MCP tool providers
 ```
 
-### Public Exports
+### Public Exports (Implemented)
 
 ```typescript
-// Base client + agent layer — main entry point '@opperai/agents'
-export { Opper } from './client';
+// Main entry point — 'opperai'
+
+// Opper client
+export { Opper } from './index';
+export { BaseClient } from './client-base';
+
+// Sub-clients
+export {
+  FunctionsClient, SpansClient, GenerationsClient,
+  ModelsClient, EmbeddingsClient, KnowledgeClient,
+  WebToolsClient, SystemClient,
+} from './clients/*';
+
+// Schema utilities
+export { isStandardSchema, jsonSchema } from './schema';
+export type { StandardSchemaV1, InferOutput } from './schema';
+
+// Trace context
+export { getTraceContext } from './context';
+export type { TraceContext } from './context';
+
+// Media utilities
+export { saveMedia } from './media';
+export type {
+  GenerateImageOptions, GenerateVideoOptions,
+  TextToSpeechOptions, SpeechToTextOptions,
+  GeneratedImage, GeneratedVideo, GeneratedSpeech, Transcription,
+  MediaResponse, MediaInput,
+} from './media';
+
+// Error class
+export { ApiError } from './types';
+
+// Core types
+export type {
+  ClientConfig, RequestOptions, RunRequest, SchemaRunRequest, RunResponse,
+  StreamChunk, ContentChunk, ToolCallStartChunk, ToolCallDeltaChunk,
+  DoneChunk, ErrorChunk, CompleteChunk, Tool, UsageInfo, ResponseMeta,
+  SpanHandle, TracedOptions, JsonSchema, JsonValue, SchemaLike,
+  // ... plus all knowledge base, embeddings, generations, web tools types
+} from './types';
+```
+
+### Planned Exports (Agent Layer)
+
+```typescript
+// These will be added when the agent layer is implemented:
 export { Agent } from './agent';
 export { tool } from './tool';
 export { mcp } from './mcp';
-
-// Types
+export { AgentError, ToolError, MaxIterationsError, AbortError } from './errors';
 export type {
-  AgentConfig,
-  AgentStream,
-  RunResult,
-  RunOptions,
-  Usage,
-  ToolDefinition,
-  ToolConfig,
-  ToolCallRecord,
-  ToolContext,
-  ToolProvider,
-  AgentStreamEvent,
-  Hooks,
-  JsonSchema,
-  Message,
-  ResponseMeta,
+  AgentConfig, AgentStream, RunResult, RunOptions, Usage,
+  ToolDefinition, ToolConfig, ToolCallRecord, ToolContext, ToolProvider,
+  AgentStreamEvent, Hooks, Message,
 } from './types';
-
-export type {
-  RunRequest,
-  StreamRequest,
-  RunResponse,
-  StreamEvent,
-} from './client-types';
-
-// Errors
-export {
-  AgentError,
-  ToolError,
-  MaxIterationsError,
-  AbortError,
-} from './errors';
-
-// Schema adapters — subpath exports (optional, zero impact on bundle if not used)
-// import { fromZod } from '@opperai/agents/schema/zod'
-// import { fromTypebox } from '@opperai/agents/schema/typebox'
-// import { fromValibot } from '@opperai/agents/schema/valibot'
 ```
 
 ---
@@ -885,7 +1075,7 @@ For v2, the `Agent` layer depends on the following Task API contract.
 ### 8.1 Required Server Contract
 
 1. **Two first-class transports with the same semantics.**
-   - `POST /run` returns the completed response as JSON.
+   - `POST /call` returns the completed response as JSON.
    - `POST /stream` returns incremental SSE events for the same execution model.
    - Both endpoints must accept the same request shape and produce the same final semantic result.
 
@@ -901,7 +1091,7 @@ For v2, the `Agent` layer depends on the following Task API contract.
 
 4. **Native tool calls in the response.**
    - When the model wants to call tools, the response must include tool calls.
-   - **`/run`:** Each tool call includes a stable opaque `id`, `name`, and fully parsed `arguments` in the JSON response.
+   - **`/call`:** Each tool call includes a stable opaque `id`, `name`, and fully parsed `arguments` in the JSON response.
    - **`/stream`:** Tool calls are delivered incrementally via `tool_call_start` (provides `id`, `name`, `index`) and `tool_call_delta` (provides argument fragments) SSE events. The SDK assembles the complete tool call from these events.
    - If the provider does not expose a reliable ID, the server generates one.
    - The same logical tool call has the same `id` across both transports and in tool result messages.
@@ -932,7 +1122,7 @@ For v2, the `Agent` layer depends on the following Task API contract.
 
 The following properties matter as much as the fields themselves:
 
-1. **Shape parity.** `/run` and `/stream` must not diverge in accepted input shape or final response semantics.
+1. **Shape parity.** `/call` and `/stream` must not diverge in accepted input shape or final response semantics.
 2. **Provider abstraction.** Provider-specific details stay on the server side.
 3. **Forward compatibility.** The canonical message and tool formats must be stable enough for SDKs in multiple languages to depend on.
 4. **Server authority.** Usage, cost, and tracing are owned by the server, not recomputed in the SDK.
@@ -991,7 +1181,7 @@ These are not required to ship v2, but they are strategically important:
 ## 10. Minimal Example — End to End
 
 ```typescript
-import { Agent, tool } from '@opperai/agents';
+import { Agent, tool } from 'opperai';
 
 // Define a tool — plain JSON Schema, zero dependencies
 const getMetric = tool({
@@ -1037,7 +1227,7 @@ for await (const event of agent.stream('What is our activation rate?')) {
 ```
 SDK                                    Task API                           LLM Provider
  │                                         │                                  │
- │  POST /functions/analytics/run          │                                  │
+ │  POST /functions/analytics/call          │                                  │
  │  (or /stream for agent.stream())        │                                  │
  │  { messages: [{user: "What is..."}],    │                                  │
  │    tools: [{name: "get_metric",...}],    │                                  │
@@ -1059,7 +1249,7 @@ SDK                                    Task API                           LLM Pr
  │  → { metric: "activation_rate",         │                                  │
  │      value: 0.342 }                     │                                  │
  │                                         │                                  │
- │  POST /functions/analytics/run          │                                  │
+ │  POST /functions/analytics/call          │                                  │
  │  { messages: [                          │                                  │
  │      {user: "What is..."},              │                                  │
  │      {assistant: "", tool_calls:[...]}, │                                  │
@@ -1084,17 +1274,17 @@ SDK                                    Task API                           LLM Pr
 ## 11. Implementation Notes
 
 ### Priority Order
-1. **Core:** `Agent`, `tool()`, `agent.run()`, the loop with `/run` — get this working end-to-end
+1. **Core:** `Agent`, `tool()`, `agent.run()`, the loop with `/call` — get this working end-to-end
 2. **Streaming:** `agent.stream()` with SSE from `/stream` endpoint
 3. **Multi-agent:** `agent.asTool()` with trace propagation — straightforward once the core works
 4. **MCP:** Port from v1, adapt to new tool format
 5. **Hooks:** Add hook dispatch points in the loop
 6. **Conversation helper:** Simple wrapper, low effort
-7. **Schema adapters:** `fromZod()`, `fromTypebox()` subpath exports
+7. **Schema support:** Standard Schema V1 resolution, `jsonSchema<T>()` wrapper
 8. **Context management:** SDK-side implementation (see §12 Roadmap)
 
 ### Key Implementation Concerns
-- **Shared loop logic:** `run()` and `stream()` share the same loop implementation. The difference is transport (`/run` vs `/stream`) and whether events are yielded. Consider implementing the loop as an internal async generator that both methods consume — `run()` collects silently, `stream()` exposes events.
+- **Shared loop logic:** `run()` and `stream()` share the same loop implementation. The difference is transport (`/call` vs `/stream`) and whether events are yielded. Consider implementing the loop as an internal async generator that both methods consume — `run()` collects silently, `stream()` exposes events.
 - **SSE parsing and tool call assembly:** The `/stream` endpoint returns SSE with `content`, `tool_call_start`, `tool_call_delta`, and `done` events. The SDK accumulates tool call arguments via string concatenation per `tool_call_index`, then `JSON.parse` each when the `done` event arrives. Text `content` deltas are yielded as `text_delta` events immediately. Tool execution begins only after `done` (all tool calls complete).
 - **Tool call ID matching:** When sending tool results back, they must reference the `id` from the original tool_call. The SDK must track this mapping.
 - **Parallel tool execution:** Use `Promise.allSettled()` for parallel tool calls. Track individual timing.
@@ -1104,7 +1294,7 @@ SDK                                    Task API                           LLM Pr
 
 ### Testing Strategy
 - **Unit tests:** Tool schema conversion, message building, result parsing
-- **Integration tests:** Full loop against mock `/run` and `/stream` endpoints that return canned tool_calls
+- **Integration tests:** Full loop against mock `/call` and `/stream` endpoints that return canned tool_calls
 - **E2E tests:** Against real Task API with simple tools (calculator, echo)
 - **Benchmark:** Compare token usage and latency against direct Anthropic SDK for the same task
 
@@ -1136,7 +1326,7 @@ result.meta.modelsUsed             // ['anthropic/claude-sonnet-4-6']
 Skills are reusable agent capabilities from [skills.sh](https://skills.sh). They are not ordinary tools: they use **progressive disclosure**. The model first sees only compact front matter, and deeper sections of the skill are disclosed later when needed.
 
 ```typescript
-import { Agent, loadSkill } from '@opperai/agents';
+import { Agent, loadSkill } from 'opperai';
 
 // Load a skill — a progressively disclosed capability
 const webResearch = await loadSkill('web-research');
@@ -1225,14 +1415,14 @@ const agent = new Agent({
 **Server-side implementation (future):**
 - Once we know which strategies users prefer, move the logic server-side
 - The server can apply provider-specific optimizations (e.g., Anthropic's `compact` API, tool result clearing)
-- The SDK sends `context_management` config to `/run` and the server handles it
+- The SDK sends `context_management` config to `/call` and the server handles it
 
 ### 12.5 Built-In Tools (Server-Side)
 
 Opper-managed tools that execute server-side. No local implementation needed — the user just references them:
 
 ```typescript
-import { Agent, opperTools } from '@opperai/agents';
+import { Agent, opperTools } from 'opperai';
 
 const agent = new Agent({
   name: 'researcher',
@@ -1258,7 +1448,7 @@ const agent = new Agent({
 Persistent memory backed by Opper's vector search indexes. Implemented as a tool, not a special system:
 
 ```typescript
-import { Agent, opperTools } from '@opperai/agents';
+import { Agent, opperTools } from 'opperai';
 
 const agent = new Agent({
   name: 'assistant',
@@ -1325,7 +1515,81 @@ const agent = new Agent({
 ## Appendix A: Full Type Definitions
 
 ```typescript
-// --- Agent ---
+// --- Implemented: Base Client Types ---
+
+// JSON Schema or Standard Schema (Zod, Valibot, ArkType, etc.)
+type SchemaLike = JsonSchema | StandardSchemaV1;
+
+interface RunRequest {
+  input: JsonValue;                           // Required
+  input_schema?: SchemaLike;                  // Optional — defaults to text
+  output_schema?: JsonSchema;                 // Optional — defaults to text
+  instructions?: string;                      // Instructions for the function
+  model?: string;                             // e.g. "anthropic/claude-sonnet-4-6"
+  temperature?: number;                       // 0.0 - 2.0
+  max_tokens?: number;
+  reasoning_effort?: string;                  // "low" | "medium" | "high"
+  parent_span_id?: string;                    // Trace propagation
+  tools?: Tool[];
+}
+
+// When output_schema is a Standard Schema, enables type inference
+interface SchemaRunRequest<TOutput = unknown> {
+  output_schema: StandardSchemaV1<any, TOutput> | JsonSchema;
+  input: JsonValue;
+  input_schema?: SchemaLike;
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  reasoning_effort?: string;
+  instructions?: string;
+  parent_span_id?: string;
+  tools?: Tool[];
+}
+
+interface RunResponse<T = unknown> {
+  data: T;                                    // The function output
+  meta?: ResponseMeta;                        // Execution metadata
+}
+
+interface Tool {
+  name: string;
+  description?: string;
+  parameters: SchemaLike;                     // JSON Schema or Standard Schema
+}
+
+// --- Stream Chunks ---
+
+type StreamChunk<T = unknown> =
+  | ContentChunk
+  | ToolCallStartChunk
+  | ToolCallDeltaChunk
+  | DoneChunk
+  | ErrorChunk
+  | CompleteChunk<T>;
+
+interface ContentChunk { type: 'content'; delta: string; tool_call_index?: number }
+interface ToolCallStartChunk { type: 'tool_call_start'; tool_call_index: number; tool_call_id: string; tool_call_name: string }
+interface ToolCallDeltaChunk { type: 'tool_call_delta'; tool_call_index: number; tool_call_args: string; tool_call_thought_sig?: string }
+interface DoneChunk { type: 'done'; usage?: UsageInfo; tool_call_index?: number }
+interface ErrorChunk { type: 'error'; error: string }
+interface CompleteChunk<T = unknown> { type: 'complete'; data: T; meta?: ResponseMeta }
+
+// --- Tracing ---
+
+interface TracedOptions {
+  name?: string;
+  input?: string;
+  meta?: Record<string, unknown>;
+  tags?: Record<string, unknown>;
+}
+
+interface SpanHandle {
+  id: string;
+  traceId: string;
+}
+
+// --- Agent (Planned) ---
 
 interface AgentConfig<TInput = string, TOutput = string> {
   name: string;
@@ -1465,7 +1729,7 @@ type AgentStreamEvent<TOutput> =
   | { type: 'result'; output: TOutput; usage: Usage }
   | { type: 'error'; error: Error };
 
-// --- Messages (internal, sent to /run) ---
+// --- Messages (internal, sent to /call) ---
 
 type Message =
   | { role: 'system'; content: string }
@@ -1483,34 +1747,40 @@ type ToolCallMessage = {
   arguments: Record<string, unknown>;
 };
 
-// --- Response from /run (JSON) ---
+// --- Response from /call (JSON) ---
+// Note: The base client RunResponse (above) has `data: T` and `meta: ResponseMeta`.
+// The agent layer will map this to a higher-level RunResult.
 
-interface RunResponse {
-  output: {
-    content?: string;
-    tool_calls?: ToolCallMessage[];
-  };
-  meta?: ResponseMeta;
-}
-
-// Note: /stream does NOT return a RunResponse. The SDK assembles
-// the equivalent data from ServerStreamEvent events (content from
-// text deltas, tool_calls from tool_call_start + tool_call_delta).
+// In the agent loop, the server returns content and tool_calls which the SDK
+// assembles from either /call JSON or /stream SSE events:
+//   - /call: parse JSON response with content + tool_calls
+//   - /stream: accumulate from content/tool_call_start/tool_call_delta/done events
 
 interface ResponseMeta {
-  functionName?: string;
-  modelsUsed?: string[];
-  spanId?: string;                            // For trace propagation (asTool)
-  contextUtilization?: number;                // 0-1, how full the context window is
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
-    cacheReadTokens?: number;
-    cacheCreationTokens?: number;
-    reasoningTokens?: number;
-  };
+  function_name: string;
+  script_cached: boolean;
+  execution_ms: number;
+  llm_calls: number;
+  tts_calls: number;
+  image_gen_calls: number;
+  generation_ms?: number;
   cost?: number;
-  executionMs?: number;
+  usage?: UsageInfo;
+  models_used?: string[];
+  model_warnings?: string[];
+  guards?: unknown[];
+  message?: string;
+}
+
+interface UsageInfo {
+  input_tokens: number;
+  output_tokens: number;
+  reasoning_tokens?: number;
+  cache_read_tokens?: number;
+  cache_creation_tokens?: number;
+  cache_creation_1h_tokens?: number;
+  input_audio_tokens?: number;
+  output_audio_tokens?: number;
 }
 
 // --- Context Management (stretch goal) ---

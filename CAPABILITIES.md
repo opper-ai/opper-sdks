@@ -73,11 +73,15 @@ The base client provides API-complete access to Opper primitives. Each SDK shoul
 client = Opper(api_key, base_url)       // or from environment variables
 
 // Task execution
-response = client.run(name, instructions, input, options)
-events   = client.stream(name, instructions, input, options)
+response = client.call(name, request)
+events   = client.stream(name, request)
 
-// Knowledge / Index operations (to be specified separately)
-// ...
+// Knowledge base operations
+kb       = client.knowledge.create(name, embedding_model)
+results  = client.knowledge.query(kb_id, query, options)
+
+// Tracing
+result   = client.traced(name, fn)
 ```
 
 ### Authentication
@@ -85,23 +89,25 @@ events   = client.stream(name, instructions, input, options)
 - **API key**: from environment variable (`OPPER_API_KEY`) or passed explicitly
 - **Base URL**: from environment variable (`OPPER_BASE_URL`) or defaults to `https://api.opper.ai`
 
-### 2.1 Schema Adapters
+### 2.1 Schema Support
 
-JSON Schema is the native wire format for all schema fields across the SDK: `input_schema`, `output_schema`, and `Tool.parameters`. The SDK provides **optional adapters** for popular schema libraries:
+JSON Schema is the native wire format for all schema fields across the SDK: `input_schema`, `output_schema`, and `Tool.parameters`.
 
-| Language | Native | Adapters |
+| Language | Native | Schema Library Support |
 |---|---|---|
-| TypeScript | JSON Schema | `fromZod()`, `fromTypebox()`, `fromValibot()` |
-| Python | JSON Schema | `from_pydantic()`, `from_dataclass()` |
+| TypeScript | JSON Schema | **Standard Schema V1** — Zod v4, Valibot, ArkType, etc. accepted directly. Also `jsonSchema<T>()` wrapper for type inference with raw schemas. |
+| Python | JSON Schema | `from_pydantic()`, `from_dataclass()` adapters |
 | Go | JSON Schema | Struct tags, code generation |
 
-Adapters are **pure converters**: they take a schema in a library's format and return a plain JSON Schema object. That object is then usable anywhere — it is not tied to a specific layer:
+For TypeScript, the SDK detects **Standard Schema V1** at runtime (any object with a `~standard` property) and resolves it to JSON Schema automatically. No explicit adapter imports are needed. For Zod v4, the SDK uses Zod's native `toJSONSchema()`.
+
+Schema objects are usable anywhere — not tied to a specific layer:
 
 - **Agent schemas:** `input_schema` / `output_schema` on agent definitions
 - **Tool parameters:** `parameters` on tool definitions
-- **Base client calls:** `input_schema` / `output_schema` passed directly to `client.functions.run()`
+- **Base client calls:** `input_schema` / `output_schema` passed directly to `client.call()`
 
-**Zero required dependencies.** The SDK itself does not depend on any schema library. Users bring their own and import the corresponding adapter.
+**Zero required dependencies.** The SDK itself does not depend on any schema library. Users bring their own.
 
 ### Design Note
 
@@ -134,8 +140,8 @@ agent = Agent(
 
 - **Single `instructions` field.** Replaces any split of "description" + "instructions". One field, one purpose: tell the model what this agent does and how.
 - **`model` is deterministic.** When set, this exact model is used. When omitted, the server picks its own default.
-- **JSON Schema is the native schema format.** Schemas are plain JSON Schema objects — the format sent to `/run`. This avoids dependency on any specific schema library and works across all languages.
-- **`input_schema` / `output_schema` are optional.** When provided, the SDK sends them to `/run` for the server to enforce, and optionally validates locally.
+- **JSON Schema is the native schema format.** Schemas are plain JSON Schema objects — the format sent to `/call`. This avoids dependency on any specific schema library and works across all languages.
+- **`input_schema` / `output_schema` are optional.** When provided, the SDK sends them to `/call` for the server to enforce, and optionally validates locally.
 - **No built-in memory.** If users need persistence, they use tools (e.g., read/write tools backed by Opper indexes or any store). This is simpler, more flexible, and doesn't pollute every LLM call.
 
 ---
@@ -168,14 +174,14 @@ metric_tool = tool(
 ### Design Decisions
 
 - **Follows the industry standard pattern**: `tool(name, description, parameters, execute)`. Used by OpenAI, Vercel AI SDK, and others.
-- **`parameters` is a JSON Schema object** — the native format sent to `/run`. No conversion needed at the wire level.
+- **`parameters` is a JSON Schema object** — the native format sent to `/call`. No conversion needed at the wire level.
 - **`execute` receives parsed input.** The return value is automatically serialized to JSON by the SDK.
 - **No result wrapping.** Just return the value or throw an error. The SDK wraps it into the appropriate format.
 - **No output schema on tools.** The server doesn't need it and it was mostly unused in practice.
 
 ### Schema Adapters for Tools
 
-Tool `parameters` accepts plain JSON Schema. Schema library adapters (§2.1) work here — `fromZod()`, `from_pydantic()`, etc. produce the JSON Schema object that `parameters` expects. See §2.1 for the full adapter table and design rationale.
+Tool `parameters` accepts plain JSON Schema (or Standard Schema in TypeScript). Schema library support (§2.1) works here — Standard Schema objects are resolved automatically, and Python adapters (`from_pydantic()`, etc.) produce the JSON Schema object that `parameters` expects. See §2.1 for the full table and design rationale.
 
 ### Idiomatic Tool Definition
 
@@ -226,7 +232,7 @@ Every SDK exposes two ways to run an agent:
 
 | Method | Returns | Transport | Use case |
 |---|---|---|---|
-| `run(input)` | Final result | POST `/run` | Get the answer, ignore intermediate steps |
+| `run(input)` | Final result | POST `/call` | Get the answer, ignore intermediate steps |
 | `stream(input)` | Event iterator | SSE `/stream` | Observe events as the agent works |
 
 ```
@@ -305,7 +311,7 @@ function execute(agent, input, options):
      a. Fire hooks: on_iteration_start, on_llm_call
 
      b. Call server:
-        POST /functions/{agent.name}/run   (run mode)
+        POST /functions/{agent.name}/call  (run mode)
         POST /functions/{agent.name}/stream (stream mode)
         Body: {
           messages, tools, model, temperature, max_tokens, parent_span_id
@@ -364,11 +370,11 @@ The SDK uses a **provider-agnostic message format**:
 
 The server exposes a stable canonical contract for tool calls:
 
-- **In `/run` responses:** Each tool call has a stable opaque `id`, a `name`, and fully parsed `arguments`.
+- **In `/call` responses:** Each tool call has a stable opaque `id`, a `name`, and fully parsed `arguments`.
 - **In `/stream` responses:** Each tool call is delivered incrementally — `tool_call_start` provides the `id`, `name`, and `index` upfront; `tool_call_delta` events deliver argument fragments. The SDK assembles the complete tool call from these events.
 - The SDK treats the `id` as opaque — only used to correlate tool results
 - If a provider doesn't supply a usable ID, the server generates one
-- The same logical tool call has the same `id` in `/run` responses, `/stream` responses, and tool result messages
+- The same logical tool call has the same `id` in `/call` responses, `/stream` responses, and tool result messages
 
 This keeps provider quirks on the server side.
 
@@ -599,13 +605,13 @@ The agent layer depends on the following Task API contract.
 
 ### Required
 
-1. **Two transports, same semantics.** `POST /run` returns JSON. `POST /stream` returns SSE. Both accept the same request shape and produce the same final result.
+1. **Two transports, same semantics.** `POST /call` returns JSON. `POST /stream` returns SSE. Both accept the same request shape and produce the same final result.
 
 2. **Canonical message input.** The API accepts a stable provider-agnostic message format. The server translates to provider-native formats. System instructions are supported.
 
 3. **First-class tool definitions.** Tools are passed as structured input (name, description, parameters as JSON Schema), not embedded in prompt text. The server converts to provider-native formats.
 
-4. **Native tool calls in responses.** Tool calls include a stable opaque `id`, `name`, and parsed `arguments`. If the provider doesn't supply a usable ID, the server generates one. The contract is identical between `/run` and `/stream`.
+4. **Native tool calls in responses.** Tool calls include a stable opaque `id`, `name`, and parsed `arguments`. If the provider doesn't supply a usable ID, the server generates one. The contract is identical between `/call` and `/stream`.
 
 5. **Tool results round-trip.** The API accepts tool result messages referencing the original `tool_call_id`. The server preserves the association when translating to provider-native formats. The SDK never needs provider-specific logic for tool-call identity.
 
@@ -617,7 +623,7 @@ The agent layer depends on the following Task API contract.
 
 ### Stability Properties
 
-1. **Shape parity.** `/run` and `/stream` must not diverge in accepted input or final response semantics.
+1. **Shape parity.** `/call` and `/stream` must not diverge in accepted input or final response semantics.
 2. **Provider abstraction.** Provider-specific details stay server-side.
 3. **Forward compatibility.** Message and tool formats must be stable enough for SDKs in multiple languages.
 4. **Server authority.** Usage, cost, and tracing are owned by the server.

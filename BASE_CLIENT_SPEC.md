@@ -1,7 +1,7 @@
 # Base Client Specification
 
 > **Status:** Draft
-> **Date:** 2026-03-11
+> **Date:** 2026-03-25
 > **Scope:** Language-agnostic specification for the Opper Task API base client layer
 
 This document specifies the **base client** — the low-level, API-complete typed wrapper around the Opper Task API. It covers every endpoint, request/response shape, and streaming wire protocol.
@@ -22,38 +22,36 @@ The base client is layer 1 of every Opper SDK. The agent layer ([CAPABILITIES.md
 
 ---
 
-## 1.1 Schema Adapters
+## 1.1 Schema Support
 
-JSON Schema is the wire format for `input_schema`, `output_schema`, and `Tool.parameters`. The SDK provides **optional adapters** for popular schema libraries that convert to JSON Schema:
-
-```
-fromZod(ZodSchema)       → JSON Schema object
-from_pydantic(Model)     → JSON Schema object
-```
-
-Adapters are **pure converters** — they take a schema definition in a third-party library's format and return a plain JSON Schema object. The result is usable anywhere the base client accepts a schema: `input_schema`, `output_schema`, or `Tool.parameters`.
-
-**Zero required dependencies.** The SDK itself does not depend on any schema library. Users bring their own (Zod, Pydantic, TypeBox, etc.) and import the corresponding adapter.
-
-**Not layer-specific.** The same adapter output works at any SDK layer — base client calls, agent definitions, or tool parameters. The adapter doesn't know or care which layer consumes the result.
+JSON Schema is the wire format for `input_schema`, `output_schema`, and `Tool.parameters`. For TypeScript, the SDK supports **Standard Schema V1** — any schema library that implements the [Standard Schema](https://github.com/standard-schema/standard-schema) protocol (Zod v4, Valibot, ArkType, etc.) can be used directly. The SDK resolves Standard Schema objects to JSON Schema before sending them to the API.
 
 ```typescript
-import { Opper } from '@opperai/agents';
-import { fromZod } from '@opperai/agents/schema/zod';
+import { Opper } from 'opperai';
 import { z } from 'zod';
 
-const InputSchema = z.object({ question: z.string() });
 const OutputSchema = z.object({ answer: z.string(), confidence: z.number() });
 
 const client = new Opper();
-const response = await client.functions.run('my-fn', {
-  input_schema: fromZod(InputSchema),
-  output_schema: fromZod(OutputSchema),
+
+// Standard Schema — type inference works automatically
+const response = await client.call('my-fn', {
+  output_schema: OutputSchema,
+  input: { question: 'What is our activation rate?' },
+});
+response.data.answer; // string — inferred from Zod schema
+
+// Raw JSON Schema — still works, use jsonSchema() wrapper for type inference
+import { jsonSchema } from 'opperai';
+const response2 = await client.call('my-fn', {
+  output_schema: jsonSchema<{ answer: string }>({ type: 'object', properties: { answer: { type: 'string' } } }),
   input: { question: 'What is our activation rate?' },
 });
 ```
 
-See [CAPABILITIES.md §2.1](./CAPABILITIES.md) for the language-agnostic adapter table and [typescript/SPEC.md §2.2](./typescript/SPEC.md) for TypeScript-specific adapter examples across all layers.
+**Zero required dependencies.** The SDK itself does not depend on any schema library. Users bring their own. Standard Schema support is based on runtime duck-typing — any object with a `~standard` property is detected automatically.
+
+For Python SDKs, explicit adapters (`from_pydantic()`, `from_dataclass()`) convert to JSON Schema. See [CAPABILITIES.md §2.1](./CAPABILITIES.md) for the language-agnostic adapter table.
 
 ---
 
@@ -100,7 +98,7 @@ All paths are relative to `base_url`. The API version prefix (`/v3/`) is part of
 
 ```
 CORE (Functions)
-  POST   /v3/functions/{name}/run                Execute function
+  POST   /v3/functions/{name}/call               Execute function
   POST   /v3/functions/{name}/stream             Execute function (SSE)
   GET    /v3/functions                           List functions
   GET    /v3/functions/{name}                    Get function details
@@ -117,6 +115,23 @@ CORE (Examples)
   GET    /v3/functions/{name}/examples           List examples
   DELETE /v3/functions/{name}/examples/{uuid}    Delete example
 
+KNOWLEDGE BASE (v2)
+  POST   /v2/knowledge-bases                     Create knowledge base
+  GET    /v2/knowledge-bases                     List knowledge bases
+  GET    /v2/knowledge-bases/{id}                Get knowledge base by ID
+  GET    /v2/knowledge-bases/by-name/{name}      Get knowledge base by name
+  DELETE /v2/knowledge-bases/{id}                Delete knowledge base
+  POST   /v2/knowledge-bases/{id}/documents      Add document
+  POST   /v2/knowledge-bases/{id}/query          Query (semantic search)
+  GET    /v2/knowledge-bases/{id}/documents/{key} Get document by key
+  DELETE /v2/knowledge-bases/{id}/documents      Delete documents (with filters)
+  POST   /v2/knowledge-bases/{id}/files/upload   Upload file
+  POST   /v2/knowledge-bases/{id}/files/upload-url Get presigned upload URL
+  POST   /v2/knowledge-bases/{id}/files/register Register uploaded file
+  GET    /v2/knowledge-bases/{id}/files          List files
+  GET    /v2/knowledge-bases/{id}/files/{fileId}/download-url  Get download URL
+  DELETE /v2/knowledge-bases/{id}/files/{fileId} Delete file
+
 OBSERVABILITY
   POST   /v3/spans                               Create span
   PATCH  /v3/spans/{id}                          Update span
@@ -131,6 +146,10 @@ COMPATIBILITY
   POST   /v3/compat/v1/messages                  Anthropic Messages (SSE)
   POST   /v3/compat/embeddings                   OpenAI Embeddings
 
+WEB TOOLS (Beta)
+  POST   /v3/beta/web/fetch                      Fetch URL as markdown
+  POST   /v3/beta/web/search                     Web search
+
 UTILITY
   GET    /v3/models                              List models (no auth)
   POST   /v3/parse                               Parse Starlark script
@@ -142,9 +161,9 @@ UTILITY
 
 ## 4. Core Execution Endpoints (Primary Focus)
 
-These are the two most important endpoints. Every agent interaction flows through `/run` or `/stream`.
+These are the two most important endpoints. Every agent interaction flows through `/call` or `/stream`.
 
-### 4.1 `POST /v3/functions/{name}/run`
+### 4.1 `POST /v3/functions/{name}/call`
 
 Synchronous execution. Sends input, receives complete output.
 
@@ -152,9 +171,10 @@ Synchronous execution. Sends input, receives complete output.
 
 ```
 RunRequest {
-  input_schema:    object          // JSON Schema describing the input shape
-  output_schema:   object          // JSON Schema describing the desired output shape
-  input:           object          // The actual input data (conforming to input_schema)
+  input:           object          // The actual input data (required)
+  input_schema?:   object          // JSON Schema describing the input shape (optional — defaults to text)
+  output_schema?:  object          // JSON Schema describing the desired output shape (optional — defaults to text)
+  instructions?:   string          // Instructions for the function
   model?:          string          // Deterministic model selection (e.g. "anthropic/claude-sonnet-4-6")
   temperature?:    number          // 0.0 - 2.0
   max_tokens?:     number          // Max output tokens
@@ -168,7 +188,7 @@ RunRequest {
 
 ```
 RunResponse {
-  output:   any                    // The function output (conforming to output_schema)
+  data:     any                    // The function output (conforming to output_schema)
   meta?:    ResponseMeta           // Execution metadata
 }
 ```
@@ -179,7 +199,7 @@ RunResponse {
 Tool {
   name:         string                    // Tool name
   description?: string                    // What the tool does
-  parameters:   object                    // JSON Schema for tool parameters
+  parameters:   object                    // JSON Schema for tool parameters (TypeScript: also accepts Standard Schema)
 }
 ```
 
@@ -198,6 +218,8 @@ ResponseMeta {
   usage?:           UsageInfo       // Token usage breakdown
   models_used?:     string[]        // Models used during execution
   model_warnings?:  string[]        // Warnings about model selection/fallback
+  guards?:          any[]           // Guard results (if guards are configured)
+  message?:         string          // Additional message from the server
 }
 ```
 
@@ -220,11 +242,11 @@ UsageInfo {
 
 ### 4.2 `POST /v3/functions/{name}/stream`
 
-SSE streaming execution. Same request shape as `/run`, but returns a stream of Server-Sent Events.
+SSE streaming execution. Same request shape as `/call`, but returns a stream of Server-Sent Events.
 
 #### Request
 
-Same `RunRequest` as `/run`.
+Same `RunRequest` as `/call`.
 
 #### Wire Protocol: `StreamChunk`
 
@@ -271,15 +293,38 @@ data: [DONE]\n\n
 | `done` | `usage` | Stream complete — final usage metadata |
 | `error` | `error` | Server-side error |
 
+#### Complete Event (SSE `event: complete`)
+
+In addition to `data:` lines, the stream may include a special SSE event with `event: complete`. This contains the final parsed result with metadata, equivalent to what `/call` would return:
+
+```
+event: complete
+data: {"data": <parsed output>, "meta": <ResponseMeta>}
+```
+
+The SDK surfaces this as a `CompleteChunk`:
+
+```
+CompleteChunk {
+  type:    "complete"               // Discriminator
+  data:    any                      // The final parsed output
+  meta?:   ResponseMeta             // Execution metadata
+}
+```
+
+This allows stream consumers to access the fully assembled result without manually accumulating content deltas.
+
 #### Client-Side Handling
 
 The client exposes the stream as `AsyncGenerator<StreamChunk>` / async iterable:
 
 ```
-stream = client.functions.stream(name, request)
+stream = client.stream(name, request)
 for chunk in stream:
   if chunk.type == "content":
     print(chunk.delta)
+  elif chunk.type == "complete":
+    print(chunk.data)      // Final parsed result
   elif chunk.type == "done":
     print(chunk.usage)
 ```
@@ -347,13 +392,14 @@ Deletes a cached function. Returns `204 No Content`.
 
 Generates a realtime voice agent function.
 
-**Request: `RealtimeCreateRequest`**
+**Request: `CreateRealtimeFunctionRequest`**
 ```
-RealtimeCreateRequest {
-  name:       string
-  script:     string
-  cached:     boolean
-  reasoning?: string
+CreateRealtimeFunctionRequest {
+  instructions:  string            // Voice agent instructions
+  model?:        string            // Model to use
+  provider?:     string            // Provider to use
+  voice?:        string            // Voice ID for TTS
+  tools?:        Tool[]            // Tool definitions available to the voice agent
 }
 ```
 
@@ -782,16 +828,29 @@ EmbeddingsResponse {
 
 Returns available models with capabilities and pricing.
 
+Query parameters:
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `type` | string | — | Filter by type: `llm`, `embedding`, `image`, `video`, `tts`, `stt`, `rerank`, `ocr`, `realtime` |
+| `provider` | string | — | Filter by provider: `openai`, `anthropic`, `gcp`, etc. |
+| `q` | string | — | Search by name/description |
+| `capability` | string/string[] | — | Filter by capability: `vision`, `tools`, etc. |
+| `deprecated` | boolean | — | Include/exclude deprecated models |
+| `sort` | string | — | Sort field: `id`, `type`, `provider` |
+| `order` | string | — | Sort order: `asc`, `desc` |
+| `limit` | integer | 50 | Max items (1-500) |
+| `offset` | integer | 0 | Items to skip |
+
 Response: `ModelsResponse`
 ```
 ModelsResponse {
-  models?: ModelInfo[]
+  models: ModelInfo[]
 }
 
 ModelInfo {
-  id?:           string
-  name?:         string
-  provider?:     string
+  id:            string
+  name:          string
+  provider:      string
   capabilities?: object
   pricing?:      object
   parameters?:   object
@@ -821,7 +880,249 @@ Response:
 
 ---
 
-## 9. Error Handling
+## 9. Knowledge Base Endpoints (v2 API)
+
+Knowledge bases provide semantic search over documents. All paths use the `/v2/` prefix.
+
+### 9.1 Knowledge Base Management
+
+**`POST /v2/knowledge-bases`** — Create a knowledge base.
+
+Request: `CreateKnowledgeBaseRequest`
+```
+CreateKnowledgeBaseRequest {
+  name:              string
+  embedding_model?:  string          // Embedding model to use
+}
+```
+
+Response: `CreateKnowledgeBaseResponse`
+```
+CreateKnowledgeBaseResponse {
+  id:               string
+  name:             string
+  created_at:       string          // ISO 8601
+  embedding_model:  string
+}
+```
+
+**`GET /v2/knowledge-bases`** — List knowledge bases.
+
+Query parameters: `offset`, `limit`.
+
+Response: `PaginatedResponse<KnowledgeBaseInfo>`
+```
+PaginatedResponse {
+  data: KnowledgeBaseInfo[]
+  meta: { total_count: number }
+}
+
+KnowledgeBaseInfo {
+  id:               string
+  name:             string
+  created_at:       string
+  embedding_model:  string
+}
+```
+
+**`GET /v2/knowledge-bases/{id}`** — Get knowledge base by ID.
+
+Response: `GetKnowledgeBaseResponse` (includes `count` of documents).
+
+**`GET /v2/knowledge-bases/by-name/{name}`** — Get knowledge base by name.
+
+Response: `GetKnowledgeBaseResponse`.
+
+**`DELETE /v2/knowledge-bases/{id}`** — Delete a knowledge base. Returns `204 No Content`.
+
+### 9.2 Documents
+
+**`POST /v2/knowledge-bases/{id}/documents`** — Add a document.
+
+Request: `AddDocumentRequest`
+```
+AddDocumentRequest {
+  content:         string            // Document text content
+  key?:            string            // Unique key for the document
+  metadata?:       object            // Arbitrary metadata
+  configuration?:  {                 // Text chunking config
+    chunk_size?:    number
+    chunk_overlap?: number
+  }
+}
+```
+
+Response: `AddDocumentResponse`
+```
+AddDocumentResponse {
+  id:        string
+  key:       string
+  metadata?: object
+}
+```
+
+**`POST /v2/knowledge-bases/{id}/query`** — Semantic search.
+
+Request: `QueryKnowledgeBaseRequest`
+```
+QueryKnowledgeBaseRequest {
+  query:            string           // Search query
+  prefilter_limit?: number
+  top_k?:           number           // Max results to return
+  filters?:         KnowledgeBaseFilter[]
+  rerank?:          boolean          // Re-rank results
+  parent_span_id?:  string           // Trace propagation
+}
+
+KnowledgeBaseFilter {
+  field:      string
+  operation:  "=" | "!=" | ">" | "<" | "in"
+  value:      string | number | (string | number)[]
+}
+```
+
+Response: `QueryKnowledgeBaseResponse[]`
+```
+QueryKnowledgeBaseResponse {
+  id:        string
+  key:       string
+  content:   string
+  metadata:  object
+  score:     number
+}
+```
+
+**`GET /v2/knowledge-bases/{id}/documents/{key}`** — Get document by key.
+
+**`DELETE /v2/knowledge-bases/{id}/documents`** — Delete documents. Accepts optional `filters` in the request body.
+
+### 9.3 File Operations
+
+Knowledge bases support file upload with automatic chunking.
+
+**`POST /v2/knowledge-bases/{id}/files/upload`** — Direct file upload (multipart/form-data).
+
+Parameters: `file` (binary), optional `filename`, `chunkSize`, `chunkOverlap`, `metadata`.
+
+**`POST /v2/knowledge-bases/{id}/files/upload-url`** — Get presigned S3 upload URL.
+
+**`POST /v2/knowledge-bases/{id}/files/register`** — Register a file after uploading to S3.
+
+**`GET /v2/knowledge-bases/{id}/files`** — List files.
+
+**`GET /v2/knowledge-bases/{id}/files/{fileId}/download-url`** — Get file download URL.
+
+**`DELETE /v2/knowledge-bases/{id}/files/{fileId}`** — Delete a file.
+
+---
+
+## 10. Web Tools (Beta)
+
+Beta endpoints for web access. These may change.
+
+### 10.1 `POST /v3/beta/web/fetch` — Fetch URL
+
+Fetches a URL and returns its content as markdown.
+
+Request: `WebFetchRequest`
+```
+WebFetchRequest {
+  url: string
+}
+```
+
+Response: `WebFetchResponse`
+```
+WebFetchResponse {
+  content: string                   // Markdown content
+}
+```
+
+### 10.2 `POST /v3/beta/web/search` — Web Search
+
+Performs a web search and returns results.
+
+Request: `WebSearchRequest`
+```
+WebSearchRequest {
+  query: string
+}
+```
+
+Response: `WebSearchResponse`
+```
+WebSearchResponse {
+  results: WebSearchResult[]
+}
+
+WebSearchResult {
+  title:   string
+  url:     string
+  snippet: string
+}
+```
+
+---
+
+## 11. SDK Convenience Layer
+
+These are SDK-level features built on top of the base client endpoints.
+
+### 11.1 Top-Level `call()` and `stream()` (TypeScript)
+
+The `Opper` class provides `call()` and `stream()` methods that wrap `functions.runFunction()` and `functions.streamFunction()` with automatic Standard Schema resolution and trace context propagation.
+
+```typescript
+const opper = new Opper();
+
+// call() — synchronous execution with type inference
+const result = await opper.call('summarize', {
+  output_schema: z.object({ summary: z.string() }),
+  input: { text: '...' },
+});
+result.data.summary; // string — inferred
+
+// stream() — SSE streaming
+for await (const chunk of opper.stream('summarize', { input: { text: '...' } })) {
+  if (chunk.type === 'content') process.stdout.write(chunk.delta);
+}
+```
+
+### 11.2 Tracing with `traced()` (TypeScript)
+
+Wraps code blocks in trace spans with automatic context propagation via AsyncLocalStorage. All `call()` and `stream()` calls inside the callback automatically inherit the span as their parent.
+
+```typescript
+const result = await opper.traced('my-flow', async (span) => {
+  const r1 = await opper.call('step1', { input: 'hello' });
+  const r2 = await opper.call('step2', { input: r1.data });
+  return r2;
+});
+```
+
+Supports three call signatures:
+- `traced(fn)` — default name `"traced"`
+- `traced("my-span", fn)` — custom name
+- `traced({ name, input, meta, tags }, fn)` — full options
+
+### 11.3 Media Convenience Methods (TypeScript)
+
+High-level methods for media generation that build the appropriate `RunRequest` internally.
+
+| Method | Description | Returns |
+|---|---|---|
+| `generateImage(options)` | Generate image from text prompt | `MediaResponse<GeneratedImage>` |
+| `generateVideo(options)` | Generate video from text prompt | `MediaResponse<GeneratedVideo>` |
+| `textToSpeech(options)` | Convert text to speech audio | `MediaResponse<GeneratedSpeech>` |
+| `transcribe(options)` | Transcribe audio to text | `RunResponse<Transcription>` |
+
+All media methods support an optional function name as first argument: `generateImage('my-gen', { prompt: '...' })`.
+
+`MediaResponse` extends `RunResponse` with a `save(filePath)` method that writes the base64 content to disk and returns the final path.
+
+---
+
+## 12. Error Handling
 
 ### `ApiError`
 
@@ -861,17 +1162,19 @@ ErrorResponse {
 
 ---
 
-## 10. Streaming Design Notes
+## 13. Streaming Design Notes
 
 ### SSE Parsing
 
 1. Read the response body as a text stream, line by line
-2. For each line starting with `data: `:
+2. Track the current event type from `event:` lines (default: empty)
+3. For each line starting with `data: `:
    - Strip the `data: ` prefix (6 characters)
    - If the remainder is `[DONE]`, close the iterator
+   - If the current event type is `complete`, parse the JSON as a `CompleteChunk` and yield it
    - Otherwise, `JSON.parse` the remainder as a `StreamChunk` and yield it
-3. Ignore lines that don't start with `data: ` (comments, empty lines, other SSE fields)
-4. On connection close without `[DONE]`, treat as an error
+4. Reset the event type after each blank line (SSE event boundary)
+5. On connection close without `[DONE]`, treat as an error
 
 ### Back-Pressure
 
@@ -886,5 +1189,5 @@ The async iterator / generator pattern naturally provides back-pressure. The cli
 ### Content-Type
 
 - Request: `application/json`
-- Response (run): `application/json`
+- Response (call): `application/json`
 - Response (stream): `text/event-stream`
