@@ -2,6 +2,7 @@
 # The platform routes to image_gen() with the reference image included.
 import base64
 from pathlib import Path
+
 from opperai import Opper
 
 media_dir = Path(__file__).parent / "media"

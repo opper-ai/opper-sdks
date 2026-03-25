@@ -30,9 +30,15 @@ class ModelsClient:
     ) -> ModelsResponse:
         query: dict[str, Any] = {}
         for key, val in [
-            ("type", type), ("provider", provider), ("q", q),
-            ("capability", capability), ("deprecated", deprecated),
-            ("sort", sort), ("order", order), ("limit", limit), ("offset", offset),
+            ("type", type),
+            ("provider", provider),
+            ("q", q),
+            ("capability", capability),
+            ("deprecated", deprecated),
+            ("sort", sort),
+            ("order", order),
+            ("limit", limit),
+            ("offset", offset),
         ]:
             if val is not None:
                 query[key] = val
@@ -56,9 +62,15 @@ class ModelsClient:
     ) -> ModelsResponse:
         query: dict[str, Any] = {}
         for key, val in [
-            ("type", type), ("provider", provider), ("q", q),
-            ("capability", capability), ("deprecated", deprecated),
-            ("sort", sort), ("order", order), ("limit", limit), ("offset", offset),
+            ("type", type),
+            ("provider", provider),
+            ("q", q),
+            ("capability", capability),
+            ("deprecated", deprecated),
+            ("sort", sort),
+            ("order", order),
+            ("limit", limit),
+            ("offset", offset),
         ]:
             if val is not None:
                 query[key] = val

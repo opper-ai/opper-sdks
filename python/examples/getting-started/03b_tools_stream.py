@@ -1,5 +1,6 @@
 # Tools: streaming with tool_call chunks
 import sys
+
 from opperai import Opper
 
 opper = Opper()

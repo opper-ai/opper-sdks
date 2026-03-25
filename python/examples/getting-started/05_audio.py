@@ -1,6 +1,7 @@
 # Audio: text-to-speech and speech-to-text in one flow
-from pathlib import Path
 import base64
+from pathlib import Path
+
 from opperai import Opper
 
 opper = Opper()

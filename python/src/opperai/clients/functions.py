@@ -51,9 +51,7 @@ class FunctionsClient:
         data = self._client._put(self._fn_path(name), {"source": source}, options=options)
         return FunctionDetails(**data)
 
-    async def update_async(
-        self, name: str, *, source: str, options: RequestOptions | None = None
-    ) -> FunctionDetails:
+    async def update_async(self, name: str, *, source: str, options: RequestOptions | None = None) -> FunctionDetails:
         data = await self._client._put_async(self._fn_path(name), {"source": source}, options=options)
         return FunctionDetails(**data)
 
@@ -149,9 +147,7 @@ class FunctionsClient:
         data = await self._client._get_async(f"{self._fn_path(name)}/revisions", options=options)
         return [RevisionInfo(**r) for r in (data or {}).get("revisions", [])]
 
-    def get_revision(
-        self, name: str, revision_id: int, *, options: RequestOptions | None = None
-    ) -> FunctionRevision:
+    def get_revision(self, name: str, revision_id: int, *, options: RequestOptions | None = None) -> FunctionRevision:
         data = self._client._get(f"{self._fn_path(name)}/revisions/{revision_id}", options=options)
         return FunctionRevision(**data)
 
@@ -161,18 +157,14 @@ class FunctionsClient:
         data = await self._client._get_async(f"{self._fn_path(name)}/revisions/{revision_id}", options=options)
         return FunctionRevision(**data)
 
-    def revert_revision(
-        self, name: str, revision_id: int, *, options: RequestOptions | None = None
-    ) -> FunctionDetails:
+    def revert_revision(self, name: str, revision_id: int, *, options: RequestOptions | None = None) -> FunctionDetails:
         data = self._client._post(f"{self._fn_path(name)}/revisions/{revision_id}/revert", options=options)
         return FunctionDetails(**data)
 
     async def revert_revision_async(
         self, name: str, revision_id: int, *, options: RequestOptions | None = None
     ) -> FunctionDetails:
-        data = await self._client._post_async(
-            f"{self._fn_path(name)}/revisions/{revision_id}/revert", options=options
-        )
+        data = await self._client._post_async(f"{self._fn_path(name)}/revisions/{revision_id}/revert", options=options)
         return FunctionDetails(**data)
 
     # --- Examples -------------------------------------------------------------
@@ -265,6 +257,4 @@ class FunctionsClient:
         self._client._delete(f"{self._fn_path(name)}/examples/{quote(uuid, safe='')}", options=options)
 
     async def delete_example_async(self, name: str, uuid: str, *, options: RequestOptions | None = None) -> None:
-        await self._client._delete_async(
-            f"{self._fn_path(name)}/examples/{quote(uuid, safe='')}", options=options
-        )
+        await self._client._delete_async(f"{self._fn_path(name)}/examples/{quote(uuid, safe='')}", options=options)

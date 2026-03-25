@@ -100,9 +100,7 @@ class KnowledgeClient:
         data = self._client._get(f"{KB_PATH}/by-name/{quote(name, safe='')}", options=options)
         return GetKnowledgeBaseResponse(**data)
 
-    async def get_by_name_async(
-        self, name: str, *, options: RequestOptions | None = None
-    ) -> GetKnowledgeBaseResponse:
+    async def get_by_name_async(self, name: str, *, options: RequestOptions | None = None) -> GetKnowledgeBaseResponse:
         data = await self._client._get_async(f"{KB_PATH}/by-name/{quote(name, safe='')}", options=options)
         return GetKnowledgeBaseResponse(**data)
 
@@ -163,9 +161,7 @@ class KnowledgeClient:
             config["chunk_overlap"] = chunk_overlap
         if config:
             body["configuration"] = config
-        data = await self._client._post_async(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/documents", body, options=options
-        )
+        data = await self._client._post_async(f"{KB_PATH}/{quote(kb_id, safe='')}/documents", body, options=options)
         return AddDocumentResponse(**data)
 
     def query(
@@ -219,19 +215,13 @@ class KnowledgeClient:
             body["rerank"] = rerank
         if parent_span_id is not None:
             body["parent_span_id"] = parent_span_id
-        data = await self._client._post_async(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/query", body, options=options
-        )
+        data = await self._client._post_async(f"{KB_PATH}/{quote(kb_id, safe='')}/query", body, options=options)
         if isinstance(data, list):
             return [QueryResult(**r) for r in data]
         return []
 
-    def get_document(
-        self, kb_id: str, key: str, *, options: RequestOptions | None = None
-    ) -> GetDocumentResponse:
-        data = self._client._get(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/documents/{quote(key, safe='')}", options=options
-        )
+    def get_document(self, kb_id: str, key: str, *, options: RequestOptions | None = None) -> GetDocumentResponse:
+        data = self._client._get(f"{KB_PATH}/{quote(kb_id, safe='')}/documents/{quote(key, safe='')}", options=options)
         return GetDocumentResponse(**data)
 
     async def get_document_async(
@@ -252,9 +242,7 @@ class KnowledgeClient:
         body: dict[str, Any] = {}
         if filters is not None:
             body["filters"] = filters
-        data = self._client._delete(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/documents", body=body, options=options
-        )
+        data = self._client._delete(f"{KB_PATH}/{quote(kb_id, safe='')}/documents", body=body, options=options)
         return DeleteDocumentsResponse(**(data or {}))
 
     async def delete_documents_async(
@@ -292,6 +280,7 @@ class KnowledgeClient:
             fields["chunkOverlap"] = str(chunk_overlap)
         if metadata is not None:
             import json
+
             fields["metadata"] = json.dumps(metadata)
         data = self._client._upload(
             f"{KB_PATH}/{quote(kb_id, safe='')}/files/upload",
@@ -320,6 +309,7 @@ class KnowledgeClient:
             fields["chunkOverlap"] = str(chunk_overlap)
         if metadata is not None:
             import json
+
             fields["metadata"] = json.dumps(metadata)
         data = await self._client._upload_async(
             f"{KB_PATH}/{quote(kb_id, safe='')}/files/upload",
@@ -372,9 +362,7 @@ class KnowledgeClient:
             body["configuration"] = config
         if metadata is not None:
             body["metadata"] = metadata
-        data = self._client._post(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/register", body, options=options
-        )
+        data = self._client._post(f"{KB_PATH}/{quote(kb_id, safe='')}/files/register", body, options=options)
         return RegisterFileUploadResponse(**data)
 
     async def register_file_async(
@@ -417,9 +405,7 @@ class KnowledgeClient:
             query["offset"] = offset
         if limit is not None:
             query["limit"] = limit
-        data = self._client._get(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files", query=query, options=options
-        )
+        data = self._client._get(f"{KB_PATH}/{quote(kb_id, safe='')}/files", query=query, options=options)
         return [FileInfo(**f) for f in (data or {}).get("data", [])]
 
     async def list_files_async(
@@ -435,39 +421,27 @@ class KnowledgeClient:
             query["offset"] = offset
         if limit is not None:
             query["limit"] = limit
-        data = await self._client._get_async(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files", query=query, options=options
-        )
+        data = await self._client._get_async(f"{KB_PATH}/{quote(kb_id, safe='')}/files", query=query, options=options)
         return [FileInfo(**f) for f in (data or {}).get("data", [])]
 
-    def get_download_url(
-        self, kb_id: str, file_id: str, *, options: RequestOptions | None = None
-    ) -> str:
+    def get_download_url(self, kb_id: str, file_id: str, *, options: RequestOptions | None = None) -> str:
         data = self._client._get(
             f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}/download-url",
             options=options,
         )
         return (data or {}).get("url", "")
 
-    async def get_download_url_async(
-        self, kb_id: str, file_id: str, *, options: RequestOptions | None = None
-    ) -> str:
+    async def get_download_url_async(self, kb_id: str, file_id: str, *, options: RequestOptions | None = None) -> str:
         data = await self._client._get_async(
             f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}/download-url",
             options=options,
         )
         return (data or {}).get("url", "")
 
-    def delete_file(
-        self, kb_id: str, file_id: str, *, options: RequestOptions | None = None
-    ) -> None:
-        self._client._delete(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}", options=options
-        )
+    def delete_file(self, kb_id: str, file_id: str, *, options: RequestOptions | None = None) -> None:
+        self._client._delete(f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}", options=options)
 
-    async def delete_file_async(
-        self, kb_id: str, file_id: str, *, options: RequestOptions | None = None
-    ) -> None:
+    async def delete_file_async(self, kb_id: str, file_id: str, *, options: RequestOptions | None = None) -> None:
         await self._client._delete_async(
             f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}", options=options
         )

@@ -1,5 +1,6 @@
 # Traces API: list, get, and inspect traces with their spans
 from datetime import datetime, timezone
+
 from opperai import Opper
 
 opper = Opper()
@@ -65,7 +66,7 @@ opper.spans.update(
 )
 
 fetched = opper.spans.get(root_span.id)
-print(f"\n── Span detail ──")
+print("\n── Span detail ──")
 print(f"ID:       {fetched.id}")
 print(f"Name:     {fetched.name}")
 print(f"Trace:    {fetched.trace_id}")

@@ -1,6 +1,8 @@
 # Comparing schema approaches: Pydantic, dataclass, raw dict
 from dataclasses import dataclass
+
 from pydantic import BaseModel
+
 from opperai import Opper
 
 opper = Opper()

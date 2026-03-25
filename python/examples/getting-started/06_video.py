@@ -2,6 +2,7 @@
 # The platform routes to video_gen() when the schemas indicate video output.
 import base64
 from pathlib import Path
+
 from opperai import Opper
 
 media_dir = Path(__file__).parent / "media"

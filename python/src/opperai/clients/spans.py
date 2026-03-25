@@ -34,10 +34,17 @@ class SpansClient:
     ) -> CreateSpanResponse:
         body: dict[str, Any] = {"name": name}
         for key, val in [
-            ("trace_id", trace_id), ("parent_id", parent_id), ("type", type),
-            ("input", input), ("output", output), ("error", error),
-            ("start_time", start_time), ("end_time", end_time),
-            ("meta", meta), ("metadata", metadata), ("tags", tags),
+            ("trace_id", trace_id),
+            ("parent_id", parent_id),
+            ("type", type),
+            ("input", input),
+            ("output", output),
+            ("error", error),
+            ("start_time", start_time),
+            ("end_time", end_time),
+            ("meta", meta),
+            ("metadata", metadata),
+            ("tags", tags),
         ]:
             if val is not None:
                 body[key] = val
@@ -63,10 +70,17 @@ class SpansClient:
     ) -> CreateSpanResponse:
         body: dict[str, Any] = {"name": name}
         for key, val in [
-            ("trace_id", trace_id), ("parent_id", parent_id), ("type", type),
-            ("input", input), ("output", output), ("error", error),
-            ("start_time", start_time), ("end_time", end_time),
-            ("meta", meta), ("metadata", metadata), ("tags", tags),
+            ("trace_id", trace_id),
+            ("parent_id", parent_id),
+            ("type", type),
+            ("input", input),
+            ("output", output),
+            ("error", error),
+            ("start_time", start_time),
+            ("end_time", end_time),
+            ("meta", meta),
+            ("metadata", metadata),
+            ("tags", tags),
         ]:
             if val is not None:
                 body[key] = val
@@ -87,8 +101,12 @@ class SpansClient:
     ) -> None:
         body: dict[str, Any] = {}
         for key, val in [
-            ("output", output), ("error", error), ("end_time", end_time),
-            ("meta", meta), ("metadata", metadata), ("tags", tags),
+            ("output", output),
+            ("error", error),
+            ("end_time", end_time),
+            ("meta", meta),
+            ("metadata", metadata),
+            ("tags", tags),
         ]:
             if val is not None:
                 body[key] = val
@@ -108,8 +126,12 @@ class SpansClient:
     ) -> None:
         body: dict[str, Any] = {}
         for key, val in [
-            ("output", output), ("error", error), ("end_time", end_time),
-            ("meta", meta), ("metadata", metadata), ("tags", tags),
+            ("output", output),
+            ("error", error),
+            ("end_time", end_time),
+            ("meta", meta),
+            ("metadata", metadata),
+            ("tags", tags),
         ]:
             if val is not None:
                 body[key] = val

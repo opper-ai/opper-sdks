@@ -1,5 +1,6 @@
 # Streaming function execution
 import sys
+
 from opperai import Opper
 
 opper = Opper()

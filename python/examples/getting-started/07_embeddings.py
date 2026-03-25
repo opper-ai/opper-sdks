@@ -1,5 +1,6 @@
 # Embeddings: generate vector embeddings for semantic similarity
 import math
+
 from opperai import Opper
 
 opper = Opper()
@@ -24,6 +25,7 @@ print("First 5 values:", result.data["embedding"][:5])
 
 
 # ── Compare similarity between two texts ────────────────────────────────────
+
 
 def embed(text: str) -> list[float]:
     r = opper.call(

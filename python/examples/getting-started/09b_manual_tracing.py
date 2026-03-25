@@ -1,6 +1,7 @@
 # Manual tracing: create spans directly and wire parent_span_id by hand
 import json
 from datetime import datetime, timezone
+
 from opperai import Opper
 
 opper = Opper()

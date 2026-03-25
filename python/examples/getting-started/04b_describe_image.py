@@ -2,6 +2,7 @@
 # The platform routes to llm() with multimodal content when the input includes an image.
 import base64
 from pathlib import Path
+
 from opperai import Opper
 
 media_dir = Path(__file__).parent / "media"

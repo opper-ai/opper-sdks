@@ -1,5 +1,7 @@
 # Image generation via the image_gen builtin
+import base64
 from pathlib import Path
+
 from opperai import Opper
 
 opper = Opper()
@@ -38,8 +40,6 @@ print("\n── Raw call() ──")
 print("MIME type:", raw.data.get("mime_type"))
 image_b64 = raw.data.get("image", "")
 print("Image base64 length:", len(image_b64))
-
-import base64
 
 ext = (raw.data.get("mime_type", "image/png")).split("/")[-1]
 raw_path = media_dir / f"generated-image-raw.{ext}"

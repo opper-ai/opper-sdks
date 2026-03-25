@@ -1,5 +1,6 @@
 # Function management: list, get, update, delete, revisions
 import sys
+
 from opperai import Opper
 
 opper = Opper()

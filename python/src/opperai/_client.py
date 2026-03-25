@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator, Iterator
-from contextvars import copy_context
 from datetime import datetime, timezone
 from typing import Any, TypeVar, overload
 
@@ -21,7 +20,6 @@ from .clients.system import SystemClient
 from .clients.traces import TracesClient
 from .clients.web_tools import WebToolsClient
 from .types import (
-    RequestOptions,
     RunResponse,
     SpanHandle,
     StreamChunk,
@@ -75,7 +73,7 @@ class _Trace:
 
         @functools.wraps(fn)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            with self.__class__(self._opper, self._name, input=self._input, meta=self._meta, tags=self._tags) as span:
+            with self.__class__(self._opper, self._name, input=self._input, meta=self._meta, tags=self._tags):
                 return fn(*args, **kwargs)
 
         return wrapper
@@ -139,9 +137,7 @@ class _TraceAsync:
 
         @functools.wraps(fn)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            async with self.__class__(
-                self._opper, self._name, input=self._input, meta=self._meta, tags=self._tags
-            ) as span:
+            async with self.__class__(self._opper, self._name, input=self._input, meta=self._meta, tags=self._tags):
                 return await fn(*args, **kwargs)
 
         return wrapper
@@ -180,17 +176,7 @@ class _TraceAsync:
 
 
 class Opper:
-    """Unified client for the Opper API.
-
-    Usage:
-        from opperai import Opper
-
-        # From environment (OPPER_API_KEY, OPPER_BASE_URL)
-        opper = Opper()
-
-        # Explicit
-        opper = Opper(api_key="op-...", base_url="https://api.opper.ai")
-    """
+    """Opper API client. Pass api_key or set OPPER_API_KEY env var."""
 
     def __init__(
         self,
@@ -200,9 +186,7 @@ class Opper:
     ) -> None:
         resolved_key = api_key or os.environ.get("OPPER_API_KEY", "")
         if not resolved_key:
-            raise ValueError(
-                "Missing API key. Pass api_key or set the OPPER_API_KEY environment variable."
-            )
+            raise ValueError("Missing API key. Pass api_key or set the OPPER_API_KEY environment variable.")
         resolved_url = base_url or os.environ.get("OPPER_BASE_URL", DEFAULT_BASE_URL)
 
         self._client = BaseClient(resolved_key, resolved_url, headers)
@@ -220,6 +204,33 @@ class Opper:
 
     # --- Core execution -------------------------------------------------------
 
+    @overload
+    def call(
+        self,
+        name: str,
+        *,
+        input: Any,
+        output_schema: type[T],
+        input_schema: Any = ...,
+        instructions: str | None = ...,
+        model: str | None = ...,
+        tools: list[dict[str, Any]] | None = ...,
+        parent_span_id: str | None = ...,
+    ) -> RunResponse[T]: ...
+    @overload
+    def call(
+        self,
+        name: str,
+        *,
+        input: Any,
+        output_schema: Any = ...,
+        input_schema: Any = ...,
+        instructions: str | None = ...,
+        model: str | None = ...,
+        tools: list[dict[str, Any]] | None = ...,
+        parent_span_id: str | None = ...,
+    ) -> RunResponse[Any]: ...
+
     def call(
         self,
         name: str,
@@ -229,24 +240,48 @@ class Opper:
         output_schema: Any = None,
         instructions: str | None = None,
         model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        reasoning_effort: str | None = None,
-        parent_span_id: str | None = None,
         tools: list[dict[str, Any]] | None = None,
-        request_options: RequestOptions | None = None,
-    ) -> RunResponse:
+        parent_span_id: str | None = None,
+    ) -> RunResponse[Any]:
         request = self._build_request(
-            input=input, input_schema=input_schema, output_schema=output_schema,
-            instructions=instructions, model=model, temperature=temperature,
-            max_tokens=max_tokens, reasoning_effort=reasoning_effort,
-            parent_span_id=parent_span_id, tools=tools,
+            input=input,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            instructions=instructions,
+            model=model,
+            parent_span_id=parent_span_id,
+            tools=tools,
         )
-        data = self._client._post(
-            f"/v3/functions/{_quote(name)}/call", request, options=request_options
-        )
+        data = self._client._post(f"/v3/functions/{_quote(name)}/call", request)
         result_data = parse_output(data.get("data"), output_schema)
         return RunResponse(data=result_data, meta=data.get("meta"))
+
+    @overload
+    async def call_async(
+        self,
+        name: str,
+        *,
+        input: Any,
+        output_schema: type[T],
+        input_schema: Any = ...,
+        instructions: str | None = ...,
+        model: str | None = ...,
+        tools: list[dict[str, Any]] | None = ...,
+        parent_span_id: str | None = ...,
+    ) -> RunResponse[T]: ...
+    @overload
+    async def call_async(
+        self,
+        name: str,
+        *,
+        input: Any,
+        output_schema: Any = ...,
+        input_schema: Any = ...,
+        instructions: str | None = ...,
+        model: str | None = ...,
+        tools: list[dict[str, Any]] | None = ...,
+        parent_span_id: str | None = ...,
+    ) -> RunResponse[Any]: ...
 
     async def call_async(
         self,
@@ -257,22 +292,19 @@ class Opper:
         output_schema: Any = None,
         instructions: str | None = None,
         model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        reasoning_effort: str | None = None,
-        parent_span_id: str | None = None,
         tools: list[dict[str, Any]] | None = None,
-        request_options: RequestOptions | None = None,
-    ) -> RunResponse:
+        parent_span_id: str | None = None,
+    ) -> RunResponse[Any]:
         request = self._build_request(
-            input=input, input_schema=input_schema, output_schema=output_schema,
-            instructions=instructions, model=model, temperature=temperature,
-            max_tokens=max_tokens, reasoning_effort=reasoning_effort,
-            parent_span_id=parent_span_id, tools=tools,
+            input=input,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            instructions=instructions,
+            model=model,
+            parent_span_id=parent_span_id,
+            tools=tools,
         )
-        data = await self._client._post_async(
-            f"/v3/functions/{_quote(name)}/call", request, options=request_options
-        )
+        data = await self._client._post_async(f"/v3/functions/{_quote(name)}/call", request)
         result_data = parse_output(data.get("data"), output_schema)
         return RunResponse(data=result_data, meta=data.get("meta"))
 
@@ -285,22 +317,19 @@ class Opper:
         output_schema: Any = None,
         instructions: str | None = None,
         model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        reasoning_effort: str | None = None,
-        parent_span_id: str | None = None,
         tools: list[dict[str, Any]] | None = None,
-        request_options: RequestOptions | None = None,
+        parent_span_id: str | None = None,
     ) -> Iterator[StreamChunk]:
         request = self._build_request(
-            input=input, input_schema=input_schema, output_schema=output_schema,
-            instructions=instructions, model=model, temperature=temperature,
-            max_tokens=max_tokens, reasoning_effort=reasoning_effort,
-            parent_span_id=parent_span_id, tools=tools,
+            input=input,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            instructions=instructions,
+            model=model,
+            parent_span_id=parent_span_id,
+            tools=tools,
         )
-        return self._client._stream_sse(
-            f"/v3/functions/{_quote(name)}/stream", request, options=request_options
-        )
+        return self._client._stream_sse(f"/v3/functions/{_quote(name)}/stream", request)
 
     async def stream_async(
         self,
@@ -311,22 +340,19 @@ class Opper:
         output_schema: Any = None,
         instructions: str | None = None,
         model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        reasoning_effort: str | None = None,
-        parent_span_id: str | None = None,
         tools: list[dict[str, Any]] | None = None,
-        request_options: RequestOptions | None = None,
+        parent_span_id: str | None = None,
     ) -> AsyncIterator[StreamChunk]:
         request = self._build_request(
-            input=input, input_schema=input_schema, output_schema=output_schema,
-            instructions=instructions, model=model, temperature=temperature,
-            max_tokens=max_tokens, reasoning_effort=reasoning_effort,
-            parent_span_id=parent_span_id, tools=tools,
+            input=input,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            instructions=instructions,
+            model=model,
+            parent_span_id=parent_span_id,
+            tools=tools,
         )
-        return self._client._stream_sse_async(
-            f"/v3/functions/{_quote(name)}/stream", request, options=request_options
-        )
+        return self._client._stream_sse_async(f"/v3/functions/{_quote(name)}/stream", request)
 
     # --- Tracing --------------------------------------------------------------
 
@@ -390,18 +416,11 @@ class Opper:
         style: str | None = None,
         n: int | None = None,
         mime_type: str | None = None,
-        request_options: RequestOptions | None = None,
     ) -> RunResponse:
         fn_name = name or "image-gen"
         input_data = _build_media_input(prompt=prompt, reference_image=reference_image)
         output_schema = _image_output_schema()
-        return self.call(
-            fn_name,
-            input=input_data,
-            output_schema=output_schema,
-            model=model,
-            request_options=request_options,
-        )
+        return self.call(fn_name, input=input_data, output_schema=output_schema, model=model)
 
     async def generate_image_async(
         self,
@@ -415,18 +434,11 @@ class Opper:
         style: str | None = None,
         n: int | None = None,
         mime_type: str | None = None,
-        request_options: RequestOptions | None = None,
     ) -> RunResponse:
         fn_name = name or "image-gen"
         input_data = _build_media_input(prompt=prompt, reference_image=reference_image)
         output_schema = _image_output_schema()
-        return await self.call_async(
-            fn_name,
-            input=input_data,
-            output_schema=output_schema,
-            model=model,
-            request_options=request_options,
-        )
+        return await self.call_async(fn_name, input=input_data, output_schema=output_schema, model=model)
 
     def generate_video(
         self,
@@ -435,17 +447,12 @@ class Opper:
         prompt: str,
         model: str | None = None,
         aspect_ratio: str | None = None,
-        request_options: RequestOptions | None = None,
     ) -> RunResponse:
         fn_name = name or "video-gen"
         input_data: dict[str, Any] = {"prompt": prompt}
         if aspect_ratio:
             input_data["aspect_ratio"] = aspect_ratio
-        output_schema = _video_output_schema()
-        return self.call(
-            fn_name, input=input_data, output_schema=output_schema, model=model,
-            request_options=request_options,
-        )
+        return self.call(fn_name, input=input_data, output_schema=_video_output_schema(), model=model)
 
     async def generate_video_async(
         self,
@@ -454,17 +461,12 @@ class Opper:
         prompt: str,
         model: str | None = None,
         aspect_ratio: str | None = None,
-        request_options: RequestOptions | None = None,
     ) -> RunResponse:
         fn_name = name or "video-gen"
         input_data: dict[str, Any] = {"prompt": prompt}
         if aspect_ratio:
             input_data["aspect_ratio"] = aspect_ratio
-        output_schema = _video_output_schema()
-        return await self.call_async(
-            fn_name, input=input_data, output_schema=output_schema, model=model,
-            request_options=request_options,
-        )
+        return await self.call_async(fn_name, input=input_data, output_schema=_video_output_schema(), model=model)
 
     def text_to_speech(
         self,
@@ -473,17 +475,12 @@ class Opper:
         text: str,
         voice: str | None = None,
         model: str | None = None,
-        request_options: RequestOptions | None = None,
     ) -> RunResponse:
         fn_name = name or "tts"
         input_data: dict[str, Any] = {"text": text}
         if voice:
             input_data["voice"] = voice
-        output_schema = _tts_output_schema()
-        return self.call(
-            fn_name, input=input_data, output_schema=output_schema, model=model,
-            request_options=request_options,
-        )
+        return self.call(fn_name, input=input_data, output_schema=_tts_output_schema(), model=model)
 
     async def text_to_speech_async(
         self,
@@ -492,17 +489,12 @@ class Opper:
         text: str,
         voice: str | None = None,
         model: str | None = None,
-        request_options: RequestOptions | None = None,
     ) -> RunResponse:
         fn_name = name or "tts"
         input_data: dict[str, Any] = {"text": text}
         if voice:
             input_data["voice"] = voice
-        output_schema = _tts_output_schema()
-        return await self.call_async(
-            fn_name, input=input_data, output_schema=output_schema, model=model,
-            request_options=request_options,
-        )
+        return await self.call_async(fn_name, input=input_data, output_schema=_tts_output_schema(), model=model)
 
     def transcribe(
         self,
@@ -512,15 +504,10 @@ class Opper:
         language: str | None = None,
         prompt: str | None = None,
         model: str | None = None,
-        request_options: RequestOptions | None = None,
     ) -> RunResponse:
         fn_name = name or "stt"
         input_data = _build_audio_input(audio=audio, language=language, prompt=prompt)
-        output_schema = _stt_output_schema()
-        return self.call(
-            fn_name, input=input_data, output_schema=output_schema, model=model,
-            request_options=request_options,
-        )
+        return self.call(fn_name, input=input_data, output_schema=_stt_output_schema(), model=model)
 
     async def transcribe_async(
         self,
@@ -530,15 +517,10 @@ class Opper:
         language: str | None = None,
         prompt: str | None = None,
         model: str | None = None,
-        request_options: RequestOptions | None = None,
     ) -> RunResponse:
         fn_name = name or "stt"
         input_data = _build_audio_input(audio=audio, language=language, prompt=prompt)
-        output_schema = _stt_output_schema()
-        return await self.call_async(
-            fn_name, input=input_data, output_schema=output_schema, model=model,
-            request_options=request_options,
-        )
+        return await self.call_async(fn_name, input=input_data, output_schema=_stt_output_schema(), model=model)
 
     # --- Internal helpers -----------------------------------------------------
 
@@ -550,9 +532,6 @@ class Opper:
         output_schema: Any = None,
         instructions: str | None = None,
         model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        reasoning_effort: str | None = None,
         parent_span_id: str | None = None,
         tools: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
@@ -571,12 +550,6 @@ class Opper:
             request["instructions"] = instructions
         if model is not None:
             request["model"] = model
-        if temperature is not None:
-            request["temperature"] = temperature
-        if max_tokens is not None:
-            request["max_tokens"] = max_tokens
-        if reasoning_effort is not None:
-            request["reasoning_effort"] = reasoning_effort
 
         # Resolve parent_span_id from trace context if not explicitly provided
         if parent_span_id is not None:
@@ -607,6 +580,7 @@ class Opper:
 
 def _quote(name: str) -> str:
     from urllib.parse import quote
+
     return quote(name, safe="")
 
 
@@ -615,24 +589,26 @@ def _build_media_input(*, prompt: str, reference_image: str | bytes | None = Non
     if reference_image is not None:
         if isinstance(reference_image, bytes):
             import base64
+
             input_data["reference_image"] = base64.b64encode(reference_image).decode()
         elif isinstance(reference_image, str):
             # Assume file path — read and base64 encode
             import base64
+
             with open(reference_image, "rb") as f:
                 input_data["reference_image"] = base64.b64encode(f.read()).decode()
     return input_data
 
 
-def _build_audio_input(
-    *, audio: str | bytes, language: str | None = None, prompt: str | None = None
-) -> dict[str, Any]:
+def _build_audio_input(*, audio: str | bytes, language: str | None = None, prompt: str | None = None) -> dict[str, Any]:
     input_data: dict[str, Any] = {}
     if isinstance(audio, bytes):
         import base64
+
         input_data["audio"] = base64.b64encode(audio).decode()
     elif isinstance(audio, str):
         import base64
+
         with open(audio, "rb") as f:
             input_data["audio"] = base64.b64encode(f.read()).decode()
     if language is not None:
