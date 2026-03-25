@@ -1,0 +1,683 @@
+"""Opper SDK — Main Client."""
+
+from __future__ import annotations
+
+import os
+from collections.abc import AsyncIterator, Iterator
+from contextvars import copy_context
+from datetime import datetime, timezone
+from typing import Any, TypeVar, overload
+
+from ._base_client import BaseClient
+from ._context import TraceContext, get_trace_context, set_trace_context
+from ._schema import parse_output, resolve_schema
+from .clients.embeddings import EmbeddingsClient
+from .clients.functions import FunctionsClient
+from .clients.generations import GenerationsClient
+from .clients.knowledge import KnowledgeClient
+from .clients.models import ModelsClient
+from .clients.spans import SpansClient
+from .clients.system import SystemClient
+from .clients.traces import TracesClient
+from .clients.web_tools import WebToolsClient
+from .types import (
+    RequestOptions,
+    RunResponse,
+    SpanHandle,
+    StreamChunk,
+)
+
+T = TypeVar("T")
+
+DEFAULT_BASE_URL = "https://api.opper.ai"
+
+
+class _BetaNamespace:
+    """Namespace for beta API endpoints."""
+
+    def __init__(self, client: BaseClient) -> None:
+        self.web = WebToolsClient(client)
+
+
+class _Trace:
+    """Dual-use object: decorator and context manager for tracing.
+
+    Usage as decorator:
+        @opper.trace("my-pipeline")
+        def my_pipeline():
+            ...
+
+    Usage as context manager:
+        with opper.trace("my-pipeline") as span:
+            ...
+    """
+
+    def __init__(
+        self,
+        opper: Opper,
+        name: str = "traced",
+        *,
+        input: str | None = None,
+        meta: dict[str, Any] | None = None,
+        tags: dict[str, Any] | None = None,
+    ) -> None:
+        self._opper = opper
+        self._name = name
+        self._input = input
+        self._meta = meta
+        self._tags = tags
+        self._span_handle: SpanHandle | None = None
+        self._token: Any = None
+
+    def __call__(self, fn: Any) -> Any:
+        """Use as a decorator for sync functions."""
+        import functools
+
+        @functools.wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            with self.__class__(self._opper, self._name, input=self._input, meta=self._meta, tags=self._tags) as span:
+                return fn(*args, **kwargs)
+
+        return wrapper
+
+    def __enter__(self) -> SpanHandle:
+        parent_ctx = get_trace_context()
+        create_kwargs: dict[str, Any] = {
+            "name": self._name,
+            "start_time": datetime.now(timezone.utc).isoformat(),
+        }
+        if self._input is not None:
+            create_kwargs["input"] = self._input
+        if self._meta is not None:
+            create_kwargs["meta"] = self._meta
+        if self._tags is not None:
+            create_kwargs["tags"] = self._tags
+        if parent_ctx:
+            create_kwargs["trace_id"] = parent_ctx.trace_id
+            create_kwargs["parent_id"] = parent_ctx.span_id
+
+        span = self._opper.spans.create(**create_kwargs)
+        self._span_handle = SpanHandle(id=span.id, trace_id=span.trace_id)
+        set_trace_context(TraceContext(span_id=span.id, trace_id=span.trace_id))
+        return self._span_handle
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self._span_handle is None:
+            return
+        update_kwargs: dict[str, Any] = {"end_time": datetime.now(timezone.utc).isoformat()}
+        if exc_val is not None:
+            update_kwargs["error"] = str(exc_val)
+        self._opper.spans.update(self._span_handle.id, **update_kwargs)
+        # Restore parent context
+        parent_ctx = get_trace_context()
+        if parent_ctx and parent_ctx.span_id == self._span_handle.id:
+            set_trace_context(None)
+
+
+class _TraceAsync:
+    """Async version of _Trace: decorator and async context manager."""
+
+    def __init__(
+        self,
+        opper: Opper,
+        name: str = "traced",
+        *,
+        input: str | None = None,
+        meta: dict[str, Any] | None = None,
+        tags: dict[str, Any] | None = None,
+    ) -> None:
+        self._opper = opper
+        self._name = name
+        self._input = input
+        self._meta = meta
+        self._tags = tags
+        self._span_handle: SpanHandle | None = None
+
+    def __call__(self, fn: Any) -> Any:
+        """Use as a decorator for async functions."""
+        import functools
+
+        @functools.wraps(fn)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            async with self.__class__(
+                self._opper, self._name, input=self._input, meta=self._meta, tags=self._tags
+            ) as span:
+                return await fn(*args, **kwargs)
+
+        return wrapper
+
+    async def __aenter__(self) -> SpanHandle:
+        parent_ctx = get_trace_context()
+        create_kwargs: dict[str, Any] = {
+            "name": self._name,
+            "start_time": datetime.now(timezone.utc).isoformat(),
+        }
+        if self._input is not None:
+            create_kwargs["input"] = self._input
+        if self._meta is not None:
+            create_kwargs["meta"] = self._meta
+        if self._tags is not None:
+            create_kwargs["tags"] = self._tags
+        if parent_ctx:
+            create_kwargs["trace_id"] = parent_ctx.trace_id
+            create_kwargs["parent_id"] = parent_ctx.span_id
+
+        span = await self._opper.spans.create_async(**create_kwargs)
+        self._span_handle = SpanHandle(id=span.id, trace_id=span.trace_id)
+        set_trace_context(TraceContext(span_id=span.id, trace_id=span.trace_id))
+        return self._span_handle
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self._span_handle is None:
+            return
+        update_kwargs: dict[str, Any] = {"end_time": datetime.now(timezone.utc).isoformat()}
+        if exc_val is not None:
+            update_kwargs["error"] = str(exc_val)
+        await self._opper.spans.update_async(self._span_handle.id, **update_kwargs)
+        parent_ctx = get_trace_context()
+        if parent_ctx and parent_ctx.span_id == self._span_handle.id:
+            set_trace_context(None)
+
+
+class Opper:
+    """Unified client for the Opper API.
+
+    Usage:
+        from opperai import Opper
+
+        # From environment (OPPER_API_KEY, OPPER_BASE_URL)
+        opper = Opper()
+
+        # Explicit
+        opper = Opper(api_key="op-...", base_url="https://api.opper.ai")
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        resolved_key = api_key or os.environ.get("OPPER_API_KEY", "")
+        if not resolved_key:
+            raise ValueError(
+                "Missing API key. Pass api_key or set the OPPER_API_KEY environment variable."
+            )
+        resolved_url = base_url or os.environ.get("OPPER_BASE_URL", DEFAULT_BASE_URL)
+
+        self._client = BaseClient(resolved_key, resolved_url, headers)
+
+        # Sub-clients
+        self.functions = FunctionsClient(self._client)
+        self.spans = SpansClient(self._client)
+        self.traces = TracesClient(self._client)
+        self.generations = GenerationsClient(self._client)
+        self.models = ModelsClient(self._client)
+        self.embeddings = EmbeddingsClient(self._client)
+        self.knowledge = KnowledgeClient(self._client)
+        self.system = SystemClient(self._client)
+        self.beta = _BetaNamespace(self._client)
+
+    # --- Core execution -------------------------------------------------------
+
+    def call(
+        self,
+        name: str,
+        *,
+        input: Any,
+        input_schema: Any = None,
+        output_schema: Any = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        parent_span_id: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        request = self._build_request(
+            input=input, input_schema=input_schema, output_schema=output_schema,
+            instructions=instructions, model=model, temperature=temperature,
+            max_tokens=max_tokens, reasoning_effort=reasoning_effort,
+            parent_span_id=parent_span_id, tools=tools,
+        )
+        data = self._client._post(
+            f"/v3/functions/{_quote(name)}/call", request, options=request_options
+        )
+        result_data = parse_output(data.get("data"), output_schema)
+        return RunResponse(data=result_data, meta=data.get("meta"))
+
+    async def call_async(
+        self,
+        name: str,
+        *,
+        input: Any,
+        input_schema: Any = None,
+        output_schema: Any = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        parent_span_id: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        request = self._build_request(
+            input=input, input_schema=input_schema, output_schema=output_schema,
+            instructions=instructions, model=model, temperature=temperature,
+            max_tokens=max_tokens, reasoning_effort=reasoning_effort,
+            parent_span_id=parent_span_id, tools=tools,
+        )
+        data = await self._client._post_async(
+            f"/v3/functions/{_quote(name)}/call", request, options=request_options
+        )
+        result_data = parse_output(data.get("data"), output_schema)
+        return RunResponse(data=result_data, meta=data.get("meta"))
+
+    def stream(
+        self,
+        name: str,
+        *,
+        input: Any,
+        input_schema: Any = None,
+        output_schema: Any = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        parent_span_id: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> Iterator[StreamChunk]:
+        request = self._build_request(
+            input=input, input_schema=input_schema, output_schema=output_schema,
+            instructions=instructions, model=model, temperature=temperature,
+            max_tokens=max_tokens, reasoning_effort=reasoning_effort,
+            parent_span_id=parent_span_id, tools=tools,
+        )
+        return self._client._stream_sse(
+            f"/v3/functions/{_quote(name)}/stream", request, options=request_options
+        )
+
+    async def stream_async(
+        self,
+        name: str,
+        *,
+        input: Any,
+        input_schema: Any = None,
+        output_schema: Any = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        parent_span_id: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> AsyncIterator[StreamChunk]:
+        request = self._build_request(
+            input=input, input_schema=input_schema, output_schema=output_schema,
+            instructions=instructions, model=model, temperature=temperature,
+            max_tokens=max_tokens, reasoning_effort=reasoning_effort,
+            parent_span_id=parent_span_id, tools=tools,
+        )
+        return self._client._stream_sse_async(
+            f"/v3/functions/{_quote(name)}/stream", request, options=request_options
+        )
+
+    # --- Tracing --------------------------------------------------------------
+
+    @overload
+    def trace(self, name: str) -> _Trace: ...
+    @overload
+    def trace(
+        self,
+        *,
+        name: str = "traced",
+        input: str | None = None,
+        meta: dict[str, Any] | None = None,
+        tags: dict[str, Any] | None = None,
+    ) -> _Trace: ...
+
+    def trace(
+        self,
+        name: str | None = None,
+        *,
+        input: str | None = None,
+        meta: dict[str, Any] | None = None,
+        tags: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> _Trace:
+        return _Trace(self, name or "traced", input=input, meta=meta, tags=tags)
+
+    @overload
+    def trace_async(self, name: str) -> _TraceAsync: ...
+    @overload
+    def trace_async(
+        self,
+        *,
+        name: str = "traced",
+        input: str | None = None,
+        meta: dict[str, Any] | None = None,
+        tags: dict[str, Any] | None = None,
+    ) -> _TraceAsync: ...
+
+    def trace_async(
+        self,
+        name: str | None = None,
+        *,
+        input: str | None = None,
+        meta: dict[str, Any] | None = None,
+        tags: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> _TraceAsync:
+        return _TraceAsync(self, name or "traced", input=input, meta=meta, tags=tags)
+
+    # --- Media Convenience Methods --------------------------------------------
+
+    def generate_image(
+        self,
+        name: str | None = None,
+        *,
+        prompt: str,
+        reference_image: str | bytes | None = None,
+        model: str | None = None,
+        size: str | None = None,
+        quality: str | None = None,
+        style: str | None = None,
+        n: int | None = None,
+        mime_type: str | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        fn_name = name or "image-gen"
+        input_data = _build_media_input(prompt=prompt, reference_image=reference_image)
+        output_schema = _image_output_schema()
+        return self.call(
+            fn_name,
+            input=input_data,
+            output_schema=output_schema,
+            model=model,
+            request_options=request_options,
+        )
+
+    async def generate_image_async(
+        self,
+        name: str | None = None,
+        *,
+        prompt: str,
+        reference_image: str | bytes | None = None,
+        model: str | None = None,
+        size: str | None = None,
+        quality: str | None = None,
+        style: str | None = None,
+        n: int | None = None,
+        mime_type: str | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        fn_name = name or "image-gen"
+        input_data = _build_media_input(prompt=prompt, reference_image=reference_image)
+        output_schema = _image_output_schema()
+        return await self.call_async(
+            fn_name,
+            input=input_data,
+            output_schema=output_schema,
+            model=model,
+            request_options=request_options,
+        )
+
+    def generate_video(
+        self,
+        name: str | None = None,
+        *,
+        prompt: str,
+        model: str | None = None,
+        aspect_ratio: str | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        fn_name = name or "video-gen"
+        input_data: dict[str, Any] = {"prompt": prompt}
+        if aspect_ratio:
+            input_data["aspect_ratio"] = aspect_ratio
+        output_schema = _video_output_schema()
+        return self.call(
+            fn_name, input=input_data, output_schema=output_schema, model=model,
+            request_options=request_options,
+        )
+
+    async def generate_video_async(
+        self,
+        name: str | None = None,
+        *,
+        prompt: str,
+        model: str | None = None,
+        aspect_ratio: str | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        fn_name = name or "video-gen"
+        input_data: dict[str, Any] = {"prompt": prompt}
+        if aspect_ratio:
+            input_data["aspect_ratio"] = aspect_ratio
+        output_schema = _video_output_schema()
+        return await self.call_async(
+            fn_name, input=input_data, output_schema=output_schema, model=model,
+            request_options=request_options,
+        )
+
+    def text_to_speech(
+        self,
+        name: str | None = None,
+        *,
+        text: str,
+        voice: str | None = None,
+        model: str | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        fn_name = name or "tts"
+        input_data: dict[str, Any] = {"text": text}
+        if voice:
+            input_data["voice"] = voice
+        output_schema = _tts_output_schema()
+        return self.call(
+            fn_name, input=input_data, output_schema=output_schema, model=model,
+            request_options=request_options,
+        )
+
+    async def text_to_speech_async(
+        self,
+        name: str | None = None,
+        *,
+        text: str,
+        voice: str | None = None,
+        model: str | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        fn_name = name or "tts"
+        input_data: dict[str, Any] = {"text": text}
+        if voice:
+            input_data["voice"] = voice
+        output_schema = _tts_output_schema()
+        return await self.call_async(
+            fn_name, input=input_data, output_schema=output_schema, model=model,
+            request_options=request_options,
+        )
+
+    def transcribe(
+        self,
+        name: str | None = None,
+        *,
+        audio: str | bytes,
+        language: str | None = None,
+        prompt: str | None = None,
+        model: str | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        fn_name = name or "stt"
+        input_data = _build_audio_input(audio=audio, language=language, prompt=prompt)
+        output_schema = _stt_output_schema()
+        return self.call(
+            fn_name, input=input_data, output_schema=output_schema, model=model,
+            request_options=request_options,
+        )
+
+    async def transcribe_async(
+        self,
+        name: str | None = None,
+        *,
+        audio: str | bytes,
+        language: str | None = None,
+        prompt: str | None = None,
+        model: str | None = None,
+        request_options: RequestOptions | None = None,
+    ) -> RunResponse:
+        fn_name = name or "stt"
+        input_data = _build_audio_input(audio=audio, language=language, prompt=prompt)
+        output_schema = _stt_output_schema()
+        return await self.call_async(
+            fn_name, input=input_data, output_schema=output_schema, model=model,
+            request_options=request_options,
+        )
+
+    # --- Internal helpers -----------------------------------------------------
+
+    def _build_request(
+        self,
+        *,
+        input: Any,
+        input_schema: Any = None,
+        output_schema: Any = None,
+        instructions: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        reasoning_effort: str | None = None,
+        parent_span_id: str | None = None,
+        tools: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Build a RunRequest dict, resolving schemas and trace context."""
+        request: dict[str, Any] = {"input": input}
+
+        resolved_input_schema = resolve_schema(input_schema)
+        if resolved_input_schema is not None:
+            request["input_schema"] = resolved_input_schema
+
+        resolved_output_schema = resolve_schema(output_schema)
+        if resolved_output_schema is not None:
+            request["output_schema"] = resolved_output_schema
+
+        if instructions is not None:
+            request["instructions"] = instructions
+        if model is not None:
+            request["model"] = model
+        if temperature is not None:
+            request["temperature"] = temperature
+        if max_tokens is not None:
+            request["max_tokens"] = max_tokens
+        if reasoning_effort is not None:
+            request["reasoning_effort"] = reasoning_effort
+
+        # Resolve parent_span_id from trace context if not explicitly provided
+        if parent_span_id is not None:
+            request["parent_span_id"] = parent_span_id
+        else:
+            ctx = get_trace_context()
+            if ctx is not None:
+                request["parent_span_id"] = ctx.span_id
+
+        if tools is not None:
+            resolved_tools = []
+            for tool in tools:
+                t = dict(tool)
+                if "parameters" in t:
+                    resolved_params = resolve_schema(t["parameters"])
+                    if resolved_params is not None:
+                        t["parameters"] = resolved_params
+                resolved_tools.append(t)
+            request["tools"] = resolved_tools
+
+        return request
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _quote(name: str) -> str:
+    from urllib.parse import quote
+    return quote(name, safe="")
+
+
+def _build_media_input(*, prompt: str, reference_image: str | bytes | None = None) -> dict[str, Any]:
+    input_data: dict[str, Any] = {"prompt": prompt}
+    if reference_image is not None:
+        if isinstance(reference_image, bytes):
+            import base64
+            input_data["reference_image"] = base64.b64encode(reference_image).decode()
+        elif isinstance(reference_image, str):
+            # Assume file path — read and base64 encode
+            import base64
+            with open(reference_image, "rb") as f:
+                input_data["reference_image"] = base64.b64encode(f.read()).decode()
+    return input_data
+
+
+def _build_audio_input(
+    *, audio: str | bytes, language: str | None = None, prompt: str | None = None
+) -> dict[str, Any]:
+    input_data: dict[str, Any] = {}
+    if isinstance(audio, bytes):
+        import base64
+        input_data["audio"] = base64.b64encode(audio).decode()
+    elif isinstance(audio, str):
+        import base64
+        with open(audio, "rb") as f:
+            input_data["audio"] = base64.b64encode(f.read()).decode()
+    if language is not None:
+        input_data["language"] = language
+    if prompt is not None:
+        input_data["prompt"] = prompt
+    return input_data
+
+
+def _image_output_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string"},
+            "base64": {"type": "string"},
+            "mime_type": {"type": "string"},
+        },
+    }
+
+
+def _video_output_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "url": {"type": "string"},
+            "base64": {"type": "string"},
+            "mime_type": {"type": "string"},
+        },
+    }
+
+
+def _tts_output_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "audio": {"type": "string"},
+            "mime_type": {"type": "string"},
+        },
+    }
+
+
+def _stt_output_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "text": {"type": "string"},
+        },
+    }
