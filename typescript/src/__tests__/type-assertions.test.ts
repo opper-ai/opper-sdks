@@ -61,7 +61,7 @@ describe("Type assertions (compile-time)", () => {
   it("RunRequest allows optional schemas", () => {
     const req: RunRequest = { input: "hello" };
     expectTypeOf(req.input_schema).toEqualTypeOf<SchemaLike | undefined>();
-    expectTypeOf(req.output_schema).toEqualTypeOf<Record<string, unknown> | undefined>();
+    expectTypeOf(req.output_schema).toEqualTypeOf<SchemaLike | undefined>();
   });
 
   it("InferOutput extracts the output type from a Standard Schema", () => {

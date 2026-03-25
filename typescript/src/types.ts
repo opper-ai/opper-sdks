@@ -121,8 +121,8 @@ export interface ResponseMeta {
 export interface RunRequest {
   /** JSON Schema or Standard Schema describing the input shape. Defaults to text when omitted. */
   readonly input_schema?: SchemaLike;
-  /** JSON Schema describing the expected output shape. Defaults to text when omitted. */
-  readonly output_schema?: JsonSchema;
+  /** JSON Schema or Standard Schema describing the expected output shape. Defaults to text when omitted. */
+  readonly output_schema?: SchemaLike;
   /** The input data to send to the function. */
   readonly input: JsonValue;
   /** Model to use, e.g. `"anthropic/claude-sonnet-4-6"` or `"gcp/gemini-3-flash-preview"`. */

@@ -72,4 +72,4 @@ console.log(`Trace:    ${fetched.trace_id}`);
 // ── Clean up: delete the test span ──────────────────────────────────────────
 
 await opper.spans.deleteSpan(rootSpan.id);
-console.log(`\nDeleted test span ${rootSpan.id.slice(0, 8)}…`);
+console.log(`\nDeleted test span ${rootSpan.id.slice(0, 15)}…`);
