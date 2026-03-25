@@ -23,9 +23,9 @@ result = opper.call(
         "She was the first woman to win a Nobel Prize. Her husband was Pierre Curie.",
     },
     output_schema=Entities,
-    model="anthropic/claude-sonnet-4.6",
+    model="vertexai/gemini-2.5-flash",
 )
 
 print("Full result:", result)
-print("People:", [person.name for person in result.data.people])  # typed!
-print("Locations:", result.data.locations)  # typed!
+print("People:", [person.name for person in result.data.people]) 
+print("Locations:", result.data.locations)  

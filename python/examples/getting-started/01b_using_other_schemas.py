@@ -13,6 +13,10 @@ TEXT = "Marie Curie conducted groundbreaking research on radioactivity in Paris.
 # ── Option 1: Pydantic (recommended) ────────────────────────────────────────
 
 
+class TextInput(BaseModel):
+    text: str
+
+
 class EntitiesPydantic(BaseModel):
     people: list[str]
     locations: list[str]
@@ -20,16 +24,22 @@ class EntitiesPydantic(BaseModel):
 
 result1 = opper.call(
     "sdk-test-extract-pydantic",
-    input={"text": TEXT},
+    input=TextInput(text=TEXT),
+    input_schema=TextInput,
     output_schema=EntitiesPydantic,
-    model="anthropic/claude-sonnet-4.6",
+    model="vertexai/gemini-2.5-flash",
 )
-print("── Pydantic ──")
+print("── Pydantic (input + output schema) ──")
 print("People:", result1.data.people)  # typed!
 print("Locations:", result1.data.locations)
 
 
 # ── Option 2: Dataclass ─────────────────────────────────────────────────────
+
+
+@dataclass
+class TextInputDC:
+    text: str
 
 
 @dataclass
@@ -41,10 +51,11 @@ class EntitiesDataclass:
 result2 = opper.call(
     "sdk-test-extract-dataclass",
     input={"text": TEXT},
+    input_schema=TextInputDC,
     output_schema=EntitiesDataclass,
-    model="anthropic/claude-sonnet-4.6",
+    model="vertexai/gemini-2.5-flash",
 )
-print("\n── Dataclass ──")
+print("\n── Dataclass (input + output schema) ──")
 print("People:", result2.data.people)
 print("Locations:", result2.data.locations)
 
@@ -54,6 +65,7 @@ print("Locations:", result2.data.locations)
 result3 = opper.call(
     "sdk-test-extract-raw",
     input={"text": TEXT},
+    input_schema={"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
     output_schema={
         "type": "object",
         "properties": {
@@ -61,9 +73,9 @@ result3 = opper.call(
             "locations": {"type": "array", "items": {"type": "string"}},
         },
     },
-    model="anthropic/claude-sonnet-4.6",
+    model="vertexai/gemini-2.5-flash",
 )
-print("\n── Raw JSON Schema ──")
+print("\n── Raw JSON Schema (input + output schema) ──")
 print("People:", result3.data["people"])
 print("Locations:", result3.data["locations"])
 
@@ -72,7 +84,7 @@ print("Locations:", result3.data["locations"])
 
 result4 = opper.call(
     "sdk-test-extract-untyped",
-    input={"text": TEXT},
+    input=TEXT,
     model="anthropic/claude-sonnet-4.6",
 )
 print("\n── Untyped ──")
