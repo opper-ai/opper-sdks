@@ -45,7 +45,7 @@ describe("Opper.traced", () => {
   it("creates a span, runs the callback, and updates the span", async () => {
     const mock = mockFetchSequence([
       // spans.create
-      { body: { id: "span-1", trace_id: "trace-1", name: "test" } },
+      { body: { data: { id: "span-1", trace_id: "trace-1", name: "test" } } },
       // spans.update
       { body: {}, status: 204 },
     ]);
@@ -73,7 +73,7 @@ describe("Opper.traced", () => {
 
   it("defaults name to 'traced' when called with just a function", async () => {
     const mock = mockFetchSequence([
-      { body: { id: "span-1", trace_id: "trace-1", name: "traced" } },
+      { body: { data: { id: "span-1", trace_id: "trace-1", name: "traced" } } },
       { body: {}, status: 204 },
     ]);
     globalThis.fetch = mock;
@@ -88,7 +88,7 @@ describe("Opper.traced", () => {
 
   it("accepts TracedOptions with meta and tags", async () => {
     const mock = mockFetchSequence([
-      { body: { id: "span-1", trace_id: "trace-1", name: "custom" } },
+      { body: { data: { id: "span-1", trace_id: "trace-1", name: "custom" } } },
       { body: {}, status: 204 },
     ]);
     globalThis.fetch = mock;
@@ -109,7 +109,7 @@ describe("Opper.traced", () => {
 
   it("provides SpanHandle to the callback", async () => {
     const mock = mockFetchSequence([
-      { body: { id: "span-42", trace_id: "trace-99", name: "test" } },
+      { body: { data: { id: "span-42", trace_id: "trace-99", name: "test" } } },
       { body: {}, status: 204 },
     ]);
     globalThis.fetch = mock;
@@ -124,7 +124,7 @@ describe("Opper.traced", () => {
   it("auto-injects parent_span_id on run() calls inside traced()", async () => {
     const mock = mockFetchSequence([
       // spans.create
-      { body: { id: "span-1", trace_id: "trace-1", name: "flow" } },
+      { body: { data: { id: "span-1", trace_id: "trace-1", name: "flow" } } },
       // run()
       { body: { output: "result", meta: {} } },
       // spans.update
@@ -147,7 +147,7 @@ describe("Opper.traced", () => {
 
   it("explicit parent_span_id overrides auto context", async () => {
     const mock = mockFetchSequence([
-      { body: { id: "span-1", trace_id: "trace-1", name: "flow" } },
+      { body: { data: { id: "span-1", trace_id: "trace-1", name: "flow" } } },
       { body: { output: "result", meta: {} } },
       { body: {}, status: 204 },
     ]);
@@ -167,9 +167,9 @@ describe("Opper.traced", () => {
   it("nesting creates child spans with correct parent_id", async () => {
     const mock = mockFetchSequence([
       // outer spans.create
-      { body: { id: "outer-span", trace_id: "trace-1", name: "outer" } },
+      { body: { data: { id: "outer-span", trace_id: "trace-1", name: "outer" } } },
       // inner spans.create
-      { body: { id: "inner-span", trace_id: "trace-1", name: "inner" } },
+      { body: { data: { id: "inner-span", trace_id: "trace-1", name: "inner" } } },
       // run() inside inner
       { body: { output: "result", meta: {} } },
       // inner spans.update
@@ -201,7 +201,7 @@ describe("Opper.traced", () => {
 
   it("updates span with error when callback throws", async () => {
     const mock = mockFetchSequence([
-      { body: { id: "span-1", trace_id: "trace-1", name: "fail" } },
+      { body: { data: { id: "span-1", trace_id: "trace-1", name: "fail" } } },
       { body: {}, status: 204 },
     ]);
     globalThis.fetch = mock;

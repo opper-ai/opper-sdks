@@ -680,7 +680,6 @@ export interface GetSpanResponse {
   readonly error?: string;
   readonly start_time?: string;
   readonly end_time?: string;
-  readonly created_at?: string;
   readonly status?: string;
   readonly meta?: Record<string, unknown>;
   readonly metadata?: Record<string, unknown>;

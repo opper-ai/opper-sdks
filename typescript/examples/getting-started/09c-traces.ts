@@ -36,20 +36,16 @@ for (const t of traces.data) {
 // ── Get the trace we just created ───────────────────────────────────────────
 
 if (traceId) {
-  try {
-    const trace = await opper.traces.getTrace(traceId);
+  const trace = await opper.traces.getTrace(traceId);
 
-    console.log(`\n── Trace detail: ${trace.id} ──`);
-    console.log(`Name:   ${trace.name ?? "(unnamed)"}`);
-    console.log(`Spans:  ${trace.span_count}`);
-    console.log(`Status: ${trace.status ?? "unknown"}`);
+  console.log(`\n── Trace detail: ${trace.id} ──`);
+  console.log(`Name:   ${trace.name ?? "(unnamed)"}`);
+  console.log(`Spans:  ${trace.span_count}`);
+  console.log(`Status: ${trace.status ?? "unknown"}`);
 
-    for (const span of trace.spans) {
-      const indent = span.parent_id ? "    " : "  ";
-      console.log(`${indent}↳ ${span.name} (${span.id.slice(0, 8)}…)${span.error ? " ERROR: " + span.error : ""}`);
-    }
-  } catch (err) {
-    console.log(`\n── getTrace skipped (server returned error) ──`);
+  for (const span of trace.spans) {
+    const indent = span.parent_id ? "    " : "  ";
+    console.log(`${indent}↳ ${span.name} (${span.id.slice(0, 8)}…)${span.error ? " ERROR: " + span.error : ""}`);
   }
 }
 

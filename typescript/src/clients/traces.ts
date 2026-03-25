@@ -28,7 +28,8 @@ export class TracesClient extends BaseClient {
    * GET /v3/traces/{id}
    */
   async getTrace(id: string, options?: RequestOptions): Promise<GetTraceResponse> {
-    return this.get<GetTraceResponse>(`/v3/traces/${encodeURIComponent(id)}`, undefined, options);
+    const res = await this.get<{ data: GetTraceResponse }>(`/v3/traces/${encodeURIComponent(id)}`, undefined, options);
+    return res.data;
   }
 
   /**

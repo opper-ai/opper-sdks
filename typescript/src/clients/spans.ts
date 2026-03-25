@@ -17,7 +17,8 @@ export class SpansClient extends BaseClient {
    * POST /v3/spans
    */
   async create(body: CreateSpanRequest, options?: RequestOptions): Promise<CreateSpanResponse> {
-    return this.post<CreateSpanResponse>("/v3/spans", body, options);
+    const res = await this.post<{ data: CreateSpanResponse }>("/v3/spans", body, options);
+    return res.data;
   }
 
   /**
@@ -33,7 +34,8 @@ export class SpansClient extends BaseClient {
    * GET /v3/spans/{id}
    */
   async getSpan(id: string, options?: RequestOptions): Promise<GetSpanResponse> {
-    return this.get<GetSpanResponse>(`/v3/spans/${encodeURIComponent(id)}`, undefined, options);
+    const res = await this.get<{ data: GetSpanResponse }>(`/v3/spans/${encodeURIComponent(id)}`, undefined, options);
+    return res.data;
   }
 
   /**

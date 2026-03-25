@@ -23,7 +23,7 @@ describe("SpansClient", () => {
   });
 
   it("sends POST to /v3/spans for create", async () => {
-    const fetchMock = mockFetch({ id: "span-1", trace_id: "trace-1", name: "test" });
+    const fetchMock = mockFetch({ data: { id: "span-1", trace_id: "trace-1", name: "test" } });
     globalThis.fetch = fetchMock;
 
     const client = new SpansClient(config);
@@ -48,7 +48,7 @@ describe("SpansClient", () => {
   });
 
   it("sends request body for create", async () => {
-    const fetchMock = mockFetch({ id: "s", trace_id: "t", name: "n" });
+    const fetchMock = mockFetch({ data: { id: "s", trace_id: "t", name: "n" } });
     globalThis.fetch = fetchMock;
 
     const client = new SpansClient(config);
