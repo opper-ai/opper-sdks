@@ -27,5 +27,5 @@ result = opper.call(
 )
 
 print("Full result:", result)
-print("People:", [person.name for person in result.data.people]) 
-print("Locations:", result.data.locations)  
+print("People:", [person.name for person in result.data.people])
+print("Locations:", result.data.locations)

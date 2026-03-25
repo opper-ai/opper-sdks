@@ -7,6 +7,7 @@ from .types import (
     ContentChunk,
     DoneChunk,
     ErrorChunk,
+    MediaResponse,
     RequestOptions,
     ResponseMeta,
     RunResponse,
@@ -20,6 +21,7 @@ from .types import (
 __all__ = [
     "Opper",
     "ApiError",
+    "MediaResponse",
     "RequestOptions",
     "RunResponse",
     "ResponseMeta",

@@ -7,7 +7,7 @@ from opperai import Opper
 opper = Opper()
 media_dir = Path(__file__).parent / "media"
 
-# ── Option 1: Convenience method ────────────────────────────────────────────
+# ── Option 1: Convenience method with .save() ──────────────────────────────
 
 easy = opper.generate_image(
     "sdk-test-generate-image",
@@ -15,8 +15,12 @@ easy = opper.generate_image(
 )
 
 print("── Convenience method ──")
-print("Image data keys:", list(easy.data.keys()) if isinstance(easy.data, dict) else type(easy.data))
+print("MIME type:", easy.data.get("mime_type"))
 print("Meta:", easy.meta)
+
+# Save to file — extension auto-appended from mime_type
+saved_path = easy.save(str(media_dir / "generated-image"))
+print(f"Saved to {saved_path}")
 
 # ── Option 2: Raw call() with explicit schemas ─────────────────────────────
 

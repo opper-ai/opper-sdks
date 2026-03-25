@@ -15,12 +15,11 @@ tts_result = opper.text_to_speech(
 )
 
 print("── TTS (convenience) ──")
-audio_data = tts_result.data
-audio_b64 = audio_data.get("audio", "") if isinstance(audio_data, dict) else ""
+audio_b64 = tts_result.data.get("audio", "") if isinstance(tts_result.data, dict) else ""
 print("Audio base64 length:", len(audio_b64))
 
-tts_path = media_dir / "generated-speech.mp3"
-tts_path.write_bytes(base64.b64decode(audio_b64))
+# Save with .save() — extension auto-appended
+tts_path = tts_result.save(str(media_dir / "generated-speech"))
 print(f"Saved to {tts_path}")
 
 stt_result = opper.transcribe("sdk-test-stt", audio=base64.b64decode(audio_b64))

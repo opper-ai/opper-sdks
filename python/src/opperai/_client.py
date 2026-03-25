@@ -20,6 +20,7 @@ from .clients.system import SystemClient
 from .clients.traces import TracesClient
 from .clients.web_tools import WebToolsClient
 from .types import (
+    MediaResponse,
     RunResponse,
     SpanHandle,
     StreamChunk,
@@ -416,11 +417,10 @@ class Opper:
         style: str | None = None,
         n: int | None = None,
         mime_type: str | None = None,
-    ) -> RunResponse:
-        fn_name = name or "image-gen"
+    ) -> MediaResponse:
         input_data = _build_media_input(prompt=prompt, reference_image=reference_image)
-        output_schema = _image_output_schema()
-        return self.call(fn_name, input=input_data, output_schema=output_schema, model=model)
+        r = self.call(name or "image-gen", input=input_data, output_schema=_image_output_schema(), model=model)
+        return MediaResponse(r.data, r.meta, base64_field="image", mime_field="mime_type")
 
     async def generate_image_async(
         self,
@@ -434,11 +434,12 @@ class Opper:
         style: str | None = None,
         n: int | None = None,
         mime_type: str | None = None,
-    ) -> RunResponse:
-        fn_name = name or "image-gen"
+    ) -> MediaResponse:
         input_data = _build_media_input(prompt=prompt, reference_image=reference_image)
-        output_schema = _image_output_schema()
-        return await self.call_async(fn_name, input=input_data, output_schema=output_schema, model=model)
+        r = await self.call_async(
+            name or "image-gen", input=input_data, output_schema=_image_output_schema(), model=model
+        )
+        return MediaResponse(r.data, r.meta, base64_field="image", mime_field="mime_type")
 
     def generate_video(
         self,
@@ -447,12 +448,12 @@ class Opper:
         prompt: str,
         model: str | None = None,
         aspect_ratio: str | None = None,
-    ) -> RunResponse:
-        fn_name = name or "video-gen"
+    ) -> MediaResponse:
         input_data: dict[str, Any] = {"prompt": prompt}
         if aspect_ratio:
             input_data["aspect_ratio"] = aspect_ratio
-        return self.call(fn_name, input=input_data, output_schema=_video_output_schema(), model=model)
+        r = self.call(name or "video-gen", input=input_data, output_schema=_video_output_schema(), model=model)
+        return MediaResponse(r.data, r.meta, base64_field="video", mime_field="mime_type")
 
     async def generate_video_async(
         self,
@@ -461,12 +462,14 @@ class Opper:
         prompt: str,
         model: str | None = None,
         aspect_ratio: str | None = None,
-    ) -> RunResponse:
-        fn_name = name or "video-gen"
+    ) -> MediaResponse:
         input_data: dict[str, Any] = {"prompt": prompt}
         if aspect_ratio:
             input_data["aspect_ratio"] = aspect_ratio
-        return await self.call_async(fn_name, input=input_data, output_schema=_video_output_schema(), model=model)
+        r = await self.call_async(
+            name or "video-gen", input=input_data, output_schema=_video_output_schema(), model=model
+        )
+        return MediaResponse(r.data, r.meta, base64_field="video", mime_field="mime_type")
 
     def text_to_speech(
         self,
@@ -475,12 +478,12 @@ class Opper:
         text: str,
         voice: str | None = None,
         model: str | None = None,
-    ) -> RunResponse:
-        fn_name = name or "tts"
+    ) -> MediaResponse:
         input_data: dict[str, Any] = {"text": text}
         if voice:
             input_data["voice"] = voice
-        return self.call(fn_name, input=input_data, output_schema=_tts_output_schema(), model=model)
+        r = self.call(name or "tts", input=input_data, output_schema=_tts_output_schema(), model=model)
+        return MediaResponse(r.data, r.meta, base64_field="audio", mime_field="mime_type")
 
     async def text_to_speech_async(
         self,
@@ -489,12 +492,12 @@ class Opper:
         text: str,
         voice: str | None = None,
         model: str | None = None,
-    ) -> RunResponse:
-        fn_name = name or "tts"
+    ) -> MediaResponse:
         input_data: dict[str, Any] = {"text": text}
         if voice:
             input_data["voice"] = voice
-        return await self.call_async(fn_name, input=input_data, output_schema=_tts_output_schema(), model=model)
+        r = await self.call_async(name or "tts", input=input_data, output_schema=_tts_output_schema(), model=model)
+        return MediaResponse(r.data, r.meta, base64_field="audio", mime_field="mime_type")
 
     def transcribe(
         self,

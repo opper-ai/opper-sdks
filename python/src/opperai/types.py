@@ -101,6 +101,46 @@ class RunResponse(Generic[T]):
     meta: ResponseMeta | None = None
 
 
+class MediaResponse(RunResponse[T]):
+    """Response from a media method, with a .save() helper to write output to a file.
+
+    Example:
+        result = opper.generate_image(prompt="A sunset")
+        result.save("./sunset")  # -> "./sunset.jpeg" (extension auto-appended)
+    """
+
+    _base64_field: str
+    _mime_field: str | None
+
+    def __init__(self, data: T, meta: ResponseMeta | None, base64_field: str, mime_field: str | None = None) -> None:
+        object.__setattr__(self, "data", data)
+        object.__setattr__(self, "meta", meta)
+        object.__setattr__(self, "_base64_field", base64_field)
+        object.__setattr__(self, "_mime_field", mime_field)
+
+    def save(self, path: str) -> str:
+        """Save media content to a file. Returns the final path with auto-detected extension."""
+        import base64
+        from pathlib import Path
+
+        data = self.data if isinstance(self.data, dict) else {}
+        b64 = data.get(self._base64_field, "")
+        mime = data.get(self._mime_field, "") if self._mime_field else ""
+
+        # Auto-append extension from mime type if path has no extension
+        p = Path(path)
+        if not p.suffix and mime:
+            ext = mime.split("/")[-1]
+            # Normalize common mime subtypes
+            if ext == "jpeg":
+                ext = "jpg"
+            p = p.with_suffix(f".{ext}")
+
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(base64.b64decode(b64))
+        return str(p)
+
+
 # ---------------------------------------------------------------------------
 # Stream Chunk Types
 # ---------------------------------------------------------------------------
