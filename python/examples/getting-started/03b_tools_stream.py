@@ -1,4 +1,5 @@
 # Tools: streaming with tool_call chunks
+# Shows raw dict schemas — no Pydantic needed. See 03a for Pydantic approach.
 import sys
 
 from opperai import Opper
@@ -10,25 +11,11 @@ print("Streaming with tools:")
 for chunk in opper.stream(
     "sdk-test-tool-use-stream",
     input={"question": "What is the current weather in Stockholm?"},
-    input_schema={
-        "type": "object",
-        "properties": {"question": {"type": "string", "description": "The user's question"}},
-        "required": ["question"],
-    },
     output_schema={
         "type": "object",
         "properties": {
             "answer": {"type": "string"},
-            "tool_calls": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "arguments": {"type": "object"},
-                    },
-                },
-            },
+            "tool_calls": {"type": "array", "items": {"type": "object"}},
         },
     },
     model="anthropic/claude-sonnet-4.6",

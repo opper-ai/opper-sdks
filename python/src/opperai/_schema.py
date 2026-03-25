@@ -34,7 +34,25 @@ def resolve_schema(schema: Any) -> dict[str, Any] | None:
     if isinstance(schema, type) and hasattr(schema, "__required_keys__"):
         return _typeddict_to_json_schema(schema)
 
-    raise TypeError(f"Unsupported schema type: {type(schema)}. Expected dict, BaseModel, dataclass, or TypedDict.")
+    # Bare Python types: str, int, float, bool, list, list[str], etc.
+    if isinstance(schema, type) and schema in _PYTHON_TYPE_TO_JSON:
+        return {"type": _PYTHON_TYPE_TO_JSON[schema]}
+    if schema is list:
+        return {"type": "array"}
+    if schema is dict:
+        return {"type": "object"}
+
+    # Generic aliases: list[str], dict[str, int], etc.
+    origin = getattr(schema, "__origin__", None)
+    if origin is not None:
+        resolved = _python_type_to_json_schema(schema)
+        if resolved:
+            return resolved
+
+    raise TypeError(
+        f"Unsupported schema type: {schema!r}. "
+        "Expected dict, BaseModel, dataclass, TypedDict, or Python type (str, int, list[str], ...)."
+    )
 
 
 def parse_output(data: Any, schema: Any) -> Any:
