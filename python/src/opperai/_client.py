@@ -536,7 +536,7 @@ class Opper:
         tools: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Build a RunRequest dict, resolving schemas and trace context."""
-        request: dict[str, Any] = {"input": input}
+        request: dict[str, Any] = {"input": _serialize_value(input)}
 
         resolved_input_schema = resolve_schema(input_schema)
         if resolved_input_schema is not None:
@@ -576,6 +576,19 @@ class Opper:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _serialize_value(value: Any) -> Any:
+    """Convert Pydantic models and dataclasses to JSON-serializable dicts."""
+    import dataclasses
+
+    # Pydantic BaseModel instance (detected without importing pydantic)
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    # dataclass instance
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return dataclasses.asdict(value)
+    return value
 
 
 def _quote(name: str) -> str:
