@@ -75,6 +75,7 @@ class Tool:
     name: str
     description: str | None = None
     parameters: JsonSchema | type | None = None
+    type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -87,8 +88,6 @@ class UsageInfo:
     cache_read_tokens: int | None = None
     cache_creation_tokens: int | None = None
     cache_creation_1h_tokens: int | None = None
-    input_audio_tokens: int | None = None
-    output_audio_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -278,6 +277,36 @@ class RealtimeCreateResponse:
 # ---------------------------------------------------------------------------
 # Span & Trace Types
 # ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CreateSpanRequest:
+    """Request to create a span."""
+
+    name: str
+    trace_id: str | None = None
+    parent_id: str | None = None
+    type: str | None = None
+    input: str | None = None
+    output: str | None = None
+    error: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    meta: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+    tags: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class UpdateSpanRequest:
+    """Request to update a span."""
+
+    output: str | None = None
+    error: str | None = None
+    end_time: str | None = None
+    meta: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
+    tags: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
