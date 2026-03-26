@@ -10,10 +10,15 @@ import httpx
 
 from .types import (
     ApiError,
+    AuthenticationError,
+    BadRequestError,
     CompleteChunk,
     ContentChunk,
     DoneChunk,
     ErrorChunk,
+    InternalServerError,
+    NotFoundError,
+    RateLimitError,
     RequestOptions,
     StreamChunk,
     ToolCallDeltaChunk,
@@ -86,7 +91,20 @@ class BaseClient:
             body = response.json()
         except Exception:
             body = response.text or None
-        raise ApiError(response.status_code, response.reason_phrase or "", body)
+        st = response.reason_phrase or ""
+        status = response.status_code
+        if status == 400:
+            raise BadRequestError(st, body)
+        elif status == 401:
+            raise AuthenticationError(st, body)
+        elif status == 404:
+            raise NotFoundError(st, body)
+        elif status == 429:
+            raise RateLimitError(st, body)
+        elif status == 500:
+            raise InternalServerError(st, body)
+        else:
+            raise ApiError(status, st, body)
 
     @staticmethod
     def _parse_response(response: httpx.Response) -> Any:

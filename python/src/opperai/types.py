@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypedDict, TypeVar
 
 # ---------------------------------------------------------------------------
 # MIME type to file extension mapping
@@ -53,14 +53,73 @@ class RequestOptions:
 # ---------------------------------------------------------------------------
 
 
+class ErrorDetail(TypedDict, total=False):
+    """Structured error detail from the API (matches OpenAPI ErrorDetail schema)."""
+
+    code: str
+    message: str
+    details: Any
+
+
 class ApiError(Exception):
-    """API error with status code and response body."""
+    """API error with status code and structured error info."""
 
     def __init__(self, status: int, status_text: str, body: Any = None) -> None:
-        super().__init__(f"API Error {status}: {status_text}")
+        detail = self.parse_detail(body)
+        msg = f"{status} {status_text}: {detail['message']}" if detail else f"{status} {status_text}"
+        super().__init__(msg)
         self.status = status
         self.status_text = status_text
         self.body = body
+
+    @property
+    def error(self) -> ErrorDetail | None:
+        """Parsed error detail from the response body, if available."""
+        return self.parse_detail(self.body)
+
+    @staticmethod
+    def parse_detail(body: Any) -> ErrorDetail | None:
+        """Extract structured ErrorDetail from a response body."""
+        if isinstance(body, dict) and isinstance(body.get("error"), dict):
+            e = body["error"]
+            if isinstance(e.get("code"), str) and isinstance(e.get("message"), str):
+                return ErrorDetail(code=e["code"], message=e["message"], details=e.get("details"))
+        return None
+
+
+class BadRequestError(ApiError):
+    """400 Bad Request — invalid input or malformed request."""
+
+    def __init__(self, status_text: str, body: Any = None) -> None:
+        super().__init__(400, status_text, body)
+
+
+class AuthenticationError(ApiError):
+    """401 Unauthorized — missing or invalid API key."""
+
+    def __init__(self, status_text: str, body: Any = None) -> None:
+        super().__init__(401, status_text, body)
+
+
+class NotFoundError(ApiError):
+    """404 Not Found — the requested resource does not exist."""
+
+    def __init__(self, status_text: str, body: Any = None) -> None:
+        super().__init__(404, status_text, body)
+
+
+class RateLimitError(ApiError):
+    """429 Too Many Requests — rate limit exceeded."""
+
+    def __init__(self, status_text: str, body: Any = None) -> None:
+        super().__init__(429, status_text, body)
+
+
+class InternalServerError(ApiError):
+    """500 Internal Server Error — something went wrong on the server."""
+
+    def __init__(self, status_text: str, body: Any = None) -> None:
+        super().__init__(500, status_text, body)
 
 
 # ---------------------------------------------------------------------------

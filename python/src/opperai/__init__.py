@@ -3,11 +3,17 @@
 from ._client import Opper
 from .types import (
     ApiError,
+    AuthenticationError,
+    BadRequestError,
     CompleteChunk,
     ContentChunk,
     DoneChunk,
     ErrorChunk,
+    ErrorDetail,
+    InternalServerError,
     MediaResponse,
+    NotFoundError,
+    RateLimitError,
     RequestOptions,
     ResponseMeta,
     RunResponse,
@@ -20,7 +26,15 @@ from .types import (
 
 __all__ = [
     "Opper",
+    # Errors
     "ApiError",
+    "BadRequestError",
+    "AuthenticationError",
+    "NotFoundError",
+    "RateLimitError",
+    "InternalServerError",
+    "ErrorDetail",
+    # Response types
     "MediaResponse",
     "RequestOptions",
     "RunResponse",
