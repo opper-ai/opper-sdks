@@ -135,7 +135,7 @@ class KnowledgeClient:
             config["chunk_overlap"] = chunk_overlap
         if config:
             body["configuration"] = config
-        data = self._client._post(f"{KB_PATH}/{quote(kb_id, safe='')}/documents", body, options=options)
+        data = self._client._post(f"{KB_PATH}/{quote(kb_id, safe='')}/add", body, options=options)
         return AddDocumentResponse(**data)
 
     async def add_async(
@@ -161,7 +161,7 @@ class KnowledgeClient:
             config["chunk_overlap"] = chunk_overlap
         if config:
             body["configuration"] = config
-        data = await self._client._post_async(f"{KB_PATH}/{quote(kb_id, safe='')}/documents", body, options=options)
+        data = await self._client._post_async(f"{KB_PATH}/{quote(kb_id, safe='')}/add", body, options=options)
         return AddDocumentResponse(**data)
 
     def query(
@@ -242,7 +242,7 @@ class KnowledgeClient:
         body: dict[str, Any] = {}
         if filters is not None:
             body["filters"] = filters
-        data = self._client._delete(f"{KB_PATH}/{quote(kb_id, safe='')}/documents", body=body, options=options)
+        data = self._client._delete(f"{KB_PATH}/{quote(kb_id, safe='')}/query", body=body, options=options)
         return DeleteDocumentsResponse(**(data or {}))
 
     async def delete_documents_async(
@@ -256,7 +256,7 @@ class KnowledgeClient:
         if filters is not None:
             body["filters"] = filters
         data = await self._client._delete_async(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/documents", body=body, options=options
+            f"{KB_PATH}/{quote(kb_id, safe='')}/query", body=body, options=options
         )
         return DeleteDocumentsResponse(**(data or {}))
 
@@ -283,7 +283,7 @@ class KnowledgeClient:
 
             fields["metadata"] = json.dumps(metadata)
         data = self._client._upload(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/upload",
+            f"{KB_PATH}/{quote(kb_id, safe='')}/upload",
             file,
             filename=filename,
             fields=fields,
@@ -312,7 +312,7 @@ class KnowledgeClient:
 
             fields["metadata"] = json.dumps(metadata)
         data = await self._client._upload_async(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/upload",
+            f"{KB_PATH}/{quote(kb_id, safe='')}/upload",
             file,
             filename=filename,
             fields=fields,
@@ -323,9 +323,9 @@ class KnowledgeClient:
     def get_upload_url(
         self, kb_id: str, *, filename: str, options: RequestOptions | None = None
     ) -> GetUploadUrlResponse:
-        data = self._client._post(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/upload-url",
-            {"filename": filename},
+        data = self._client._get(
+            f"{KB_PATH}/{quote(kb_id, safe='')}/upload_url",
+            query={"filename": filename},
             options=options,
         )
         return GetUploadUrlResponse(**data)
@@ -333,9 +333,9 @@ class KnowledgeClient:
     async def get_upload_url_async(
         self, kb_id: str, *, filename: str, options: RequestOptions | None = None
     ) -> GetUploadUrlResponse:
-        data = await self._client._post_async(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/upload-url",
-            {"filename": filename},
+        data = await self._client._get_async(
+            f"{KB_PATH}/{quote(kb_id, safe='')}/upload_url",
+            query={"filename": filename},
             options=options,
         )
         return GetUploadUrlResponse(**data)
@@ -362,7 +362,7 @@ class KnowledgeClient:
             body["configuration"] = config
         if metadata is not None:
             body["metadata"] = metadata
-        data = self._client._post(f"{KB_PATH}/{quote(kb_id, safe='')}/files/register", body, options=options)
+        data = self._client._post(f"{KB_PATH}/{quote(kb_id, safe='')}/register_file", body, options=options)
         return RegisterFileUploadResponse(**data)
 
     async def register_file_async(
@@ -388,7 +388,7 @@ class KnowledgeClient:
         if metadata is not None:
             body["metadata"] = metadata
         data = await self._client._post_async(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/register", body, options=options
+            f"{KB_PATH}/{quote(kb_id, safe='')}/register_file", body, options=options
         )
         return RegisterFileUploadResponse(**data)
 
@@ -426,14 +426,14 @@ class KnowledgeClient:
 
     def get_download_url(self, kb_id: str, file_id: str, *, options: RequestOptions | None = None) -> str:
         data = self._client._get(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}/download-url",
+            f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}/download_url",
             options=options,
         )
         return (data or {}).get("url", "")
 
     async def get_download_url_async(self, kb_id: str, file_id: str, *, options: RequestOptions | None = None) -> str:
         data = await self._client._get_async(
-            f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}/download-url",
+            f"{KB_PATH}/{quote(kb_id, safe='')}/files/{quote(file_id, safe='')}/download_url",
             options=options,
         )
         return (data or {}).get("url", "")

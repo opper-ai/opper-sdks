@@ -110,11 +110,19 @@ class BaseClient:
     ) -> Any:
         client = self._get_sync_client()
         kwargs = self._merge_options(options)
-        if body is not None:
-            kwargs["content"] = json.dumps(body)
+        content = json.dumps(body) if body is not None else None
+        if content is not None:
+            kwargs["content"] = content
         if query:
             kwargs["params"] = {k: v for k, v in query.items() if v is not None}
         response = client.request(method, path, **kwargs)
+        # Handle 307 redirects manually to preserve auth + body
+        if response.status_code == 307 and "location" in response.headers:
+            location = response.headers["location"]
+            kwargs_redirect = {**kwargs}
+            if content is not None:
+                kwargs_redirect["content"] = content
+            response = client.request(method, location, **kwargs_redirect)
         self._raise_for_status(response)
         return self._parse_response(response)
 
@@ -145,18 +153,22 @@ class BaseClient:
         """Multipart file upload."""
         client = self._get_sync_client()
         kwargs = self._merge_options(options)
-        # Override content-type for multipart
-        kwargs.setdefault("headers", {})
-        kwargs["headers"].pop("Content-Type", None)
         files = {"file": (filename or "upload", file)}
         data = fields or {}
-        response = client.post(
-            path,
-            files=files,
-            data=data,
-            headers={k: v for k, v in self._default_headers.items() if k != "Content-Type"},
-            **{k: v for k, v in kwargs.items() if k != "headers"},
-        )
+        # Remove Content-Type so httpx sets the multipart boundary automatically
+        saved_ct = client.headers.get("content-type")
+        if saved_ct:
+            del client.headers["content-type"]
+        try:
+            response = client.post(
+                path,
+                files=files,
+                data=data,
+                **{k: v for k, v in kwargs.items() if k != "headers"},
+            )
+        finally:
+            if saved_ct:
+                client.headers["content-type"] = saved_ct
         self._raise_for_status(response)
         return self._parse_response(response)
 
@@ -173,11 +185,19 @@ class BaseClient:
     ) -> Any:
         client = self._get_async_client()
         kwargs = self._merge_options(options)
-        if body is not None:
-            kwargs["content"] = json.dumps(body)
+        content = json.dumps(body) if body is not None else None
+        if content is not None:
+            kwargs["content"] = content
         if query:
             kwargs["params"] = {k: v for k, v in query.items() if v is not None}
         response = await client.request(method, path, **kwargs)
+        # Handle 307 redirects manually to preserve auth + body
+        if response.status_code == 307 and "location" in response.headers:
+            location = response.headers["location"]
+            kwargs_redirect = {**kwargs}
+            if content is not None:
+                kwargs_redirect["content"] = content
+            response = await client.request(method, location, **kwargs_redirect)
         self._raise_for_status(response)
         return self._parse_response(response)
 
@@ -210,17 +230,22 @@ class BaseClient:
         """Multipart file upload (async)."""
         client = self._get_async_client()
         kwargs = self._merge_options(options)
-        kwargs.setdefault("headers", {})
-        kwargs["headers"].pop("Content-Type", None)
         files = {"file": (filename or "upload", file)}
         data = fields or {}
-        response = await client.post(
-            path,
-            files=files,
-            data=data,
-            headers={k: v for k, v in self._default_headers.items() if k != "Content-Type"},
-            **{k: v for k, v in kwargs.items() if k != "headers"},
-        )
+        # Remove Content-Type so httpx sets the multipart boundary automatically
+        saved_ct = client.headers.get("content-type")
+        if saved_ct:
+            del client.headers["content-type"]
+        try:
+            response = await client.post(
+                path,
+                files=files,
+                data=data,
+                **{k: v for k, v in kwargs.items() if k != "headers"},
+            )
+        finally:
+            if saved_ct:
+                client.headers["content-type"] = saved_ct
         self._raise_for_status(response)
         return self._parse_response(response)
 

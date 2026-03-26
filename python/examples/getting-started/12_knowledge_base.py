@@ -1,4 +1,6 @@
 # Knowledge Base — store, index, and query documents using semantic search
+from pathlib import Path
+
 from opperai import Opper
 
 opper = Opper()
@@ -50,6 +52,24 @@ filtered = opper.knowledge.query(
 print("\n── Filtered query (topic=rust) ──")
 for r in filtered:
     print(f"  [{r.score:.3f}] {r.content[:80]}...")
+
+# ── Upload a file ──────────────────────────────────────────────────────────
+
+pdf_path = Path(__file__).parent / "media" / "sample.pdf"
+uploaded = opper.knowledge.upload_file(
+    kb.id,
+    pdf_path.read_bytes(),
+    filename="sample.pdf",
+    metadata={"source": "file", "type": "pdf"},
+)
+print("\nUploaded file:", uploaded.original_filename, "→ document", uploaded.document_id)
+
+# ── List files ─────────────────────────────────────────────────────────────
+
+files = opper.knowledge.list_files(kb.id)
+print("\nFiles in KB:")
+for f in files:
+    print(f"  {f.original_filename} ({f.size} bytes, status: {f.status})")
 
 # ── Get KB info ─────────────────────────────────────────────────────────────
 
