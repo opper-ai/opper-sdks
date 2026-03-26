@@ -53,7 +53,7 @@ print("\n── Stream function ──")
 sys.stdout.write("  ")
 for chunk in opper.stream(
     "sdk-test-managed-fn",
-    input={"text": "Streaming works on any function, cached or not."},
+    input={"text": "How does streaming work?"},
     input_schema={"type": "object", "properties": {"text": {"type": "string"}}},
     output_schema={"type": "object", "properties": {"summary": {"type": "string"}}},
     model="anthropic/claude-sonnet-4.6",

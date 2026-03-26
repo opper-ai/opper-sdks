@@ -22,7 +22,7 @@ from .types import (
 )
 
 DEFAULT_BASE_URL = "https://api.opper.ai"
-DEFAULT_TIMEOUT = 120.0  # seconds
+DEFAULT_TIMEOUT = 300.0  # seconds — video generation can take minutes
 
 
 class BaseClient:

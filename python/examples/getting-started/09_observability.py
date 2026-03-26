@@ -18,7 +18,7 @@ with opper.trace("summarize-flow") as span:
 with opper.trace("multi-step-pipeline"):
     extracted = opper.call(
         "sdk-test-extract",
-        input={"text": "What is the story of Arthur?"},
+        input={"text": "What is the story of Arthur? It is a tale of bravery and adventure and also some dragons."},
         output_schema={"type": "object", "properties": {"keywords": {"type": "array", "items": {"type": "string"}}}},
     )
     print("Keywords:", extracted.data.get("keywords"))
@@ -62,6 +62,6 @@ my_pipeline()
 # ── Generations ─────────────────────────────────────────────────────────────
 
 generations = opper.generations.list(page=1, page_size=3)
-print(f"\nRecent generations: {generations.meta.total} total")
+print(f"\nRecent generations: {generations.meta.total_count} total")
 for gen in generations.data:
     print(f"  - {gen.get('id')}")

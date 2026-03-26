@@ -13,7 +13,7 @@ opper = Opper()
 print("Generating video (convenience) — this can take up to a couple of minutes...")
 easy = opper.generate_video(
     "sdk-test-generate-video",
-    prompt="A calm ocean wave rolling onto a sandy beach at sunset, cinematic",
+    prompt="A cat and a dog playing together in a park",
 )
 
 print("── Convenience method ──")

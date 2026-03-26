@@ -49,7 +49,7 @@ class SpansClient:
             if val is not None:
                 body[key] = val
         data = self._client._post("/v3/spans", body, options=options)
-        return CreateSpanResponse(**data)
+        return CreateSpanResponse(**(data.get("data") or data))
 
     async def create_async(
         self,
@@ -85,7 +85,7 @@ class SpansClient:
             if val is not None:
                 body[key] = val
         data = await self._client._post_async("/v3/spans", body, options=options)
-        return CreateSpanResponse(**data)
+        return CreateSpanResponse(**(data.get("data") or data))
 
     def update(
         self,
@@ -139,11 +139,11 @@ class SpansClient:
 
     def get(self, id: str, *, options: RequestOptions | None = None) -> GetSpanResponse:
         data = self._client._get(f"/v3/spans/{quote(id, safe='')}", options=options)
-        return GetSpanResponse(**data)
+        return GetSpanResponse(**(data.get("data") or data))
 
     async def get_async(self, id: str, *, options: RequestOptions | None = None) -> GetSpanResponse:
         data = await self._client._get_async(f"/v3/spans/{quote(id, safe='')}", options=options)
-        return GetSpanResponse(**data)
+        return GetSpanResponse(**(data.get("data") or data))
 
     def delete(self, id: str, *, options: RequestOptions | None = None) -> None:
         self._client._delete(f"/v3/spans/{quote(id, safe='')}", options=options)

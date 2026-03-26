@@ -418,8 +418,14 @@ class Opper:
         n: int | None = None,
         mime_type: str | None = None,
     ) -> MediaResponse:
-        input_data = _build_media_input(prompt=prompt, reference_image=reference_image)
-        r = self.call(name or "image-gen", input=input_data, output_schema=_image_output_schema(), model=model)
+        input_schema, input_data = _build_image_request(prompt, reference_image, size, quality, style, n, mime_type)
+        r = self.call(
+            name or "image-gen",
+            input=input_data,
+            input_schema=input_schema,
+            output_schema=_image_output_schema(),
+            model=model,
+        )
         return MediaResponse(r.data, r.meta, base64_field="image", mime_field="mime_type")
 
     async def generate_image_async(
@@ -435,9 +441,13 @@ class Opper:
         n: int | None = None,
         mime_type: str | None = None,
     ) -> MediaResponse:
-        input_data = _build_media_input(prompt=prompt, reference_image=reference_image)
+        input_schema, input_data = _build_image_request(prompt, reference_image, size, quality, style, n, mime_type)
         r = await self.call_async(
-            name or "image-gen", input=input_data, output_schema=_image_output_schema(), model=model
+            name or "image-gen",
+            input=input_data,
+            input_schema=input_schema,
+            output_schema=_image_output_schema(),
+            model=model,
         )
         return MediaResponse(r.data, r.meta, base64_field="image", mime_field="mime_type")
 
@@ -449,10 +459,14 @@ class Opper:
         model: str | None = None,
         aspect_ratio: str | None = None,
     ) -> MediaResponse:
-        input_data: dict[str, Any] = {"prompt": prompt}
-        if aspect_ratio:
-            input_data["aspect_ratio"] = aspect_ratio
-        r = self.call(name or "video-gen", input=input_data, output_schema=_video_output_schema(), model=model)
+        input_schema, input_data = _build_video_request(prompt, aspect_ratio)
+        r = self.call(
+            name or "video-gen",
+            input=input_data,
+            input_schema=input_schema,
+            output_schema=_video_output_schema(),
+            model=model,
+        )
         return MediaResponse(r.data, r.meta, base64_field="video", mime_field="mime_type")
 
     async def generate_video_async(
@@ -463,11 +477,13 @@ class Opper:
         model: str | None = None,
         aspect_ratio: str | None = None,
     ) -> MediaResponse:
-        input_data: dict[str, Any] = {"prompt": prompt}
-        if aspect_ratio:
-            input_data["aspect_ratio"] = aspect_ratio
+        input_schema, input_data = _build_video_request(prompt, aspect_ratio)
         r = await self.call_async(
-            name or "video-gen", input=input_data, output_schema=_video_output_schema(), model=model
+            name or "video-gen",
+            input=input_data,
+            input_schema=input_schema,
+            output_schema=_video_output_schema(),
+            model=model,
         )
         return MediaResponse(r.data, r.meta, base64_field="video", mime_field="mime_type")
 
@@ -479,10 +495,14 @@ class Opper:
         voice: str | None = None,
         model: str | None = None,
     ) -> MediaResponse:
-        input_data: dict[str, Any] = {"text": text}
-        if voice:
-            input_data["voice"] = voice
-        r = self.call(name or "tts", input=input_data, output_schema=_tts_output_schema(), model=model)
+        input_schema, input_data = _build_tts_request(text, voice)
+        r = self.call(
+            name or "tts",
+            input=input_data,
+            input_schema=input_schema,
+            output_schema=_tts_output_schema(),
+            model=model,
+        )
         return MediaResponse(r.data, r.meta, base64_field="audio", mime_field="mime_type")
 
     async def text_to_speech_async(
@@ -493,10 +513,14 @@ class Opper:
         voice: str | None = None,
         model: str | None = None,
     ) -> MediaResponse:
-        input_data: dict[str, Any] = {"text": text}
-        if voice:
-            input_data["voice"] = voice
-        r = await self.call_async(name or "tts", input=input_data, output_schema=_tts_output_schema(), model=model)
+        input_schema, input_data = _build_tts_request(text, voice)
+        r = await self.call_async(
+            name or "tts",
+            input=input_data,
+            input_schema=input_schema,
+            output_schema=_tts_output_schema(),
+            model=model,
+        )
         return MediaResponse(r.data, r.meta, base64_field="audio", mime_field="mime_type")
 
     def transcribe(
@@ -508,9 +532,14 @@ class Opper:
         prompt: str | None = None,
         model: str | None = None,
     ) -> RunResponse:
-        fn_name = name or "stt"
-        input_data = _build_audio_input(audio=audio, language=language, prompt=prompt)
-        return self.call(fn_name, input=input_data, output_schema=_stt_output_schema(), model=model)
+        input_schema, input_data = _build_stt_request(audio, language, prompt)
+        return self.call(
+            name or "stt",
+            input=input_data,
+            input_schema=input_schema,
+            output_schema=_stt_output_schema(),
+            model=model,
+        )
 
     async def transcribe_async(
         self,
@@ -521,9 +550,14 @@ class Opper:
         prompt: str | None = None,
         model: str | None = None,
     ) -> RunResponse:
-        fn_name = name or "stt"
-        input_data = _build_audio_input(audio=audio, language=language, prompt=prompt)
-        return await self.call_async(fn_name, input=input_data, output_schema=_stt_output_schema(), model=model)
+        input_schema, input_data = _build_stt_request(audio, language, prompt)
+        return await self.call_async(
+            name or "stt",
+            input=input_data,
+            input_schema=input_schema,
+            output_schema=_stt_output_schema(),
+            model=model,
+        )
 
     # --- Internal helpers -----------------------------------------------------
 
@@ -600,48 +634,119 @@ def _quote(name: str) -> str:
     return quote(name, safe="")
 
 
-def _build_media_input(*, prompt: str, reference_image: str | bytes | None = None) -> dict[str, Any]:
-    input_data: dict[str, Any] = {"prompt": prompt}
+def _resolve_media_input(value: str | bytes) -> str:
+    """Resolve a media input to a base64 string. Accepts base64 string, bytes, or file path."""
+    if isinstance(value, bytes):
+        import base64
+
+        return base64.b64encode(value).decode()
+    # If it looks like a file path (not already base64), read it
+    if len(value) < 500 and ("/" in value or "\\" in value or "." in value):
+        import base64
+        from pathlib import Path
+
+        p = Path(value)
+        if p.exists():
+            return base64.b64encode(p.read_bytes()).decode()
+    return value
+
+
+def _build_image_request(
+    prompt: str,
+    reference_image: str | bytes | None = None,
+    size: str | None = None,
+    quality: str | None = None,
+    style: str | None = None,
+    n: int | None = None,
+    mime_type: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build input_schema and input for image generation, matching the TS SDK."""
+    props: dict[str, Any] = {"description": {"type": "string", "description": "Text description of the image"}}
+    values: dict[str, Any] = {"description": prompt}
+
     if reference_image is not None:
-        if isinstance(reference_image, bytes):
-            import base64
+        props["reference_image"] = {"type": "string", "description": "Base64-encoded reference image"}
+        values["reference_image"] = _resolve_media_input(reference_image)
+    if size is not None:
+        props["size"] = {"type": "string", "description": "Image size"}
+        values["size"] = size
+    if quality is not None:
+        props["quality"] = {"type": "string", "description": "Image quality"}
+        values["quality"] = quality
+    if style is not None:
+        props["style"] = {"type": "string", "description": "Image style"}
+        values["style"] = style
+    if n is not None:
+        props["n"] = {"type": "number", "description": "Number of images"}
+        values["n"] = n
+    if mime_type is not None:
+        props["mime_type"] = {"type": "string", "description": "Requested output MIME type"}
+        values["mime_type"] = mime_type
 
-            input_data["reference_image"] = base64.b64encode(reference_image).decode()
-        elif isinstance(reference_image, str):
-            # Assume file path — read and base64 encode
-            import base64
-
-            with open(reference_image, "rb") as f:
-                input_data["reference_image"] = base64.b64encode(f.read()).decode()
-    return input_data
+    schema = {"type": "object", "properties": props, "required": ["description"]}
+    return schema, values
 
 
-def _build_audio_input(*, audio: str | bytes, language: str | None = None, prompt: str | None = None) -> dict[str, Any]:
-    input_data: dict[str, Any] = {}
-    if isinstance(audio, bytes):
-        import base64
+def _build_video_request(
+    prompt: str,
+    aspect_ratio: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build input_schema and input for video generation."""
+    props: dict[str, Any] = {"prompt": {"type": "string", "description": "Text description of the video"}}
+    values: dict[str, Any] = {"prompt": prompt}
 
-        input_data["audio"] = base64.b64encode(audio).decode()
-    elif isinstance(audio, str):
-        import base64
+    if aspect_ratio is not None:
+        props["aspect_ratio"] = {"type": "string", "description": "Output aspect ratio"}
+        values["aspect_ratio"] = aspect_ratio
 
-        with open(audio, "rb") as f:
-            input_data["audio"] = base64.b64encode(f.read()).decode()
+    schema = {"type": "object", "properties": props, "required": ["prompt"]}
+    return schema, values
+
+
+def _build_tts_request(
+    text: str,
+    voice: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build input_schema and input for text-to-speech."""
+    props: dict[str, Any] = {"text": {"type": "string", "description": "Text to convert to speech"}}
+    values: dict[str, Any] = {"text": text}
+
+    if voice is not None:
+        props["voice"] = {"type": "string", "description": "Voice ID"}
+        values["voice"] = voice
+
+    schema = {"type": "object", "properties": props, "required": ["text"]}
+    return schema, values
+
+
+def _build_stt_request(
+    audio: str | bytes,
+    language: str | None = None,
+    prompt: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build input_schema and input for speech-to-text."""
+    props: dict[str, Any] = {"audio": {"type": "string", "description": "Base64-encoded audio"}}
+    values: dict[str, Any] = {"audio": _resolve_media_input(audio)}
+
     if language is not None:
-        input_data["language"] = language
+        props["language"] = {"type": "string", "description": "Language code"}
+        values["language"] = language
     if prompt is not None:
-        input_data["prompt"] = prompt
-    return input_data
+        props["prompt"] = {"type": "string", "description": "Optional prompt"}
+        values["prompt"] = prompt
+
+    schema = {"type": "object", "properties": props, "required": ["audio"]}
+    return schema, values
 
 
 def _image_output_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "url": {"type": "string"},
-            "base64": {"type": "string"},
-            "mime_type": {"type": "string"},
+            "image": {"type": "string", "description": "Base64-encoded image data"},
+            "mime_type": {"type": "string", "description": "MIME type of the generated image"},
         },
+        "required": ["image", "mime_type"],
     }
 
 
@@ -649,10 +754,10 @@ def _video_output_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "url": {"type": "string"},
-            "base64": {"type": "string"},
-            "mime_type": {"type": "string"},
+            "video": {"type": "string", "description": "Base64-encoded video data"},
+            "mime_type": {"type": "string", "description": "MIME type of the generated video"},
         },
+        "required": ["video", "mime_type"],
     }
 
 
@@ -660,9 +765,10 @@ def _tts_output_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "audio": {"type": "string"},
-            "mime_type": {"type": "string"},
+            "audio": {"type": "string", "description": "Base64-encoded audio data"},
+            "mime_type": {"type": "string", "description": "MIME type of the generated audio"},
         },
+        "required": ["audio", "mime_type"],
     }
 
 
@@ -670,6 +776,7 @@ def _stt_output_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "text": {"type": "string"},
+            "text": {"type": "string", "description": "Transcribed text"},
         },
+        "required": ["text"],
     }

@@ -12,6 +12,7 @@ media_dir = Path(__file__).parent / "media"
 easy = opper.generate_image(
     "sdk-test-generate-image",
     prompt="A sunset over a calm ocean with two sailboats",
+    model="openai/gpt-image-1.5"
 )
 
 print("── Convenience method ──")
@@ -38,12 +39,14 @@ raw = opper.call(
             "mime_type": {"type": "string", "description": "MIME type of the generated image"},
         },
     },
+    model="openai/gpt-image-1.5",
 )
 
 print("\n── Raw call() ──")
 print("MIME type:", raw.data.get("mime_type"))
 image_b64 = raw.data.get("image", "")
 print("Image base64 length:", len(image_b64))
+print("Meta:", raw.meta)
 
 ext = (raw.data.get("mime_type", "image/png")).split("/")[-1]
 raw_path = media_dir / f"generated-image-raw.{ext}"

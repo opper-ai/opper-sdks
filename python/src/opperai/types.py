@@ -6,6 +6,23 @@ from dataclasses import dataclass, field
 from typing import Any, Generic, Literal, TypeVar
 
 # ---------------------------------------------------------------------------
+# MIME type to file extension mapping
+# ---------------------------------------------------------------------------
+
+_MIME_TO_EXT: dict[str, str] = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/wav": "wav",
+    "audio/ogg": "ogg",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+}
+
+# ---------------------------------------------------------------------------
 # JSON Utility Types
 # ---------------------------------------------------------------------------
 
@@ -130,10 +147,7 @@ class MediaResponse(RunResponse[T]):
         # Auto-append extension from mime type if path has no extension
         p = Path(path)
         if not p.suffix and mime:
-            ext = mime.split("/")[-1]
-            # Normalize common mime subtypes
-            if ext == "jpeg":
-                ext = "jpg"
+            ext = _MIME_TO_EXT.get(mime, mime.split("/")[-1])
             p = p.with_suffix(f".{ext}")
 
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -591,7 +605,7 @@ class GenerationsListMeta:
 
     page: int = 1
     page_size: int = 50
-    total: int = 0
+    total_count: int = 0
     total_pages: int = 0
 
 
