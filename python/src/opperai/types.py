@@ -419,11 +419,23 @@ class ModelInfo:
 
     id: str = ""
     name: str = ""
+    type: str = ""
     provider: str = ""
-    capabilities: dict[str, Any] | None = None
-    pricing: dict[str, Any] | None = None
-    parameters: dict[str, Any] | None = None
+    provider_display_name: str = ""
+    model_id: str = ""
+    description: str = ""
+    capabilities: list[str] = field(default_factory=list)
+    speed: str = ""
+    quality: str = ""
+    cost: float = 0.0
+    context_window: int = 0
+    params: dict[str, Any] = field(default_factory=dict)
+    pricing: dict[str, Any] = field(default_factory=dict)
+    region: str = ""
+    country: str = ""
+    api_type: str = ""
     retired_at: str | None = None
+    successor: str | None = None
 
 
 @dataclass(frozen=True)
