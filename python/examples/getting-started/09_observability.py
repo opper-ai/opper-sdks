@@ -9,6 +9,7 @@ with opper.trace("summarize-flow") as span:
     summary = opper.call(
         "sdk-test-summarize",
         input={"text": "Observability is key to understanding system behavior in production."},
+        input_schema={"type": "object", "properties": {"text": {"type": "string"}}},
         output_schema={"type": "object", "properties": {"summary": {"type": "string"}}},
     )
     print("Summary:", summary.data.get("summary"))
@@ -19,6 +20,7 @@ with opper.trace("multi-step-pipeline"):
     extracted = opper.call(
         "sdk-test-extract",
         input={"text": "What is the story of Arthur? It is a tale of bravery and adventure and also some dragons."},
+        input_schema={"type": "object", "properties": {"text": {"type": "string"}}},
         output_schema={"type": "object", "properties": {"keywords": {"type": "array", "items": {"type": "string"}}}},
     )
     print("Keywords:", extracted.data.get("keywords"))
@@ -27,6 +29,7 @@ with opper.trace("multi-step-pipeline"):
         enriched = opper.call(
             "sdk-test-summarize",
             input={"keywords": extracted.data.get("keywords")},
+            input_schema={"type": "object", "properties": {"keywords": {"type": "array", "items": {"type": "string"}}}},
             output_schema={"type": "object", "properties": {"summary": {"type": "string"}}},
         )
         print("Enriched:", enriched.data.get("summary"))
