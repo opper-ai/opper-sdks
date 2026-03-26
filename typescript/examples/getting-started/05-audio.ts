@@ -11,30 +11,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const opper = new Opper();
 
 // ══════════════════════════════════════════════════════════════════════════════
-// Option 1: Convenience methods
-// ══════════════════════════════════════════════════════════════════════════════
-
-const easyTts = await opper.textToSpeech("sdk-test-tts", {
-  text: "Hello! This is a test of the Opper text-to-speech API. Pretty cool, right?",
-  // voice: "alloy",
-});
-
-console.log("── TTS (convenience) ──");
-console.log("Audio base64 length:", easyTts.data.audio.length);
-
-const ttsPath = easyTts.save(resolve(__dirname, "media/generated-speech.mp3"));
-console.log(`Saved to ${ttsPath}`);
-
-const easyStt = await opper.transcribe("sdk-test-stt", {
-  audio: easyTts.data.audio,
-});
-
-console.log("\n── STT (convenience) ──");
-console.log("Transcription:", easyStt.data.text);
-console.log("Language:", easyStt.data.language);
-
-// ══════════════════════════════════════════════════════════════════════════════
-// Option 2: Raw call() with explicit schemas
+// Option 1: Schema-driven call()
 // ══════════════════════════════════════════════════════════════════════════════
 
 const rawTts = await opper.call("sdk-test-tts-raw", {
@@ -49,7 +26,7 @@ const rawTts = await opper.call("sdk-test-tts-raw", {
   },
 });
 
-console.log("\n── TTS (raw call) ──");
+console.log("── TTS (schema-driven) ──");
 console.log("Audio base64 length:", rawTts.data.audio.length);
 
 const rawTtsPath = resolve(__dirname, "media/generated-speech-raw.mp3");
@@ -69,6 +46,29 @@ const rawStt = await opper.call("sdk-test-stt-raw", {
   },
 });
 
-console.log("\n── STT (raw call) ──");
+console.log("\n── STT (schema-driven) ──");
 console.log("Transcription:", rawStt.data.text);
 console.log("Language:", rawStt.data.language);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Option 2: Convenience methods
+// ══════════════════════════════════════════════════════════════════════════════
+
+const easyTts = await opper.textToSpeech("sdk-test-tts", {
+  text: "Hello! This is a test of the Opper text-to-speech API. Pretty cool, right?",
+  // voice: "alloy",
+});
+
+console.log("\n── TTS (convenience) ──");
+console.log("Audio base64 length:", easyTts.data.audio.length);
+
+const ttsPath = easyTts.save(resolve(__dirname, "media/generated-speech.mp3"));
+console.log(`Saved to ${ttsPath}`);
+
+const easyStt = await opper.transcribe("sdk-test-stt", {
+  audio: easyTts.data.audio,
+});
+
+console.log("\n── STT (convenience) ──");
+console.log("Transcription:", easyStt.data.text);
+console.log("Language:", easyStt.data.language);

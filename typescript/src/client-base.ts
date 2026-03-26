@@ -2,7 +2,16 @@
 // Task API SDK - Base HTTP Client
 // =============================================================================
 
-import { ApiError, type ClientConfig, type RequestOptions } from "./types.js";
+import {
+  ApiError,
+  AuthenticationError,
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+  RateLimitError,
+  type ClientConfig,
+  type RequestOptions,
+} from "./types.js";
 
 /** Default base URL for the Task API. */
 const DEFAULT_BASE_URL = "https://api.opper.ai";
@@ -90,7 +99,22 @@ export class BaseClient {
           body = undefined;
         }
       }
-      throw new ApiError(response.status, response.statusText, body);
+
+      const st = response.statusText;
+      switch (response.status) {
+        case 400:
+          throw new BadRequestError(st, body);
+        case 401:
+          throw new AuthenticationError(st, body);
+        case 404:
+          throw new NotFoundError(st, body);
+        case 429:
+          throw new RateLimitError(st, body);
+        case 500:
+          throw new InternalServerError(st, body);
+        default:
+          throw new ApiError(response.status, st, body);
+      }
     }
 
     return response;

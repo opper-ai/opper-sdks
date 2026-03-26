@@ -633,7 +633,14 @@ export type {
   WebSearchResult,
 } from "./types.js";
 
-export { ApiError } from "./types.js";
+export {
+  ApiError,
+  AuthenticationError,
+  BadRequestError,
+  InternalServerError,
+  NotFoundError,
+  RateLimitError,
+} from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Re-exports: Media types

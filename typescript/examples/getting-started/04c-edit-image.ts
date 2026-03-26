@@ -9,22 +9,8 @@ import { Opper } from "../../src/index.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const opper = new Opper();
 
-// ── Option 1: Convenience method ────────────────────────────────────────────
-// Accepts a file path directly — the SDK reads and base64-encodes it for you.
-
-const easy = await opper.generateImage("sdk-test-edit-image", {
-  prompt: "Give the cat some sunglasses and a party hat",
-  reference_image: { path: resolve(__dirname, "media/image.png") },
-});
-
-console.log("── Convenience method ──");
-console.log("MIME type:", easy.data.mime_type);
-console.log("Image base64 length:", easy.data.image.length);
-
-const easyPath = easy.save(resolve(__dirname, "media/edited-image"));
-console.log(`Saved to ${easyPath}`);
-
-// ── Option 2: Raw call() with explicit schemas ─────────────────────────────
+// ── Option 1: Schema-driven call() ──────────────────────────────────────────
+// Schemas alone tell the platform this is an image edit — include a reference_image field.
 
 const imageBase64 = readFileSync(resolve(__dirname, "media/image.png")).toString("base64");
 
@@ -43,7 +29,7 @@ const raw = await opper.call("sdk-test-edit-image-raw", {
   },
 });
 
-console.log("\n── Raw call() ──");
+console.log("── Schema-driven call() ──");
 console.log("MIME type:", raw.data.mime_type);
 console.log("Image base64 length:", raw.data.image.length);
 
@@ -51,3 +37,18 @@ const ext = raw.data.mime_type.split("/")[1] || "png";
 const rawPath = resolve(__dirname, `media/edited-image-raw.${ext}`);
 writeFileSync(rawPath, Buffer.from(raw.data.image, "base64"));
 console.log(`Saved to ${rawPath}`);
+
+// ── Option 2: Convenience method ────────────────────────────────────────────
+// Accepts a file path directly — the SDK reads and base64-encodes it for you.
+
+const easy = await opper.generateImage("sdk-test-edit-image", {
+  prompt: "Give the cat some sunglasses and a party hat",
+  reference_image: { path: resolve(__dirname, "media/image.png") },
+});
+
+console.log("\n── Convenience method ──");
+console.log("MIME type:", easy.data.mime_type);
+console.log("Image base64 length:", easy.data.image.length);
+
+const easyPath = easy.save(resolve(__dirname, "media/edited-image"));
+console.log(`Saved to ${easyPath}`);

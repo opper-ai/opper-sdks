@@ -46,21 +46,6 @@ export interface RequestOptions {
 // Error Types
 // ---------------------------------------------------------------------------
 
-/** API error with status code and response body. */
-export class ApiError extends Error {
-  readonly status: number;
-  readonly statusText: string;
-  readonly body: unknown;
-
-  constructor(status: number, statusText: string, body: unknown) {
-    super(`API Error ${status}: ${statusText}`);
-    this.name = "ApiError";
-    this.status = status;
-    this.statusText = statusText;
-    this.body = body;
-  }
-}
-
 /** Error detail returned by the API. */
 export interface ErrorDetail {
   readonly code: string;
@@ -71,6 +56,86 @@ export interface ErrorDetail {
 /** Error response wrapper from the API. */
 export interface ErrorResponse {
   readonly error: ErrorDetail;
+}
+
+/** API error with status code and structured error info. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly statusText: string;
+  readonly body: unknown;
+
+  constructor(status: number, statusText: string, body: unknown) {
+    const detail = ApiError.parseDetail(body);
+    const msg = detail
+      ? `${status} ${statusText}: ${detail.message}`
+      : `${status} ${statusText}`;
+    super(msg);
+    this.name = "ApiError";
+    this.status = status;
+    this.statusText = statusText;
+    this.body = body;
+  }
+
+  /** Parsed error detail from the response body, if available. */
+  get error(): ErrorDetail | undefined {
+    return ApiError.parseDetail(this.body);
+  }
+
+  /** @internal */
+  static parseDetail(body: unknown): ErrorDetail | undefined {
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof (body as ErrorResponse).error === "object"
+    ) {
+      const e = (body as ErrorResponse).error;
+      if (typeof e.code === "string" && typeof e.message === "string") {
+        return e;
+      }
+    }
+    return undefined;
+  }
+}
+
+/** 400 Bad Request — invalid input or malformed request. */
+export class BadRequestError extends ApiError {
+  constructor(statusText: string, body: unknown) {
+    super(400, statusText, body);
+    this.name = "BadRequestError";
+  }
+}
+
+/** 401 Unauthorized — missing or invalid API key. */
+export class AuthenticationError extends ApiError {
+  constructor(statusText: string, body: unknown) {
+    super(401, statusText, body);
+    this.name = "AuthenticationError";
+  }
+}
+
+/** 404 Not Found — the requested resource does not exist. */
+export class NotFoundError extends ApiError {
+  constructor(statusText: string, body: unknown) {
+    super(404, statusText, body);
+    this.name = "NotFoundError";
+  }
+}
+
+/** 429 Too Many Requests — rate limit exceeded. */
+export class RateLimitError extends ApiError {
+  constructor(statusText: string, body: unknown) {
+    super(429, statusText, body);
+    this.name = "RateLimitError";
+  }
+}
+
+/** 500 Internal Server Error — something went wrong on the server. */
+export class InternalServerError extends ApiError {
+  constructor(statusText: string, body: unknown) {
+    super(500, statusText, body);
+    this.name = "InternalServerError";
+  }
 }
 
 // ---------------------------------------------------------------------------
