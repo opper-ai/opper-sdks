@@ -58,5 +58,5 @@ jobs:
       - uses: astral-sh/setup-uv@v4
       - run: uv sync --extra dev
       - run: uv run ruff check src/
-      - run: uv run pyright
+      - run: uv run pyright src/
       - run: uv run pytest
