@@ -1,0 +1,54 @@
+name: Generate SDK
+
+on:
+  repository_dispatch:
+    types: [spec-updated]
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: opper-ai
+          repositories: opper,opper-sdks
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Download OpenAPI spec from CI artifact
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RUN_ID: ${{ github.event.client_payload.run_id }}
+        run: |
+          if [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" -n openapi-spec -R opper-ai/opper
+          else
+            gh run download -n openapi-spec -R opper-ai/opper
+          fi
+
+      - uses: opper-ai/opper-openapi-sdks@v1
+        id: generate
+        with:
+          spec: ./openapi.yaml
+          output: ./typescript
+          opper-api-key: ${{ secrets.OPPER_API_KEY }}
+
+      - name: Clean up temp files
+        run: rm -f openapi.yaml
+
+      - name: Open PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: update-sdk
+          title: 'chore: update TypeScript SDK from API spec'
+          body: |
+            Auto-generated from spec change in opper-ai/opper@${{ github.event.client_payload.sha || 'manual' }}.
+          commit-message: 'chore: regenerate TypeScript SDK'

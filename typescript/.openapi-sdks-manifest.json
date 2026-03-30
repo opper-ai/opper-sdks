@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "specHash": "c736a3d77277d63a351108228df96c3d0d59677bf64084950f4b6c45de994ae4",
+  "instructionsHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sections": {
+    "package-json": {
+      "contentHash": "05d56748fee0b10c9b7d22136a661bd02d8e808c9b43064c9928c6b45dd9ce9d",
+      "outputPath": "package.json",
+      "type": "package-config",
+      "order": 0,
+      "generatedAt": "2026-03-06T12:58:53.591Z"
+    },
+    "tsconfig-json": {
+      "contentHash": "05d56748fee0b10c9b7d22136a661bd02d8e808c9b43064c9928c6b45dd9ce9d",
+      "outputPath": "tsconfig.json",
+      "type": "package-config",
+      "order": 0,
+      "generatedAt": "2026-03-06T12:58:53.591Z"
+    },
+    "types": {
+      "contentHash": "a6ce8ddbe638601fa5b793b3ceb7aad063a757ad131ffb1d2aa72f233a70a3e1",
+      "outputPath": "src/types.ts",
+      "type": "types",
+      "order": 1,
+      "generatedAt": "2026-03-06T12:58:53.592Z"
+    },
+    "client-base": {
+      "contentHash": "f904d4ddbdbd27d597a88b2a55331e7e4da0a7885e18c54f7ec4c197869bbc33",
+      "outputPath": "src/client-base.ts",
+      "type": "client-base",
+      "order": 2,
+      "generatedAt": "2026-03-06T12:58:53.592Z"
+    },
+    "client:functions": {
+      "contentHash": "053a46a66bc586e314ffea6b9d3f21ceaf9b5a47dda5141a646bc1c2aa885307",
+      "outputPath": "src/clients/functions.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.592Z"
+    },
+    "client:chat": {
+      "contentHash": "ae52a57b5dc06877137dd531d08cfa3f87b2ffea8c757e2a97eb3d601c8a675a",
+      "outputPath": "src/clients/chat.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.592Z"
+    },
+    "client:responses": {
+      "contentHash": "7beec4e12027517d4a8e61a561cc4cca006c76281056acdbeba328a1dea05ab6",
+      "outputPath": "src/clients/responses.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.592Z"
+    },
+    "client:interactions": {
+      "contentHash": "37ba47e48139cb930ff96529bd5fa0b762ec4a0ded60714a02f76aef0acbe9f6",
+      "outputPath": "src/clients/interactions.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.592Z"
+    },
+    "client:models": {
+      "contentHash": "d93a8dd5b320156e17c77585bc1074f880ad62d00013e1b008be081955a43bec",
+      "outputPath": "src/clients/models.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.593Z"
+    },
+    "client:embeddings": {
+      "contentHash": "a77c6b39cbf14fd952e8d7776955cf367256e33e368c9e811ff0d9265e051b90",
+      "outputPath": "src/clients/embeddings.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.593Z"
+    },
+    "client:generations": {
+      "contentHash": "8b8b9ade29abb16767aefbe7b64d64a90f49a9e0397385637ec9c4c2ea23e604",
+      "outputPath": "src/clients/generations.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.593Z"
+    },
+    "client:parse": {
+      "contentHash": "39de9c317b3ff2aef5eae16b47ef087b426aa8bd38c40bc1f9d19d1ce280f55c",
+      "outputPath": "src/clients/parse.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.593Z"
+    },
+    "client:system": {
+      "contentHash": "a34ac0b1992f0bf6e0d11a01d23922bcd6842fe2a559dd98de2be3f0b9fb70f2",
+      "outputPath": "src/clients/system.ts",
+      "type": "client",
+      "order": 3,
+      "generatedAt": "2026-03-06T12:58:53.593Z"
+    },
+    "index": {
+      "contentHash": "350c2877462e5ce2be44fbeb9108209551785e6ea61d8be6c580642c07bb684a",
+      "outputPath": "src/index.ts",
+      "type": "index",
+      "order": 4,
+      "generatedAt": "2026-03-06T12:58:53.593Z"
+    },
+    "readme": {
+      "contentHash": "ca10ac943b1bd332578501f2314ab790248689a89906d9c71739b6d03b6d5321",
+      "outputPath": "README.md",
+      "type": "readme",
+      "order": 5,
+      "generatedAt": "2026-03-06T12:58:53.594Z"
+    },
+    "examples": {
+      "contentHash": "ca10ac943b1bd332578501f2314ab790248689a89906d9c71739b6d03b6d5321",
+      "outputPath": "examples/basic-usage.ts",
+      "type": "examples",
+      "order": 6,
+      "generatedAt": "2026-03-06T12:58:53.594Z"
+    }
+  }
+}
