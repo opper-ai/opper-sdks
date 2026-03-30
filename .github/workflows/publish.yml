@@ -7,6 +7,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   # ─── Detect what changed ───────────────────────────────────
   changes:
@@ -76,8 +80,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     defaults:
       run:
         working-directory: python
