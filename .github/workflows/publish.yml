@@ -8,7 +8,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -75,6 +75,32 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Extract changelog and create GitHub release
+        if: steps.version.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="ts-v${VERSION}"
+
+          NOTES=$(awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ "\\[" ver "\\]") found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md)
+
+          [ -z "$NOTES" ] && NOTES="No changelog entry for this version."
+
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          gh release create "$TAG" \
+            --title "TypeScript SDK v${VERSION}" \
+            --notes "$NOTES"
+
   # ─── Python Publish ────────────────────────────────────────
   publish-python:
     needs: changes
@@ -117,3 +143,29 @@ jobs:
         if: steps.version.outputs.changed == 'true'
         with:
           packages-dir: python/dist/
+
+      - name: Extract changelog and create GitHub release
+        if: steps.version.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="py-v${VERSION}"
+
+          NOTES=$(awk -v ver="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ "\\[" ver "\\]") found=1
+              next
+            }
+            found { print }
+          ' CHANGELOG.md)
+
+          [ -z "$NOTES" ] && NOTES="No changelog entry for this version."
+
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          gh release create "$TAG" \
+            --title "Python SDK v${VERSION}" \
+            --notes "$NOTES"
