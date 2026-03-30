@@ -1,9 +1,10 @@
 # Opper Agent SDK — Capabilities
 
 > **Status:** Draft
-> **Date:** 2026-03-09
+> **Date:** 2026-03-27
 > **Scope:** Language-agnostic specification for Opper Agent SDKs
-> **Reference implementation:** [SPEC.md](./SPEC.md) (TypeScript/Node.js)
+> **Reference implementation:** [typescript/SPEC.md](./typescript/SPEC.md) (TypeScript/Node.js)
+> **Agent transport:** The agent layer uses the **OpenResponses endpoint** (`POST /v3/compat/openresponses`) following the [Open Responses spec](https://www.openresponses.org). The SDK maintains the full items array client-side in OpenResponses format; Opper handles converting to provider-native formats.
 
 This document describes **what** an Opper Agent SDK does and **why**, without prescribing implementation details for any specific language. It is the canonical entry point for building an Opper Agent SDK in any language.
 
@@ -140,8 +141,8 @@ agent = Agent(
 
 - **Single `instructions` field.** Replaces any split of "description" + "instructions". One field, one purpose: tell the model what this agent does and how.
 - **`model` is deterministic.** When set, this exact model is used. When omitted, the server picks its own default.
-- **JSON Schema is the native schema format.** Schemas are plain JSON Schema objects — the format sent to `/call`. This avoids dependency on any specific schema library and works across all languages.
-- **`input_schema` / `output_schema` are optional.** When provided, the SDK sends them to `/call` for the server to enforce, and optionally validates locally.
+- **JSON Schema is the native schema format.** Schemas are plain JSON Schema objects — the native wire format. This avoids dependency on any specific schema library and works across all languages.
+- **`input_schema` / `output_schema` are optional.** When provided, the SDK sends them to the server (via `text.format` for output) for enforcement, and optionally validates locally.
 - **No built-in memory.** If users need persistence, they use tools (e.g., read/write tools backed by Opper indexes or any store). This is simpler, more flexible, and doesn't pollute every LLM call.
 
 ---
@@ -174,7 +175,7 @@ metric_tool = tool(
 ### Design Decisions
 
 - **Follows the industry standard pattern**: `tool(name, description, parameters, execute)`. Used by OpenAI, Vercel AI SDK, and others.
-- **`parameters` is a JSON Schema object** — the native format sent to `/call`. No conversion needed at the wire level.
+- **`parameters` is a JSON Schema object** — the native wire format. No conversion needed at the wire level.
 - **`execute` receives parsed input.** The return value is automatically serialized to JSON by the SDK.
 - **No result wrapping.** Just return the value or throw an error. The SDK wraps it into the appropriate format.
 - **No output schema on tools.** The server doesn't need it and it was mostly unused in practice.
@@ -232,8 +233,8 @@ Every SDK exposes two ways to run an agent:
 
 | Method | Returns | Transport | Use case |
 |---|---|---|---|
-| `run(input)` | Final result | POST `/call` | Get the answer, ignore intermediate steps |
-| `stream(input)` | Event iterator | SSE `/stream` | Observe events as the agent works |
+| `run(input)` | Final result | POST `/v3/compat/openresponses` (`stream: false`) | Get the answer, ignore intermediate steps |
+| `stream(input)` | Event iterator | POST `/v3/compat/openresponses` (`stream: true`) | Observe events as the agent works |
 
 ```
 // Run — get the final result
@@ -294,16 +295,29 @@ The result of `run()` (and `stream().result()`) contains:
 
 ## 6. The Agentic Loop
 
-The loop is the same for both `run()` and `stream()`. The only difference is the transport (POST vs SSE) and whether events are yielded to the caller.
+The loop is the same for both `run()` and `stream()`. The only difference is `stream: false` vs `stream: true` in the request and whether events are yielded to the caller. Both use the **OpenResponses endpoint** (`POST /v3/compat/openresponses`).
+
+### OpenResponses Item Format
+
+Instead of chat messages, the agent layer uses **OpenResponses items**:
+
+| Concept | OpenResponses Format |
+|---|---|
+| User input | `{ type: "message", role: "user", content: "..." }` |
+| System instructions | Top-level `instructions` field (not an item) |
+| Tool definitions | `tools: [{ type: "function", name, description, parameters }]` |
+| Tool call (from model) | Output item: `{ type: "function_call", call_id, name, arguments }` |
+| Tool result (to model) | Input item: `{ type: "function_call_output", call_id, output }` |
+| Assistant text | Output item: `{ type: "message", role: "assistant", content: [{type: "output_text", text}] }` |
+| Structured output | `text: { format: { type: "json_schema", name, schema } }` |
 
 ### Loop Steps
 
 ```
 function execute(agent, input, options):
   1. Setup: resolve tool providers (MCP setup, skill loading)
-  2. Build initial messages:
-     [{ role: "system", content: agent.instructions },
-      { role: "user",   content: input }]
+  2. Build initial items:
+     [{ type: "message", role: "user", content: input }]
   3. Fire hook: on_agent_start
 
   4. LOOP (iteration = 1..max_iterations):
@@ -311,34 +325,41 @@ function execute(agent, input, options):
      a. Fire hooks: on_iteration_start, on_llm_call
 
      b. Call server:
-        POST /functions/{agent.name}/call  (run mode)
-        POST /functions/{agent.name}/stream (stream mode)
+        POST /v3/compat/openresponses
         Body: {
-          messages, tools, model, temperature, max_tokens, parent_span_id
+          input: items,                    // full accumulated items array
+          instructions: agent.instructions,
+          model, tools, temperature, max_output_tokens,
+          stream: false (run) / true (stream),
+          text: output_schema ? { format: { type: "json_schema", ... } } : undefined,
+          reasoning: reasoning_effort ? { effort } : undefined,
         }
 
      c. Consume response:
-        - run mode:    parse JSON (content + tool_calls)
-        - stream mode: consume SSE, yield text_delta events,
+        - run mode:    parse ORResponse JSON, extract output items
+        - stream mode: consume OpenResponses SSE events, yield text_delta events,
                        accumulate full response before proceeding
 
      d. Fire hook: on_llm_response
 
-     e. If NO tool_calls → DONE
+     e. Append ALL output items to items array
+        (assistant messages, function_call items, reasoning items)
+
+     f. If NO function_call items in output → DONE
+        - Extract text from message output items
         - Validate output against output_schema if provided
         - Fire hook: on_agent_end
         - Return result
 
-     f. Append assistant message (with tool_calls) to messages
-
      g. Execute tools locally (parallel by default):
-        For each tool_call:
+        For each function_call item:
           - Fire hook: on_tool_start
-          - Find tool by name, call execute(parsed_args)
+          - Find tool by name, JSON.parse(arguments), call execute(parsed_args)
           - Fire hook: on_tool_end
           - On error: serialize error as tool result (don't throw)
 
-     h. Append tool results to messages
+     h. Append function_call_output items to items array:
+        [{ type: "function_call_output", call_id, output: JSON.stringify(result) }, ...]
 
      i. Fire hook: on_iteration_end
      j. Continue loop
@@ -349,32 +370,18 @@ function execute(agent, input, options):
 
 ### Tool Call Assembly
 
-In stream mode, the SDK accumulates tool calls from `tool_call_start` and `tool_call_delta` SSE events. This is trivial: concatenate argument fragments per tool call index, then `JSON.parse` the complete string when the next `tool_call_start` or `done` event signals the current tool call is complete. Tool execution begins only after **all tool calls** in the response are fully received (i.e., after the `done` event).
+In stream mode, the SDK accumulates tool call arguments from `response.function_call_arguments.delta` SSE events. This is trivial: concatenate argument fragments per `call_id`, then use the complete string from `response.function_call_arguments.done`. Tool execution begins only after **all tool calls** in the response are fully received (after `response.completed`).
 
-**No early tool execution in v1.** The SDK does not start executing tools from partial stream data. The `tool_call_start` event provides the tool name early (which enables future optimizations like connection pre-warming), but execution waits for complete arguments. Early execution can be added as an opt-in experiment later if latency data justifies it.
-
-### Message Format
-
-The SDK uses a **provider-agnostic message format**:
-
-| Role | Content |
-|---|---|
-| `system` | Agent instructions |
-| `user` | User input (text or structured content blocks) |
-| `assistant` | Model response, optionally with `tool_calls` |
-| `tool` | Tool result, referencing the original `tool_call_id` |
-
-**The server translates this to the native format for each provider.** The SDK never needs to know whether it's talking to Anthropic, OpenAI, or Google — the Task API handles provider-specific formatting.
+**No early tool execution in v1.** The SDK does not start executing tools from partial stream data. Early execution can be added as an opt-in experiment later if latency data justifies it.
 
 ### Tool Call Contract
 
-The server exposes a stable canonical contract for tool calls:
+The server exposes function_call items in the OpenResponses output:
 
-- **In `/call` responses:** Each tool call has a stable opaque `id`, a `name`, and fully parsed `arguments`.
-- **In `/stream` responses:** Each tool call is delivered incrementally — `tool_call_start` provides the `id`, `name`, and `index` upfront; `tool_call_delta` events deliver argument fragments. The SDK assembles the complete tool call from these events.
-- The SDK treats the `id` as opaque — only used to correlate tool results
-- If a provider doesn't supply a usable ID, the server generates one
-- The same logical tool call has the same `id` in `/call` responses, `/stream` responses, and tool result messages
+- **Sync mode (`stream: false`):** Each function_call output item has a `call_id`, `name`, and `arguments` (JSON string).
+- **Streaming mode (`stream: true`):** Function call arguments are delivered incrementally via `response.function_call_arguments.delta` events, completed by `response.function_call_arguments.done`.
+- The SDK treats the `call_id` as opaque — only used to correlate tool results via `function_call_output` items.
+- If a provider doesn't supply a usable ID, the server generates one.
 
 This keeps provider quirks on the server side.
 
@@ -382,49 +389,53 @@ This keeps provider quirks on the server side.
 
 | Concern | V1 | V2 |
 |---|---|---|
-| LLM call format | Custom JSON with embedded tools/history/instructions | Native messages, server converts per provider |
+| LLM call format | Custom JSON with embedded tools/history/instructions | OpenResponses items, server converts per provider |
 | Tool definitions | Embedded in prompt text | First-class `tools` parameter, server converts to native format |
 | Prompt caching | Not possible | Server applies cache breakpoints; stable prefix is cached |
-| Output format | Custom decision schema | Native tool_calls from provider |
+| Output format | Custom decision schema | Native `function_call` output items |
 | System prompt | ~450 tokens of scaffolding per call | Agent instructions only |
 | Token overhead | ~5,000+ extra tokens per run | Minimal — only the actual conversation |
 | Model compatibility | Depends on model understanding custom schema | Any model with tool calling support |
+| Wire protocol | Custom `/call` + `/stream` | Standard OpenResponses format, multi-provider compatible |
 
 ---
 
 ## 7. Streaming
 
-### Wire Protocol (SSE from `/stream`)
+### Wire Protocol (OpenResponses SSE)
 
-The `/stream` endpoint emits discrete SSE events. The server proxies incremental data from the upstream LLM provider in a canonical format — it does **not** buffer tool calls into a final assembled blob. The SDK assembles the complete response from these events.
+The OpenResponses endpoint with `stream: true` emits discrete SSE events with named event types. The server proxies incremental data from the upstream LLM provider in the OpenResponses format.
 
-| SSE event type | Fields | Description |
+| SSE event type | Key fields | Description |
 |---|---|---|
-| `content` | `delta` (text chunk) | Incremental text from the model |
-| `tool_call_start` | `tool_call_id`, `tool_call_name`, `tool_call_index` | A new tool call begins — name and ID are known immediately |
-| `tool_call_delta` | `tool_call_index`, `tool_call_args` (JSON fragment) | Incremental tool call arguments (partial JSON string) |
-| `done` | `usage` | Stream complete — usage/meta for this server call |
-| `error` | `error` | Server-side error |
+| `response.created` | `response` | Response created |
+| `response.in_progress` | `response` | Processing started |
+| `response.completed` | `response` (full ORResponse) | Response complete — includes output items and usage |
+| `response.output_item.added` | `output_index`, `item` | New output item started |
+| `response.output_item.done` | `output_index`, `item` | Output item complete |
+| `response.output_text.delta` | `output_index`, `delta` | Incremental text from the model |
+| `response.output_text.done` | `output_index`, `text` | Complete text for output |
+| `response.function_call_arguments.delta` | `output_index`, `call_id`, `delta` | Incremental tool call arguments (JSON fragment) |
+| `response.function_call_arguments.done` | `output_index`, `call_id`, `arguments` | Complete tool call arguments |
+| `error` | `error` (code, message) | Server-side error |
 
-This matches the industry standard: Anthropic, OpenAI, and Vercel AI SDK all stream tool call arguments incrementally and signal per-tool-call completion. The server does not need to buffer or reassemble — it proxies what providers emit in a normalized format.
-
-**Why no "final assembled response" event:** The SDK can trivially assemble the complete response by concatenating text deltas and collecting tool calls from start/delta events. Sending a redundant final blob would require server-side buffering, add bandwidth overhead, and duplicate information already in the stream. Every major SDK (Anthropic, OpenAI Chat, Vercel) works this way — the client assembles from clean discrete events.
+This follows the OpenResponses spec which is supported by multiple providers. The SDK accumulates tool call arguments from delta events internally and extracts the complete response from the `response.completed` event.
 
 ### SDK-Level Events (User-Facing)
 
-The SDK consumes the wire protocol internally and exposes a **higher-level event stream** to users. Users never see raw `tool_call_delta` events — the SDK accumulates tool call arguments internally and emits only complete, actionable events.
+The SDK consumes the wire protocol internally and exposes a **higher-level event stream** to users. Users never see raw `function_call_arguments.delta` events — the SDK accumulates tool call arguments internally and emits only complete, actionable events.
 
 | Event | Fields | When |
 |---|---|---|
 | `iteration_start` | iteration number | Beginning of each loop iteration |
-| `text_delta` | text chunk | Incremental text from model (pass-through from wire `content` events) |
-| `tool_start` | tool name, tool call id | Tool call fully received, about to execute locally |
+| `text_delta` | text chunk | Incremental text from model (from `response.output_text.delta` events) |
+| `tool_start` | tool name, call_id, input | Tool call fully received, about to execute locally |
 | `tool_end` | tool name, result, error, duration | After local tool execution completes |
 | `iteration_end` | iteration number, usage | End of each loop iteration |
 | `result` | output, usage | Final result |
 | `error` | error | Unrecoverable error |
 
-**Two layers, like OpenAI Agents SDK:** The raw wire events are accumulated internally (string concatenation for args, JSON.parse when complete). Users see clean high-level events. This keeps the wire protocol efficient and the user API simple.
+**Two layers:** The raw OpenResponses SSE events are accumulated internally. Users see clean high-level events. This keeps the wire protocol efficient and the user API simple.
 
 ### Stream with Result
 
@@ -565,23 +576,23 @@ These are thrown/raised to the caller:
 
 ## 12. Conversation / Multi-Turn
 
-### Direct Messages
+### Direct Items
 
-For full control, pass a messages array directly:
+For full control, pass an items array directly (OpenResponses format):
 
 ```
 result = agent.run({
-  messages: [
-    { role: "user",      content: "My name is Alice" },
-    { role: "assistant", content: "Nice to meet you, Alice!" },
-    { role: "user",      content: "What is my name?" },
+  items: [
+    { type: "message", role: "user", content: "My name is Alice" },
+    { type: "message", role: "assistant", content: [{type: "output_text", text: "Nice to meet you, Alice!"}] },
+    { type: "message", role: "user", content: "What is my name?" },
   ]
 })
 ```
 
 ### Conversation Helper
 
-A stateful wrapper that tracks messages across turns:
+A stateful wrapper that tracks items across turns:
 
 ```
 conversation = agent.conversation()
@@ -592,40 +603,42 @@ r2 = conversation.send("What is my name?")
 ```
 
 The conversation helper:
-- Maintains the messages array across `send()` calls
-- Appends each assistant response and user message
-- Handles tool calls transparently within each turn
+- Maintains the items array across `send()` calls in OpenResponses format
+- Appends assistant output items and user message items each turn
+- Handles tool calls (function_call + function_call_output items) transparently within each turn
 - **Does not persist across process restarts** — it is in-memory only
 
 ---
 
 ## 13. Server Contract
 
-The agent layer depends on the following Task API contract.
+The agent layer depends on the **OpenResponses endpoint** (`POST /v3/compat/openresponses`).
 
 ### Required
 
-1. **Two transports, same semantics.** `POST /call` returns JSON. `POST /stream` returns SSE. Both accept the same request shape and produce the same final result.
+1. **OpenResponses endpoint with sync and streaming modes.** `stream: false` returns ORResponse JSON. `stream: true` returns SSE events in the OpenResponses event format. Both accept the same ORRequest shape.
 
-2. **Canonical message input.** The API accepts a stable provider-agnostic message format. The server translates to provider-native formats. System instructions are supported.
+2. **OpenResponses items format.** The API accepts items (messages, function_call, function_call_output) as input in OpenResponses format. The server translates to provider-native formats. Instructions are provided via the top-level `instructions` field.
 
-3. **First-class tool definitions.** Tools are passed as structured input (name, description, parameters as JSON Schema), not embedded in prompt text. The server converts to provider-native formats.
+3. **First-class tool definitions.** Tools are passed as `tools: [{ type: "function", name, description, parameters }]`. The server converts to provider-native formats.
 
-4. **Native tool calls in responses.** Tool calls include a stable opaque `id`, `name`, and parsed `arguments`. If the provider doesn't supply a usable ID, the server generates one. The contract is identical between `/call` and `/stream`.
+4. **Function call items in responses.** When the model wants to call tools, the output includes `function_call` items with a `call_id`, `name`, and `arguments` (JSON string). If the provider doesn't supply a usable ID, the server generates one.
 
-5. **Tool results round-trip.** The API accepts tool result messages referencing the original `tool_call_id`. The server preserves the association when translating to provider-native formats. The SDK never needs provider-specific logic for tool-call identity.
+5. **Tool results round-trip via function_call_output items.** The API accepts `function_call_output` input items referencing the original `call_id`. The server preserves the association when translating to provider-native formats.
 
-6. **Streaming: text deltas + incremental tool call events.** `/stream` emits incremental text events (`content`) and incremental tool call events (`tool_call_start`, `tool_call_delta`), followed by a `done` event with usage metadata. The server does **not** need to send a separate assembled final response — the SDK assembles the complete response from discrete events. This matches the industry standard (Anthropic, OpenAI, Vercel) and avoids unnecessary server-side buffering.
+6. **Streaming follows OpenResponses event types.** `response.output_text.delta` for text, `response.function_call_arguments.delta`/`.done` for tool call arguments, `response.completed` with the full ORResponse including usage. The SDK assembles the complete response from discrete events.
 
-7. **Usage and tracing per call.** Every call returns usage data. Every call supports trace/span linkage via `parent_span_id`. The server owns authoritative usage, cost, and span creation.
+7. **Usage and tracing per call.** Every response includes `usage`. Opper extension items may include cost, execution time, models used, cache stats. The server owns authoritative usage, cost, and span creation.
 
 8. **Model selection: explicit.** If `model` is provided, the server uses it deterministically. If omitted, the server uses its own default.
 
+9. **Structured output via text.format.** The API supports `text: { format: { type: "json_schema", name, schema } }`.
+
 ### Stability Properties
 
-1. **Shape parity.** `/call` and `/stream` must not diverge in accepted input or final response semantics.
-2. **Provider abstraction.** Provider-specific details stay server-side.
-3. **Forward compatibility.** Message and tool formats must be stable enough for SDKs in multiple languages.
+1. **Mode parity.** `stream: false` and `stream: true` must not diverge in accepted input or final response semantics.
+2. **Provider abstraction.** Provider-specific details stay server-side. The SDK sends OpenResponses items; the server converts.
+3. **Forward compatibility.** OpenResponses item and tool formats must be stable enough for SDKs in multiple languages.
 4. **Server authority.** Usage, cost, and tracing are owned by the server.
 
 ### What Stays SDK-First for Now
