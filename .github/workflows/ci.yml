@@ -4,6 +4,13 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   # ─── Detect what changed ───────────────────────────────────
   changes:
@@ -51,10 +58,8 @@ jobs:
         working-directory: python
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: ruff check src/
-      - run: pyright
-      - run: pytest
+      - uses: astral-sh/setup-uv@v4
+      - run: uv sync --extra dev
+      - run: uv run ruff check src/
+      - run: uv run pyright src/
+      - run: uv run pytest

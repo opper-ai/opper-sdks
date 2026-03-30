@@ -66,7 +66,7 @@ class ApiError(Exception):
 
     def __init__(self, status: int, status_text: str, body: Any = None) -> None:
         detail = self.parse_detail(body)
-        msg = f"{status} {status_text}: {detail['message']}" if detail else f"{status} {status_text}"
+        msg = f"{status} {status_text}: {detail.get('message', '')}" if detail else f"{status} {status_text}"
         super().__init__(msg)
         self.status = status
         self.status_text = status_text

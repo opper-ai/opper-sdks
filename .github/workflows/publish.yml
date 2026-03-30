@@ -1,5 +1,8 @@
 name: Publish
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [main]
@@ -10,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       typescript: ${{ steps.filter.outputs.typescript }}
+      python: ${{ steps.filter.outputs.python }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,6 +24,8 @@ jobs:
           filters: |
             typescript:
               - 'typescript/**'
+            python:
+              - 'python/**'
 
   # ─── TypeScript Publish ────────────────────────────────────
   publish-typescript:
@@ -64,3 +70,48 @@ jobs:
         if: steps.version.outputs.changed == 'true'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ─── Python Publish ────────────────────────────────────────
+  publish-python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if version changed
+        id: version
+        run: |
+          CURRENT=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          PREVIOUS=$(git show HEAD~1:python/pyproject.toml 2>/dev/null \
+            | python3 -c "import sys,tomllib; print(tomllib.loads(sys.stdin.read())['project']['version'])" \
+            2>/dev/null || echo "")
+          if [ "$CURRENT" != "$PREVIOUS" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.version.outputs.changed == 'true'
+        with:
+          python-version: "3.12"
+
+      - run: pip install build
+        if: steps.version.outputs.changed == 'true'
+
+      - run: python -m build
+        if: steps.version.outputs.changed == 'true'
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.version.outputs.changed == 'true'
+        with:
+          packages-dir: python/dist/

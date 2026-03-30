@@ -1,6 +1,6 @@
 [project]
 name = "opperai"
-version = "0.1.0"
+version = "2.0.0b0"
 description = "Python SDK for the Opper Task API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -38,6 +38,7 @@ select = ["E", "F", "I", "UP"]
 [tool.pyright]
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
+exclude = ["tests"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
