@@ -1,13 +1,20 @@
-import { readFileSync } from "node:fs";
 import { Opper } from "opperai";
 
 const opper = new Opper();
 
-const pdfBuffer = readFileSync("document.pdf");
-const pdfBlob = new Blob([pdfBuffer], { type: "application/pdf" });
+// setup
+const kb = await opper.knowledge.create({ name: `docs-snippet-${Date.now()}` });
+const kbId = kb.id;
+const pdfBlob = new Blob(["Hello world PDF content"], { type: "application/pdf" });
+// /setup
 
-const uploaded = await opper.knowledge.uploadFile("kb-id", pdfBlob, {
+// --- docs ---
+const uploaded = await opper.knowledge.uploadFile(kbId, pdfBlob, {
   filename: "document.pdf",
   metadata: { source: "upload" },
 });
 console.log(`Uploaded: ${uploaded.original_filename} -> ${uploaded.document_id}`);
+// --- /docs ---
+
+// cleanup
+await opper.knowledge.delete(kbId);

@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": null,
+    "declaration": false,
+    "paths": {
+      "opperai": ["../src/index.ts"]
+    }
+  },
+  "include": ["."]
+}

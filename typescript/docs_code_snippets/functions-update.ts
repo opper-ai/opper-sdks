@@ -3,10 +3,15 @@ import { Opper } from "opperai";
 
 const opper = new Opper();
 
-const fn = await opper.functions.get("my-function");
-// Update is done by calling with new schemas - the function auto-updates
-const result = await opper.call("my-function", {
-  input: { text: "Updated input" },
-  output_schema: z.object({ result: z.string() }),
-});
-console.log(result.data);
+// setup
+const fnName = `docs-snippet-fn-${Date.now()}`;
+await opper.call(fnName, { input: "hello", output_schema: z.object({ reply: z.string() }) });
+// /setup
+
+// --- docs ---
+const fn = await opper.functions.get(fnName);
+console.log(`Name: ${fn.name}, Hit count: ${fn.hit_count}`);
+// --- /docs ---
+
+// cleanup
+await opper.functions.delete(fnName);

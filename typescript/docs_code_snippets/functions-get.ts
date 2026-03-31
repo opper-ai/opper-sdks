@@ -1,8 +1,19 @@
+import { z } from "zod";
 import { Opper } from "opperai";
 
 const opper = new Opper();
 
-const fn = await opper.functions.get("my-function");
+// setup
+const fnName = `docs-snippet-fn-${Date.now()}`;
+await opper.call(fnName, { input: "hello", output_schema: z.object({ reply: z.string() }) });
+// /setup
+
+// --- docs ---
+const fn = await opper.functions.get(fnName);
 console.log(`Name: ${fn.name}`);
 console.log(`Schema hash: ${fn.schema_hash}`);
 console.log(`Hit count: ${fn.hit_count}`);
+// --- /docs ---
+
+// cleanup
+await opper.functions.delete(fnName);
