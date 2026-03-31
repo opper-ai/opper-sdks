@@ -381,7 +381,7 @@ export class Opper {
       maybeRequestOptions,
     );
     const result = await this.call<GeneratedVideo>(name, buildGenerateVideoRequest(opts), reqOpts);
-    return mediaResponse(result, "video", "mime_type");
+    return this.resolveMedia(result, "video", "mime_type");
   }
 
   /**
@@ -503,6 +503,34 @@ export class Opper {
     }
 
     return wire as unknown as RunRequest;
+  }
+
+  private async resolveMedia<T>(
+    result: RunResponse<T>,
+    base64Field: keyof T & string,
+    mimeField?: keyof T & string,
+    pollInterval = 5000,
+  ): Promise<MediaResponse<T>> {
+    const meta = result.meta;
+    if (meta?.status === "pending" && meta.pending_operations?.length) {
+      const op = meta.pending_operations[0];
+      while (true) {
+        const status = await this.artifacts.getStatus(op.id);
+        if (status.status === "completed" && status.url) {
+          const resp = await fetch(status.url);
+          const buf = Buffer.from(await resp.arrayBuffer());
+          const b64 = buf.toString("base64");
+          const data = { [base64Field]: b64 } as Record<string, unknown>;
+          if (mimeField && status.mime_type) data[mimeField] = status.mime_type;
+          return mediaResponse({ data: data as T, meta }, base64Field, mimeField);
+        }
+        if (status.status === "failed") {
+          throw new Error(`Artifact generation failed: ${status.error}`);
+        }
+        await new Promise((r) => setTimeout(r, pollInterval));
+      }
+    }
+    return mediaResponse(result, base64Field, mimeField);
   }
 }
 
