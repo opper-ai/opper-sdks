@@ -30,50 +30,50 @@ afterEach(() => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe("FunctionsClient CRUD", () => {
-  it("listFunctions sends GET to /v3/functions", async () => {
+  it("list sends GET to /v3/functions", async () => {
     const resp = { functions: [{ name: "fn-1" }] };
     const fetchMock = mockFetch(resp);
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    const result = await client.listFunctions();
+    const result = await client.list();
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.test.com/v3/functions");
     expect(init.method).toBe("GET");
-    expect(result.functions).toHaveLength(1);
+    expect(result).toHaveLength(1);
   });
 
-  it("getFunction sends GET to /v3/functions/{name}", async () => {
+  it("get sends GET to /v3/functions/{name}", async () => {
     const resp = { name: "my-fn", script: "code" };
     const fetchMock = mockFetch(resp);
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    const result = await client.getFunction("my-fn");
+    const result = await client.get("my-fn");
 
     const [url] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.test.com/v3/functions/my-fn");
     expect(result.name).toBe("my-fn");
   });
 
-  it("getFunction encodes special characters in name", async () => {
+  it("get encodes special characters in name", async () => {
     globalThis.fetch = mockFetch({ name: "my fn" });
 
     const client = new FunctionsClient(config);
-    await client.getFunction("my fn");
+    await client.get("my fn");
 
     const [url] = (globalThis.fetch as any).mock.calls[0];
     expect(url).toBe("https://api.test.com/v3/functions/my%20fn");
   });
 
-  it("updateFunction sends PUT to /v3/functions/{name}", async () => {
+  it("update sends PUT to /v3/functions/{name}", async () => {
     const resp = { name: "my-fn", script: "new code" };
     const fetchMock = mockFetch(resp);
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    await client.updateFunction("my-fn", { source: "new code" });
+    await client.update("my-fn", { source: "new code" });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.test.com/v3/functions/my-fn");
@@ -81,12 +81,12 @@ describe("FunctionsClient CRUD", () => {
     expect(JSON.parse(init.body).source).toBe("new code");
   });
 
-  it("deleteFunction sends DELETE to /v3/functions/{name}", async () => {
+  it("delete sends DELETE to /v3/functions/{name}", async () => {
     const fetchMock = mockFetch(undefined, 204);
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    await client.deleteFunction("my-fn");
+    await client.delete("my-fn");
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.test.com/v3/functions/my-fn");
@@ -99,13 +99,13 @@ describe("FunctionsClient CRUD", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe("FunctionsClient realtime", () => {
-  it("createRealtimeFunction sends POST to /v3/functions/{name}/realtime", async () => {
+  it("createRealtime sends POST to /v3/functions/{name}/realtime", async () => {
     const resp = { session_id: "s-1" };
     const fetchMock = mockFetch(resp);
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    await client.createRealtimeFunction("voice-fn", {
+    await client.createRealtime("voice-fn", {
       instructions: "Be helpful",
       model: "openai/gpt-4o-realtime",
       voice: "alloy",
@@ -146,7 +146,7 @@ describe("FunctionsClient revisions", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.test.com/v3/functions/my-fn/revisions");
     expect(init.method).toBe("GET");
-    expect(result.revisions).toHaveLength(1);
+    expect(result).toHaveLength(1);
   });
 
   it("getRevision sends GET to /v3/functions/{name}/revisions/{id}", async () => {

@@ -19,7 +19,7 @@ export class TracesClient extends BaseClient {
     params?: ListTracesParams,
     options?: RequestOptions,
   ): Promise<ListTracesResponse> {
-    return this.get<ListTracesResponse>(
+    return this._get<ListTracesResponse>(
       "/v3/traces",
       {
         limit: params?.limit,
@@ -35,7 +35,7 @@ export class TracesClient extends BaseClient {
    * GET /v3/traces/{id}
    */
   async getTrace(id: string, options?: RequestOptions): Promise<GetTraceResponse> {
-    const res = await this.get<{ data: GetTraceResponse }>(
+    const res = await this._get<{ data: GetTraceResponse }>(
       `/v3/traces/${encodeURIComponent(id)}`,
       undefined,
       options,
@@ -48,6 +48,6 @@ export class TracesClient extends BaseClient {
    * DELETE /v3/traces/{id}
    */
   async deleteTrace(id: string, options?: RequestOptions): Promise<void> {
-    return this.delete<void>(`/v3/traces/${encodeURIComponent(id)}`, options);
+    return this._delete<void>(`/v3/traces/${encodeURIComponent(id)}`, options);
   }
 }

@@ -156,24 +156,24 @@ describe("GenerationsClient", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe("ModelsClient", () => {
-  it("listModels sends GET to /v3/models", async () => {
+  it("list sends GET to /v3/models", async () => {
     const resp = { data: [] };
     const fetchMock = mockFetch(resp);
     globalThis.fetch = fetchMock;
 
     const client = new ModelsClient(config);
-    await client.listModels();
+    await client.list();
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.test.com/v3/models");
     expect(init.method).toBe("GET");
   });
 
-  it("listModels passes filter params", async () => {
+  it("list passes filter params", async () => {
     globalThis.fetch = mockFetch({ data: [] });
 
     const client = new ModelsClient(config);
-    await client.listModels({
+    await client.list({
       type: "llm",
       provider: "openai",
       q: "gpt",
@@ -197,11 +197,11 @@ describe("ModelsClient", () => {
     expect(url).toContain("offset=5");
   });
 
-  it("listModels handles single capability string", async () => {
+  it("list handles single capability string", async () => {
     globalThis.fetch = mockFetch({ data: [] });
 
     const client = new ModelsClient(config);
-    await client.listModels({ capability: "vision" });
+    await client.list({ capability: "vision" });
 
     const [url] = (globalThis.fetch as any).mock.calls[0];
     expect(url).toContain("capability=vision");

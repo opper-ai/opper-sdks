@@ -22,6 +22,6 @@ export class SystemClient extends BaseClient {
    * @returns A promise that resolves with the health check response.
    */
   async healthCheck(options?: RequestOptions): Promise<HealthCheckResponse> {
-    return this.get<HealthCheckResponse>("/health", undefined, options);
+    return this._get<HealthCheckResponse>("/health", undefined, options);
   }
 }

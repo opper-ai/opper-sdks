@@ -17,7 +17,7 @@ export class SpansClient extends BaseClient {
    * POST /v3/spans
    */
   async create(body: CreateSpanRequest, options?: RequestOptions): Promise<CreateSpanResponse> {
-    const res = await this.post<{ data: CreateSpanResponse }>("/v3/spans", body, options);
+    const res = await this._post<{ data: CreateSpanResponse }>("/v3/spans", body, options);
     return res.data;
   }
 
@@ -26,7 +26,7 @@ export class SpansClient extends BaseClient {
    * PATCH /v3/spans/{id}
    */
   async update(id: string, body: UpdateSpanRequest, options?: RequestOptions): Promise<void> {
-    return this.patch<void>(`/v3/spans/${encodeURIComponent(id)}`, body, options);
+    return this._patch<void>(`/v3/spans/${encodeURIComponent(id)}`, body, options);
   }
 
   /**
@@ -34,7 +34,7 @@ export class SpansClient extends BaseClient {
    * GET /v3/spans/{id}
    */
   async getSpan(id: string, options?: RequestOptions): Promise<GetSpanResponse> {
-    const res = await this.get<{ data: GetSpanResponse }>(
+    const res = await this._get<{ data: GetSpanResponse }>(
       `/v3/spans/${encodeURIComponent(id)}`,
       undefined,
       options,
@@ -47,6 +47,6 @@ export class SpansClient extends BaseClient {
    * DELETE /v3/spans/{id}
    */
   async deleteSpan(id: string, options?: RequestOptions): Promise<void> {
-    return this.delete<void>(`/v3/spans/${encodeURIComponent(id)}`, options);
+    return this._delete<void>(`/v3/spans/${encodeURIComponent(id)}`, options);
   }
 }

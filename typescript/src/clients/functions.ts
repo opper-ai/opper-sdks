@@ -29,27 +29,12 @@ export interface CreateRealtimeFunctionRequest {
   }>;
 }
 
-/** Response wrapper for listing functions. */
-export interface ListFunctionsResponse {
-  readonly functions: FunctionInfo[];
-}
-
-/** Response wrapper for listing revisions. */
-export interface ListRevisionsResponse {
-  readonly revisions: RevisionInfo[];
-}
-
 /** A single example for a function. */
 export interface Example {
   readonly uuid?: string;
   readonly input: Record<string, unknown>;
   readonly output: Record<string, unknown>;
   readonly tag?: string;
-}
-
-/** Response wrapper for listing examples. */
-export interface ListExamplesResponse {
-  readonly examples: Example[];
 }
 
 /** Parameters for listing examples. */
@@ -72,16 +57,21 @@ export class FunctionsClient extends BaseClient {
    * List all cached functions for the authenticated project.
    * GET /v3/functions
    */
-  async listFunctions(options?: RequestOptions): Promise<ListFunctionsResponse> {
-    return this.get<ListFunctionsResponse>("/v3/functions", undefined, options);
+  async list(options?: RequestOptions): Promise<FunctionInfo[]> {
+    const data = await this._get<{ functions: FunctionInfo[] }>(
+      "/v3/functions",
+      undefined,
+      options,
+    );
+    return data.functions;
   }
 
   /**
    * Get details of a specific function including its script source.
    * GET /v3/functions/{name}
    */
-  async getFunction(name: string, options?: RequestOptions): Promise<FunctionDetails> {
-    return this.get<FunctionDetails>(
+  async get(name: string, options?: RequestOptions): Promise<FunctionDetails> {
+    return this._get<FunctionDetails>(
       `/v3/functions/${encodeURIComponent(name)}`,
       undefined,
       options,
@@ -92,32 +82,32 @@ export class FunctionsClient extends BaseClient {
    * Update the source code of a function.
    * PUT /v3/functions/{name}
    */
-  async updateFunction(
+  async update(
     name: string,
     body: UpdateFunctionRequest,
     options?: RequestOptions,
   ): Promise<FunctionDetails> {
-    return this.put<FunctionDetails>(`/v3/functions/${encodeURIComponent(name)}`, body, options);
+    return this._put<FunctionDetails>(`/v3/functions/${encodeURIComponent(name)}`, body, options);
   }
 
   /**
    * Delete a cached function.
    * DELETE /v3/functions/{name}
    */
-  async deleteFunction(name: string, options?: RequestOptions): Promise<void> {
-    return this.delete<void>(`/v3/functions/${encodeURIComponent(name)}`, options);
+  async delete(name: string, options?: RequestOptions): Promise<void> {
+    return this._delete<void>(`/v3/functions/${encodeURIComponent(name)}`, options);
   }
 
   /**
    * Generate a realtime voice agent function.
    * POST /v3/functions/{name}/realtime
    */
-  async createRealtimeFunction(
+  async createRealtime(
     name: string,
     body: CreateRealtimeFunctionRequest,
     options?: RequestOptions,
   ): Promise<RealtimeCreateResponse> {
-    return this.post<RealtimeCreateResponse>(
+    return this._post<RealtimeCreateResponse>(
       `/v3/functions/${encodeURIComponent(name)}/realtime`,
       body,
       options,
@@ -128,12 +118,13 @@ export class FunctionsClient extends BaseClient {
    * List all revisions of a function.
    * GET /v3/functions/{name}/revisions
    */
-  async listRevisions(name: string, options?: RequestOptions): Promise<ListRevisionsResponse> {
-    return this.get<ListRevisionsResponse>(
+  async listRevisions(name: string, options?: RequestOptions): Promise<RevisionInfo[]> {
+    const data = await this._get<{ revisions: RevisionInfo[] }>(
       `/v3/functions/${encodeURIComponent(name)}/revisions`,
       undefined,
       options,
     );
+    return data.revisions;
   }
 
   /**
@@ -145,7 +136,7 @@ export class FunctionsClient extends BaseClient {
     revisionID: number,
     options?: RequestOptions,
   ): Promise<FunctionRevision> {
-    return this.get<FunctionRevision>(
+    return this._get<FunctionRevision>(
       `/v3/functions/${encodeURIComponent(name)}/revisions/${encodeURIComponent(String(revisionID))}`,
       undefined,
       options,
@@ -161,7 +152,7 @@ export class FunctionsClient extends BaseClient {
     revisionID: number,
     options?: RequestOptions,
   ): Promise<FunctionDetails> {
-    return this.post<FunctionDetails>(
+    return this._post<FunctionDetails>(
       `/v3/functions/${encodeURIComponent(name)}/revisions/${encodeURIComponent(String(revisionID))}/revert`,
       undefined,
       options,
@@ -172,12 +163,12 @@ export class FunctionsClient extends BaseClient {
    * Execute a function with the given input.
    * POST /v3/functions/{name}/call
    */
-  async runFunction<T = unknown>(
+  async run<T = unknown>(
     name: string,
     body: RunRequest,
     options?: RequestOptions,
   ): Promise<RunResponse<T>> {
-    return this.post<RunResponse<T>>(
+    return this._post<RunResponse<T>>(
       `/v3/functions/${encodeURIComponent(name)}/call`,
       body,
       options,
@@ -190,12 +181,12 @@ export class FunctionsClient extends BaseClient {
    *
    * Returns an async generator that yields StreamChunk events.
    */
-  async *streamFunction(
+  async *stream(
     name: string,
     body: RunRequest,
     options?: RequestOptions,
   ): AsyncGenerator<StreamChunk, void, undefined> {
-    yield* this.stream<StreamChunk>(
+    yield* this._stream<StreamChunk>(
       `/v3/functions/${encodeURIComponent(name)}/stream`,
       body,
       options,
@@ -219,7 +210,7 @@ export class FunctionsClient extends BaseClient {
    * POST /v3/functions/{name}/examples
    */
   async createExample(name: string, body: Example, options?: RequestOptions): Promise<Example> {
-    return this.post<Example>(`/v3/functions/${encodeURIComponent(name)}/examples`, body, options);
+    return this._post<Example>(`/v3/functions/${encodeURIComponent(name)}/examples`, body, options);
   }
 
   /**
@@ -231,7 +222,7 @@ export class FunctionsClient extends BaseClient {
     body: Example[],
     options?: RequestOptions,
   ): Promise<Example[]> {
-    return this.post<Example[]>(
+    return this._post<Example[]>(
       `/v3/functions/${encodeURIComponent(name)}/examples/batch`,
       body,
       options,
@@ -246,8 +237,8 @@ export class FunctionsClient extends BaseClient {
     name: string,
     params?: ListExamplesParams,
     options?: RequestOptions,
-  ): Promise<ListExamplesResponse> {
-    return this.get<ListExamplesResponse>(
+  ): Promise<Example[]> {
+    const data = await this._get<{ examples: Example[] }>(
       `/v3/functions/${encodeURIComponent(name)}/examples`,
       {
         limit: params?.limit,
@@ -256,6 +247,7 @@ export class FunctionsClient extends BaseClient {
       },
       options,
     );
+    return data.examples;
   }
 
   /**
@@ -263,7 +255,7 @@ export class FunctionsClient extends BaseClient {
    * DELETE /v3/functions/{name}/examples/{uuid}
    */
   async deleteExample(name: string, uuid: string, options?: RequestOptions): Promise<void> {
-    return this.delete<void>(
+    return this._delete<void>(
       `/v3/functions/${encodeURIComponent(name)}/examples/${encodeURIComponent(uuid)}`,
       options,
     );

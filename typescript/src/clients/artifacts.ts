@@ -17,7 +17,7 @@ export class ArtifactsClient extends BaseClient {
    * @returns A promise that resolves with the artifact status.
    */
   async getStatus(id: string, options?: RequestOptions): Promise<ArtifactStatus> {
-    return this.get<ArtifactStatus>(
+    return this._get<ArtifactStatus>(
       `/v3/artifacts/${encodeURIComponent(id)}/status`,
       undefined,
       options,

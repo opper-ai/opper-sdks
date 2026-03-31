@@ -175,7 +175,7 @@ export class Opper {
     request: RunRequest | SchemaRunRequest,
     options?: RequestOptions,
   ): Promise<RunResponse> {
-    return this.functions.runFunction(name, await this.resolveRequest(request), options);
+    return this.functions.run(name, await this.resolveRequest(request), options);
   }
 
   /**
@@ -206,7 +206,7 @@ export class Opper {
     request: RunRequest | SchemaRunRequest,
     options?: RequestOptions,
   ): AsyncGenerator<StreamChunk, void, undefined> {
-    yield* this.functions.streamFunction(name, await this.resolveRequest(request), options);
+    yield* this.functions.stream(name, await this.resolveRequest(request), options);
   }
 
   /**
@@ -558,9 +558,6 @@ export type {
   CreateRealtimeFunctionRequest,
   Example,
   ListExamplesParams,
-  ListExamplesResponse,
-  ListFunctionsResponse,
-  ListRevisionsResponse,
 } from "./clients/functions.js";
 
 export type {
@@ -632,7 +629,6 @@ export type {
   ListTracesParams,
   ListTracesResponse,
   ModelInfo,
-  ModelsResponse,
   PaginatedResponse,
   PendingOperation,
   QueryKnowledgeBaseRequest,

@@ -35,6 +35,8 @@ for await (const chunk of opper.stream("summarize", { ... })) {
 
 Pass [Zod](https://zod.dev) schemas (or any Standard Schema) for `input_schema`, `output_schema`, and tool `parameters` — the SDK resolves them to JSON Schema automatically and infers the response type.
 
+> **Note:** Zod v4 is required (`npm install zod@4`). The 3.x dual-mode package (`zod@3.25.x`) is not supported.
+
 ```typescript
 import { z } from "zod";
 

@@ -22,7 +22,7 @@ function mockStreamFetch(events: string[]) {
   });
 }
 
-describe("FunctionsClient.streamFunction", () => {
+describe("FunctionsClient.stream", () => {
   const config = { apiKey: "test-key", baseUrl: "https://api.test.com" };
   let originalFetch: typeof globalThis.fetch;
 
@@ -40,7 +40,7 @@ describe("FunctionsClient.streamFunction", () => {
 
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
-    for await (const chunk of client.streamFunction("my-fn", {
+    for await (const chunk of client.stream("my-fn", {
       input: "test",
     })) {
       chunks.push(chunk);
@@ -61,7 +61,7 @@ describe("FunctionsClient.streamFunction", () => {
 
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
-    for await (const chunk of client.streamFunction("fn", {
+    for await (const chunk of client.stream("fn", {
       input: "test",
     })) {
       chunks.push(chunk);
@@ -82,7 +82,7 @@ describe("FunctionsClient.streamFunction", () => {
 
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
-    for await (const chunk of client.streamFunction("fn", {
+    for await (const chunk of client.stream("fn", {
       input: "test",
     })) {
       chunks.push(chunk);
@@ -107,7 +107,7 @@ describe("FunctionsClient.streamFunction", () => {
 
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
-    for await (const chunk of client.streamFunction("fn", {
+    for await (const chunk of client.stream("fn", {
       input: "test",
     })) {
       chunks.push(chunk);
@@ -127,7 +127,7 @@ describe("FunctionsClient.streamFunction", () => {
 
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
-    for await (const chunk of client.streamFunction("fn", {
+    for await (const chunk of client.stream("fn", {
       input: "test",
     })) {
       chunks.push(chunk);
@@ -150,7 +150,7 @@ describe("FunctionsClient.streamFunction", () => {
 
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
-    for await (const chunk of client.streamFunction("fn", {
+    for await (const chunk of client.stream("fn", {
       input: "test",
     })) {
       chunks.push(chunk);
@@ -173,7 +173,7 @@ describe("FunctionsClient.streamFunction", () => {
 
     const client = new FunctionsClient(config);
     const chunks: StreamChunk[] = [];
-    for await (const chunk of client.streamFunction("fn", {
+    for await (const chunk of client.stream("fn", {
       input: "test",
     })) {
       chunks.push(chunk);
@@ -202,7 +202,7 @@ describe("FunctionsClient.streamFunction", () => {
 
     const client = new FunctionsClient(config);
     const types: string[] = [];
-    for await (const chunk of client.streamFunction("fn", {
+    for await (const chunk of client.stream("fn", {
       input: "test",
     })) {
       types.push(chunk.type);
