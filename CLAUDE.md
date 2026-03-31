@@ -31,6 +31,24 @@ PYTHONPATH=src uv run pytest tests/  # unit tests
 
 Note: `PYTHONPATH=src` is needed for pytest to find the local source.
 
+## Docs Code Snippets
+
+Each SDK has a `docs_code_snippets/` directory containing minimal, per-endpoint code examples used by the [docs site](https://github.com/opper-ai/mintlify-docs). These are fetched from GitHub at docs build time and injected into the v3 API reference as `x-codeSamples`.
+
+- **Python**: `python/docs_code_snippets/` — one `.py` file per endpoint
+- **TypeScript**: `typescript/docs_code_snippets/` — one `.ts` file per endpoint
+
+When SDK APIs change, update the corresponding snippet files here. The docs repo's `example-map.yaml` controls which snippets map to which endpoints.
+
+## Version Bumps & Changelogs
+
+When bumping SDK versions, always update the corresponding changelog:
+
+- **TypeScript**: `typescript/CHANGELOG.md`, version in `typescript/package.json`
+- **Python**: `python/CHANGELOG.md`, version in `python/pyproject.toml`
+
+Follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Add a link reference at the bottom for each new version. Group changes under `### Added`, `### Changed`, `### Fixed`, `### Removed` as appropriate. Mark breaking changes with **Breaking:** prefix.
+
 ## Integration Examples
 
 Both SDKs have `examples/` directories with real integration tests that hit the live API.
