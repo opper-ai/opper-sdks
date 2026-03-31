@@ -8,3 +8,8 @@ openapi.yaml
 .DS_Store
 .claude/
 docs/
+
+# Generated example output
+typescript/output.png
+**/examples/**/generated-*
+**/examples/**/edited-*
