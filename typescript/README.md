@@ -70,6 +70,7 @@ await opper.traced("my-pipeline", async () => {
 | 02 | [Streaming](./examples/getting-started/02-stream.ts) | Stream deltas + complete event |
 | 03a | [Tools (call)](./examples/getting-started/03a-tools-call.ts) | Tool definitions with call() |
 | 03b | [Tools (stream)](./examples/getting-started/03b-tools-stream.ts) | Tool call chunks in streaming |
+| 03c | [Server-side tools](./examples/getting-started/03c-server-side-tools.ts) | Server-side tool execution |
 | 04a | [Generate image](./examples/getting-started/04a-generate-image.ts) | Image generation |
 | 04b | [Describe image](./examples/getting-started/04b-describe-image.ts) | Vision / image description |
 | 04c | [Edit image](./examples/getting-started/04c-edit-image.ts) | Image editing |
@@ -78,8 +79,12 @@ await opper.traced("my-pipeline", async () => {
 | 07 | [Embeddings](./examples/getting-started/07-embeddings.ts) | Vector embeddings + similarity |
 | 08 | [Function mgmt](./examples/getting-started/08-function-management.ts) | List, get, revisions, delete |
 | 09 | [Observability](./examples/getting-started/09-observability.ts) | Tracing, nested spans, sessions |
+| 09b | [Manual tracing](./examples/getting-started/09b-manual-tracing.ts) | Manual span creation |
+| 09c | [Traces](./examples/getting-started/09c-traces.ts) | List, get, and inspect traces |
 | 10 | [Models](./examples/getting-started/10-models.ts) | List available models |
 | 11 | [Realtime](./examples/getting-started/11-real-time.ts) | WebSocket URL for voice agents |
+| 12 | [Knowledge base](./examples/getting-started/12-knowledge-base.ts) | Semantic search with knowledge bases |
+| 13 | [Web tools](./examples/getting-started/13-web-tools.ts) | Web search and URL fetch (beta) |
 
 Run a single example:
 
