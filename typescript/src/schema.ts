@@ -108,9 +108,8 @@ export async function resolveSchema(
  *
  * Resolution order:
  * 1. `jsonSchema()` wrapper → return the embedded schema directly
- * 2. Zod v4 (vendor `"zod"`) → dynamic `import("zod")` then `z.toJsonSchema()`
- * 3. Zod v3 (has `_def`, no `~standard`) → dynamic `import("zod-to-json-schema")`
- * 4. Other vendors → throw with a helpful message
+ * 2. Zod v4 (vendor `"zod"`) → dynamic `import("zod")` then `z.toJSONSchema()`
+ * 3. Other vendors → throw with a helpful message
  */
 export async function toJsonSchema(schema: StandardSchemaV1): Promise<Record<string, unknown>> {
   // 1. jsonSchema() wrapper
