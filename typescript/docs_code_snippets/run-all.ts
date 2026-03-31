@@ -24,14 +24,7 @@ if (!process.env.OPPER_API_KEY) {
   process.exit(1);
 }
 
-// Snippets that cannot run (no SDK client exists yet)
-const SKIP = new Set([
-  "datasets-create-entry.ts", // no datasets client in SDK
-  "datasets-list-entries.ts", // no datasets client in SDK
-  "datasets-query-entries.ts", // no datasets client in SDK
-  "spans-feedback.ts", // spans.feedback() not in SDK yet
-  "spans-save-to-dataset.ts", // spans.saveToDataset() not in SDK yet
-]);
+const SKIP = new Set<string>([]);
 
 const files = readdirSync(snippetsDir)
   .filter((f) => f.endsWith(".ts") && f !== "run-all.ts")
@@ -44,7 +37,7 @@ const results: { name: string; passed: boolean; error?: string; durationMs: numb
 
 for (const file of files) {
   if (SKIP.has(file)) {
-    console.log(`  ${file} ... \x1b[33mSKIP\x1b[0m (no SDK client)`);
+    console.log(`  ${file} ... \x1b[33mSKIP\x1b[0m`);
     continue;
   }
 
