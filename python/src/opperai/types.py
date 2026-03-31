@@ -150,6 +150,26 @@ class UsageInfo:
 
 
 @dataclass(frozen=True)
+class PendingOperation:
+    """An async operation that is still in progress."""
+
+    id: str
+    status_url: str
+    type: str
+
+
+@dataclass(frozen=True)
+class ArtifactStatus:
+    """Status of an async artifact generation."""
+
+    id: str
+    status: str  # "processing" | "completed" | "failed"
+    url: str | None = None
+    mime_type: str | None = None
+    error: str | None = None
+
+
+@dataclass(frozen=True)
 class ResponseMeta:
     """Response metadata from function execution."""
 
@@ -166,6 +186,8 @@ class ResponseMeta:
     model_warnings: list[str] | None = None
     guards: list[Any] | None = None
     message: str | None = None
+    status: str | None = None
+    pending_operations: list[PendingOperation] | None = None
 
 
 @dataclass(frozen=True)

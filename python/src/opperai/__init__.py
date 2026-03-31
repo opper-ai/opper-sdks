@@ -3,6 +3,7 @@
 from ._client import Opper
 from .types import (
     ApiError,
+    ArtifactStatus,
     AuthenticationError,
     BadRequestError,
     CompleteChunk,
@@ -13,6 +14,7 @@ from .types import (
     InternalServerError,
     MediaResponse,
     NotFoundError,
+    PendingOperation,
     RateLimitError,
     RequestOptions,
     ResponseMeta,
@@ -35,7 +37,9 @@ __all__ = [
     "InternalServerError",
     "ErrorDetail",
     # Response types
+    "ArtifactStatus",
     "MediaResponse",
+    "PendingOperation",
     "RequestOptions",
     "RunResponse",
     "ResponseMeta",

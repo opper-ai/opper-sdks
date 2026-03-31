@@ -10,6 +10,7 @@ from typing import Any, TypeVar, overload
 from ._base_client import BaseClient
 from ._context import TraceContext, get_trace_context, set_trace_context
 from ._schema import parse_output, resolve_schema
+from .clients.artifacts import ArtifactsClient
 from .clients.embeddings import EmbeddingsClient
 from .clients.functions import FunctionsClient
 from .clients.generations import GenerationsClient
@@ -201,6 +202,7 @@ class Opper:
         self.embeddings = EmbeddingsClient(self._client)
         self.knowledge = KnowledgeClient(self._client)
         self.system = SystemClient(self._client)
+        self.artifacts = ArtifactsClient(self._client)
         self.beta = _BetaNamespace(self._client)
 
     # --- Core execution -------------------------------------------------------

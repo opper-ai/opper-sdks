@@ -2,6 +2,7 @@
 // Opper SDK - Main Entry Point
 // =============================================================================
 
+import { ArtifactsClient } from "./clients/artifacts.js";
 import { EmbeddingsClient } from "./clients/embeddings.js";
 import { FunctionsClient } from "./clients/functions.js";
 import { GenerationsClient } from "./clients/generations.js";
@@ -112,6 +113,9 @@ export class Opper {
   /** Client for trace operations. */
   readonly traces: TracesClient;
 
+  /** Client for async artifact status polling. */
+  readonly artifacts: ArtifactsClient;
+
   /** Beta API endpoints — these may change. */
   readonly beta: { readonly web: WebToolsClient };
 
@@ -128,6 +132,7 @@ export class Opper {
     this.embeddings = new EmbeddingsClient(resolved);
     this.system = new SystemClient(resolved);
     this.traces = new TracesClient(resolved);
+    this.artifacts = new ArtifactsClient(resolved);
     this.beta = { web: new WebToolsClient(resolved) };
     this.knowledge = new KnowledgeClient(resolved);
   }
@@ -561,6 +566,7 @@ export { getTraceContext } from "./context.js";
 export type {
   AddDocumentRequest,
   AddDocumentResponse,
+  ArtifactStatus,
   ClientConfig,
   CompleteChunk,
   ContentChunk,
@@ -600,6 +606,7 @@ export type {
   ModelInfo,
   ModelsResponse,
   PaginatedResponse,
+  PendingOperation,
   QueryKnowledgeBaseRequest,
   QueryKnowledgeBaseResponse,
   RealtimeCreateRequest,
