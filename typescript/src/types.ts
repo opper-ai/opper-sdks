@@ -163,6 +163,22 @@ export interface UsageInfo {
   readonly output_audio_tokens?: number;
 }
 
+/** An async operation that is still in progress. */
+export interface PendingOperation {
+  readonly id: string;
+  readonly status_url: string;
+  readonly type: string;
+}
+
+/** Status of an async artifact generation. */
+export interface ArtifactStatus {
+  readonly id: string;
+  readonly status: "processing" | "completed" | "failed";
+  readonly url?: string;
+  readonly mime_type?: string;
+  readonly error?: string;
+}
+
 /** Response metadata from function execution. */
 export interface ResponseMeta {
   readonly function_name: string;
@@ -178,6 +194,8 @@ export interface ResponseMeta {
   readonly model_warnings?: string[];
   readonly guards?: unknown[];
   readonly message?: string;
+  readonly status?: string;
+  readonly pending_operations?: PendingOperation[];
 }
 
 /** Request to run a function. */

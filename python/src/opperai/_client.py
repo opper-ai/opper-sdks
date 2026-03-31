@@ -10,6 +10,7 @@ from typing import Any, TypeVar, overload
 from ._base_client import BaseClient
 from ._context import TraceContext, get_trace_context, set_trace_context
 from ._schema import parse_output, resolve_schema
+from .clients.artifacts import ArtifactsClient
 from .clients.embeddings import EmbeddingsClient
 from .clients.functions import FunctionsClient
 from .clients.generations import GenerationsClient
@@ -201,6 +202,7 @@ class Opper:
         self.embeddings = EmbeddingsClient(self._client)
         self.knowledge = KnowledgeClient(self._client)
         self.system = SystemClient(self._client)
+        self.artifacts = ArtifactsClient(self._client)
         self.beta = _BetaNamespace(self._client)
 
     # --- Core execution -------------------------------------------------------
@@ -458,6 +460,7 @@ class Opper:
         prompt: str,
         model: str | None = None,
         aspect_ratio: str | None = None,
+        poll_interval: float = 5.0,
     ) -> MediaResponse:
         input_schema, input_data = _build_video_request(prompt, aspect_ratio)
         r = self.call(
@@ -467,7 +470,7 @@ class Opper:
             output_schema=_video_output_schema(),
             model=model,
         )
-        return MediaResponse(r.data, r.meta, base64_field="video", mime_field="mime_type")
+        return self._resolve_media(r, poll_interval, base64_field="video", mime_field="mime_type")
 
     async def generate_video_async(
         self,
@@ -476,6 +479,7 @@ class Opper:
         prompt: str,
         model: str | None = None,
         aspect_ratio: str | None = None,
+        poll_interval: float = 5.0,
     ) -> MediaResponse:
         input_schema, input_data = _build_video_request(prompt, aspect_ratio)
         r = await self.call_async(
@@ -485,7 +489,7 @@ class Opper:
             output_schema=_video_output_schema(),
             model=model,
         )
-        return MediaResponse(r.data, r.meta, base64_field="video", mime_field="mime_type")
+        return await self._resolve_media_async(r, poll_interval, base64_field="video", mime_field="mime_type")
 
     def text_to_speech(
         self,
@@ -560,6 +564,70 @@ class Opper:
         )
 
     # --- Internal helpers -----------------------------------------------------
+
+    def _resolve_media(
+        self,
+        r: RunResponse,
+        poll_interval: float,
+        *,
+        base64_field: str,
+        mime_field: str | None = None,
+    ) -> MediaResponse:
+        """If the response is pending, poll artifacts and download the result."""
+        meta = r.meta
+        if isinstance(meta, dict) and meta.get("status") == "pending":
+            return self._poll_and_download(meta, poll_interval, base64_field=base64_field, mime_field=mime_field)
+        return MediaResponse(r.data, meta, base64_field=base64_field, mime_field=mime_field)
+
+    async def _resolve_media_async(
+        self,
+        r: RunResponse,
+        poll_interval: float,
+        *,
+        base64_field: str,
+        mime_field: str | None = None,
+    ) -> MediaResponse:
+        """Async version of _resolve_media."""
+        import asyncio
+
+        meta = r.meta
+        if isinstance(meta, dict) and meta.get("status") == "pending":
+            ops = meta.get("pending_operations", [])
+            if ops:
+                op = ops[0]
+                while True:
+                    status = await self.artifacts.get_status_async(op["id"])
+                    if status.status == "completed":
+                        data = await _download_artifact_async(status.url, status.mime_type, base64_field, mime_field)
+                        return MediaResponse(data, meta, base64_field=base64_field, mime_field=mime_field)
+                    if status.status == "failed":
+                        raise RuntimeError(f"Artifact generation failed: {status.error}")
+                    await asyncio.sleep(poll_interval)
+        return MediaResponse(r.data, meta, base64_field=base64_field, mime_field=mime_field)
+
+    def _poll_and_download(
+        self,
+        meta: Any,
+        poll_interval: float,
+        *,
+        base64_field: str,
+        mime_field: str | None = None,
+    ) -> MediaResponse:
+        """Poll artifact status and download when complete."""
+        import time
+
+        ops = meta.get("pending_operations", [])
+        if ops:
+            op = ops[0]
+            while True:
+                status = self.artifacts.get_status(op["id"])
+                if status.status == "completed":
+                    data = _download_artifact(status.url, status.mime_type, base64_field, mime_field)
+                    return MediaResponse(data, meta, base64_field=base64_field, mime_field=mime_field)
+                if status.status == "failed":
+                    raise RuntimeError(f"Artifact generation failed: {status.error}")
+                time.sleep(poll_interval)
+        return MediaResponse(None, meta, base64_field=base64_field, mime_field=mime_field)
 
     def _build_request(
         self,
@@ -780,3 +848,39 @@ def _stt_output_schema() -> dict[str, Any]:
         },
         "required": ["text"],
     }
+
+
+def _download_artifact(
+    url: str | None, mime_type: str | None, base64_field: str, mime_field: str | None
+) -> dict[str, Any]:
+    """Download an artifact URL and return a dict matching the expected media output schema."""
+    import base64
+    import urllib.request
+
+    if not url:
+        return {}
+    with urllib.request.urlopen(url) as resp:
+        raw_bytes = resp.read()
+    result: dict[str, Any] = {base64_field: base64.b64encode(raw_bytes).decode()}
+    if mime_field and mime_type:
+        result[mime_field] = mime_type
+    return result
+
+
+async def _download_artifact_async(
+    url: str | None, mime_type: str | None, base64_field: str, mime_field: str | None
+) -> dict[str, Any]:
+    """Async version: download artifact and return a dict matching expected media output schema."""
+    import base64
+
+    import httpx
+
+    if not url:
+        return {}
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+    result: dict[str, Any] = {base64_field: base64.b64encode(resp.content).decode()}
+    if mime_field and mime_type:
+        result[mime_field] = mime_type
+    return result
