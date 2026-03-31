@@ -13,7 +13,7 @@ function mockFetch(response: object, status = 200) {
   });
 }
 
-describe("FunctionsClient.runFunction", () => {
+describe("FunctionsClient.run", () => {
   const config = { apiKey: "test-key", baseUrl: "https://api.test.com" };
   let originalFetch: typeof globalThis.fetch;
 
@@ -30,7 +30,7 @@ describe("FunctionsClient.runFunction", () => {
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    await client.runFunction("my-fn", {
+    await client.run("my-fn", {
       input_schema: {},
       output_schema: {},
       input: { q: "test" },
@@ -47,7 +47,7 @@ describe("FunctionsClient.runFunction", () => {
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    await client.runFunction("my fn/special", {
+    await client.run("my fn/special", {
       input_schema: {},
       output_schema: {},
       input: {},
@@ -65,7 +65,7 @@ describe("FunctionsClient.runFunction", () => {
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    const result = await client.runFunction("test", {
+    const result = await client.run("test", {
       input_schema: {},
       output_schema: {},
       input: {},
@@ -88,7 +88,7 @@ describe("FunctionsClient.runFunction", () => {
       model: "anthropic/claude-sonnet-4-6",
       temperature: 0.5,
     };
-    await client.runFunction("fn", body);
+    await client.run("fn", body);
 
     const [, init] = fetchMock.mock.calls[0];
     const parsed = JSON.parse(init.body as string);
@@ -103,7 +103,7 @@ describe("FunctionsClient.runFunction", () => {
 
     const client = new FunctionsClient(config);
     await expect(
-      client.runFunction("missing", { input_schema: {}, output_schema: {}, input: {} }),
+      client.run("missing", { input_schema: {}, output_schema: {}, input: {} }),
     ).rejects.toThrow(ApiError);
   });
 
@@ -112,7 +112,7 @@ describe("FunctionsClient.runFunction", () => {
     globalThis.fetch = fetchMock;
 
     const client = new FunctionsClient(config);
-    await client.runFunction("fn", { input_schema: {}, output_schema: {}, input: {} });
+    await client.run("fn", { input_schema: {}, output_schema: {}, input: {} });
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init.headers.Authorization).toBe("Bearer test-key");

@@ -28,6 +28,6 @@ export class EmbeddingsClient extends BaseClient {
     body: EmbeddingsRequest,
     options?: RequestOptions,
   ): Promise<EmbeddingsResponse> {
-    return this.post<EmbeddingsResponse>(EMBEDDINGS_PATH, body, options);
+    return this._post<EmbeddingsResponse>(EMBEDDINGS_PATH, body, options);
   }
 }

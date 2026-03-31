@@ -1,6 +1,6 @@
 {
   "name": "opperai",
-  "version": "4.0.0-beta.2",
+  "version": "4.0.0-beta.3",
   "description": "Opper TypeScript SDK — execute functions, stream results, and build AI agents.",
   "repository": {
     "type": "git",
@@ -41,7 +41,7 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "zod": "^3.0.0 || ^4.0.0"
+    "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "zod": {

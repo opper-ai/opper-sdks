@@ -83,5 +83,5 @@ console.log("\nKB info:", { name: info.name, count: info.count, model: info.embe
 
 // ── Cleanup ─────────────────────────────────────────────────────────────────
 
-await opper.knowledge.deleteKnowledgeBase(kb.id);
+await opper.knowledge.delete(kb.id);
 console.log("\nDeleted KB:", kb.id);

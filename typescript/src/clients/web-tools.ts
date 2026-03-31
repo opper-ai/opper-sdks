@@ -17,7 +17,7 @@ export class WebToolsClient extends BaseClient {
    * POST /v3/tools/web/fetch
    */
   async fetch(body: WebFetchRequest, options?: RequestOptions): Promise<WebFetchResponse> {
-    return this.post<WebFetchResponse>("/v3/beta/tools/web/fetch", body, options);
+    return this._post<WebFetchResponse>("/v3/beta/tools/web/fetch", body, options);
   }
 
   /**
@@ -25,6 +25,6 @@ export class WebToolsClient extends BaseClient {
    * POST /v3/beta/tools/web/search
    */
   async search(body: WebSearchRequest, options?: RequestOptions): Promise<WebSearchResponse> {
-    return this.post<WebSearchResponse>("/v3/beta/tools/web/search", body, options);
+    return this._post<WebSearchResponse>("/v3/beta/tools/web/search", body, options);
   }
 }

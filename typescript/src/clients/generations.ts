@@ -69,7 +69,7 @@ export class GenerationsClient extends BaseClient {
     params?: ListGenerationsParams,
     options?: RequestOptions,
   ): Promise<GenerationsListResponse> {
-    return this.get<GenerationsListResponse>(
+    return this._get<GenerationsListResponse>(
       "/v3/generations",
       {
         query: params?.query,
@@ -88,7 +88,7 @@ export class GenerationsClient extends BaseClient {
    * @returns The recorded generation with request and response data.
    */
   async getGeneration(id: string, options?: RequestOptions): Promise<Generation> {
-    return this.get<Generation>(`/v3/generations/${encodeURIComponent(id)}`, undefined, options);
+    return this._get<Generation>(`/v3/generations/${encodeURIComponent(id)}`, undefined, options);
   }
 
   /**
@@ -99,7 +99,7 @@ export class GenerationsClient extends BaseClient {
    * @returns Confirmation of deletion.
    */
   async deleteGeneration(id: string, options?: RequestOptions): Promise<DeleteGenerationResponse> {
-    return this.delete<DeleteGenerationResponse>(
+    return this._delete<DeleteGenerationResponse>(
       `/v3/generations/${encodeURIComponent(id)}`,
       options,
     );

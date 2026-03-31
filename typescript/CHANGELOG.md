@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-beta.3] - 2026-03-31
+
+### Changed
+
+- **Breaking:** Simplified client method names to match Python SDK conventions
+  - `models.listModels()` → `models.list()`
+  - `functions.listFunctions()` / `getFunction()` / `deleteFunction()` / `runFunction()` / `streamFunction()` → `list()` / `get()` / `delete()` / `run()` / `stream()`
+  - `functions.createRealtimeFunction()` → `functions.createRealtime()`
+  - `knowledge.deleteKnowledgeBase()` → `knowledge.delete()`
+- **Breaking:** List methods now return arrays directly instead of wrapper objects
+  - `models.list()` returns `ModelInfo[]` (was `{ models: ModelInfo[] }`)
+  - `functions.list()` returns `FunctionInfo[]` (was `{ functions: FunctionInfo[] }`)
+  - `functions.listRevisions()` returns `RevisionInfo[]` (was `{ revisions: RevisionInfo[] }`)
+  - `functions.listExamples()` returns `Example[]` (was `{ examples: Example[] }`)
+- **Breaking:** Zod peer dependency narrowed to `^4.0.0` (dropped v3 support — v3 never worked with `toJSONSchema`)
+- Removed `ModelsResponse`, `ListFunctionsResponse`, `ListRevisionsResponse`, `ListExamplesResponse` wrapper types from exports
+
+### Added
+
+- Zod v4 requirement note in README
+- Runnable docs code snippets with setup/teardown markers and `run-all.ts` runner
+
 ## [4.0.0-beta.2] - 2026-03-31
 
 ### Added
@@ -20,5 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.3]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.3
 [4.0.0-beta.2]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.2
 [4.0.0-beta.0]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.0

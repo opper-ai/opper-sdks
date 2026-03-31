@@ -49,7 +49,7 @@ export class KnowledgeClient extends BaseClient {
     body: CreateKnowledgeBaseRequest,
     options?: RequestOptions,
   ): Promise<CreateKnowledgeBaseResponse> {
-    return this.post<CreateKnowledgeBaseResponse>(KB_PATH, body, options);
+    return this._post<CreateKnowledgeBaseResponse>(KB_PATH, body, options);
   }
 
   /**
@@ -63,7 +63,7 @@ export class KnowledgeClient extends BaseClient {
     params?: { offset?: number; limit?: number },
     options?: RequestOptions,
   ): Promise<PaginatedResponse<KnowledgeBaseInfo>> {
-    return this.get<PaginatedResponse<KnowledgeBaseInfo>>(KB_PATH, params, options);
+    return this._get<PaginatedResponse<KnowledgeBaseInfo>>(KB_PATH, params, options);
   }
 
   /**
@@ -74,7 +74,7 @@ export class KnowledgeClient extends BaseClient {
    * @returns Knowledge base details including document count.
    */
   async getById(id: string, options?: RequestOptions): Promise<GetKnowledgeBaseResponse> {
-    return this.get<GetKnowledgeBaseResponse>(`${KB_PATH}/${id}`, undefined, options);
+    return this._get<GetKnowledgeBaseResponse>(`${KB_PATH}/${id}`, undefined, options);
   }
 
   /**
@@ -85,7 +85,7 @@ export class KnowledgeClient extends BaseClient {
    * @returns Knowledge base details including document count.
    */
   async getByName(name: string, options?: RequestOptions): Promise<GetKnowledgeBaseResponse> {
-    return this.get<GetKnowledgeBaseResponse>(
+    return this._get<GetKnowledgeBaseResponse>(
       `${KB_PATH}/by-name/${encodeURIComponent(name)}`,
       undefined,
       options,
@@ -98,8 +98,8 @@ export class KnowledgeClient extends BaseClient {
    * @param id - The knowledge base UUID.
    * @param options - Optional request options.
    */
-  async deleteKnowledgeBase(id: string, options?: RequestOptions): Promise<void> {
-    return this.delete(`${KB_PATH}/${id}`, options);
+  async delete(id: string, options?: RequestOptions): Promise<void> {
+    return this._delete(`${KB_PATH}/${id}`, options);
   }
 
   // ---------------------------------------------------------------------------
@@ -121,7 +121,7 @@ export class KnowledgeClient extends BaseClient {
     body: AddDocumentRequest,
     options?: RequestOptions,
   ): Promise<AddDocumentResponse> {
-    return this.post<AddDocumentResponse>(`${KB_PATH}/${knowledgeBaseId}/add`, body, options);
+    return this._post<AddDocumentResponse>(`${KB_PATH}/${knowledgeBaseId}/add`, body, options);
   }
 
   /**
@@ -137,7 +137,7 @@ export class KnowledgeClient extends BaseClient {
     body: QueryKnowledgeBaseRequest,
     options?: RequestOptions,
   ): Promise<QueryKnowledgeBaseResponse[]> {
-    return this.post<QueryKnowledgeBaseResponse[]>(
+    return this._post<QueryKnowledgeBaseResponse[]>(
       `${KB_PATH}/${knowledgeBaseId}/query`,
       body,
       options,
@@ -157,7 +157,7 @@ export class KnowledgeClient extends BaseClient {
     documentKey: string,
     options?: RequestOptions,
   ): Promise<GetDocumentResponse> {
-    return this.get<GetDocumentResponse>(
+    return this._get<GetDocumentResponse>(
       `${KB_PATH}/${knowledgeBaseId}/documents/${encodeURIComponent(documentKey)}`,
       undefined,
       options,
@@ -269,7 +269,7 @@ export class KnowledgeClient extends BaseClient {
     filename: string,
     options?: RequestOptions,
   ): Promise<GetUploadUrlResponse> {
-    return this.get<GetUploadUrlResponse>(
+    return this._get<GetUploadUrlResponse>(
       `${KB_PATH}/${knowledgeBaseId}/upload_url`,
       { filename },
       options,
@@ -291,7 +291,7 @@ export class KnowledgeClient extends BaseClient {
     body: RegisterFileUploadRequest,
     options?: RequestOptions,
   ): Promise<RegisterFileUploadResponse> {
-    return this.post<RegisterFileUploadResponse>(
+    return this._post<RegisterFileUploadResponse>(
       `${KB_PATH}/${knowledgeBaseId}/register_file`,
       body,
       options,
@@ -311,7 +311,7 @@ export class KnowledgeClient extends BaseClient {
     params?: { offset?: number; limit?: number },
     options?: RequestOptions,
   ): Promise<PaginatedResponse<ListFilesResponse>> {
-    return this.get<PaginatedResponse<ListFilesResponse>>(
+    return this._get<PaginatedResponse<ListFilesResponse>>(
       `${KB_PATH}/${knowledgeBaseId}/files`,
       params,
       options,
@@ -331,7 +331,7 @@ export class KnowledgeClient extends BaseClient {
     fileId: string,
     options?: RequestOptions,
   ): Promise<{ url: string }> {
-    return this.get<{ url: string }>(
+    return this._get<{ url: string }>(
       `${KB_PATH}/${knowledgeBaseId}/files/${fileId}/download_url`,
       undefined,
       options,
@@ -350,6 +350,6 @@ export class KnowledgeClient extends BaseClient {
     fileId: string,
     options?: RequestOptions,
   ): Promise<void> {
-    return this.delete(`${KB_PATH}/${knowledgeBaseId}/files/${fileId}`, options);
+    return this._delete(`${KB_PATH}/${knowledgeBaseId}/files/${fileId}`, options);
   }
 }

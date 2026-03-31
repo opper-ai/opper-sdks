@@ -81,12 +81,12 @@ describe("KnowledgeClient", () => {
     expect(url).toBe("https://api.test.com/v2/knowledge/by-name/my%20kb");
   });
 
-  it("deleteKnowledgeBase sends DELETE to /v2/knowledge/{id}", async () => {
+  it("delete sends DELETE to /v2/knowledge/{id}", async () => {
     const fetchMock = mockFetch(undefined, 204);
     globalThis.fetch = fetchMock;
 
     const client = new KnowledgeClient(config);
-    await client.deleteKnowledgeBase("kb-1");
+    await client.delete("kb-1");
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.test.com/v2/knowledge/kb-1");

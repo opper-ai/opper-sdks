@@ -163,7 +163,7 @@ export class BaseClient {
   // ---------------------------------------------------------------------------
 
   /** Perform a GET request. */
-  protected async get<T>(
+  protected async _get<T>(
     path: string,
     query?: Record<string, string | number | boolean | undefined | null>,
     options?: RequestOptions,
@@ -172,7 +172,7 @@ export class BaseClient {
   }
 
   /** Perform a POST request. */
-  protected async post<T>(
+  protected async _post<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions & {
@@ -183,17 +183,17 @@ export class BaseClient {
   }
 
   /** Perform a PUT request. */
-  protected async put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+  protected async _put<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
     return this.request<T>("PUT", path, { ...options, body });
   }
 
   /** Perform a PATCH request. */
-  protected async patch<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+  protected async _patch<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
     return this.request<T>("PATCH", path, { ...options, body });
   }
 
   /** Perform a DELETE request. */
-  protected async delete<T>(
+  protected async _delete<T>(
     path: string,
     options?: RequestOptions & {
       query?: Record<string, string | number | boolean | undefined | null>;
@@ -212,7 +212,7 @@ export class BaseClient {
    * The stream ends when a "data: [DONE]" message is received or the
    * response body is exhausted.
    */
-  protected async *stream<T>(
+  protected async *_stream<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions & {

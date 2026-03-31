@@ -1,5 +1,5 @@
 import { BaseClient } from "../client-base.js";
-import type { ModelsResponse, RequestOptions } from "../types.js";
+import type { ModelInfo, RequestOptions } from "../types.js";
 
 /** Query parameters for listing models. */
 export interface ListModelsParams {
@@ -36,7 +36,7 @@ export class ModelsClient extends BaseClient {
    *
    * GET /v3/models
    */
-  async listModels(params?: ListModelsParams, options?: RequestOptions): Promise<ModelsResponse> {
+  async list(params?: ListModelsParams, options?: RequestOptions): Promise<ModelInfo[]> {
     const query: Record<string, string | number | boolean | undefined> = {};
     if (params?.type) query.type = params.type;
     if (params?.provider) query.provider = params.provider;
@@ -50,10 +50,11 @@ export class ModelsClient extends BaseClient {
     if (params?.order) query.order = params.order;
     if (params?.limit != null) query.limit = params.limit;
     if (params?.offset != null) query.offset = params.offset;
-    return this.get<ModelsResponse>(
+    const data = await this._get<{ models: ModelInfo[] }>(
       "/v3/models",
       Object.keys(query).length > 0 ? query : undefined,
       options,
     );
+    return data.models;
   }
 }

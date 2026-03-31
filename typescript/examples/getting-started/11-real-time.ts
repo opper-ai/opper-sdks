@@ -15,7 +15,7 @@ const opper = new Opper();
 // ── 1. Create the realtime voice agent ──────────────────────────────────────
 
 console.log("Creating voice agent...");
-const agent = await opper.functions.createRealtimeFunction("sdk-test-voice-agent", {
+const agent = await opper.functions.createRealtime("sdk-test-voice-agent", {
   instructions: "You are a friendly assistant. Keep your answers short and conversational.",
 });
 console.log("Agent ready (cached:", agent.cached + ")");
@@ -132,7 +132,7 @@ function cleanup() {
   player?.stdin?.end();
   player?.kill();
   if (ws.readyState === WebSocket.OPEN) ws.close();
-  opper.functions.deleteFunction("sdk-test-voice-agent").catch(() => {});
+  opper.functions.delete("sdk-test-voice-agent").catch(() => {});
 }
 
 process.on("SIGINT", () => {

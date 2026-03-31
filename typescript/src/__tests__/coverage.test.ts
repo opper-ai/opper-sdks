@@ -9,32 +9,32 @@ describe("Spec endpoint coverage", () => {
   const client = new Opper({ apiKey: "test-key" });
 
   // CORE (Functions)
-  it("POST /v3/functions/{name}/call → client.functions.runFunction", () => {
-    expect(typeof client.functions.runFunction).toBe("function");
+  it("POST /v3/functions/{name}/call → client.functions.run", () => {
+    expect(typeof client.functions.run).toBe("function");
   });
 
-  it("POST /v3/functions/{name}/stream → client.functions.streamFunction", () => {
-    expect(typeof client.functions.streamFunction).toBe("function");
+  it("POST /v3/functions/{name}/stream → client.functions.stream", () => {
+    expect(typeof client.functions.stream).toBe("function");
   });
 
-  it("GET /v3/functions → client.functions.listFunctions", () => {
-    expect(typeof client.functions.listFunctions).toBe("function");
+  it("GET /v3/functions → client.functions.list", () => {
+    expect(typeof client.functions.list).toBe("function");
   });
 
-  it("GET /v3/functions/{name} → client.functions.getFunction", () => {
-    expect(typeof client.functions.getFunction).toBe("function");
+  it("GET /v3/functions/{name} → client.functions.get", () => {
+    expect(typeof client.functions.get).toBe("function");
   });
 
-  it("PUT /v3/functions/{name} → client.functions.updateFunction", () => {
-    expect(typeof client.functions.updateFunction).toBe("function");
+  it("PUT /v3/functions/{name} → client.functions.update", () => {
+    expect(typeof client.functions.update).toBe("function");
   });
 
-  it("DELETE /v3/functions/{name} → client.functions.deleteFunction", () => {
-    expect(typeof client.functions.deleteFunction).toBe("function");
+  it("DELETE /v3/functions/{name} → client.functions.delete", () => {
+    expect(typeof client.functions.delete).toBe("function");
   });
 
-  it("POST /v3/functions/{name}/realtime → client.functions.createRealtimeFunction", () => {
-    expect(typeof client.functions.createRealtimeFunction).toBe("function");
+  it("POST /v3/functions/{name}/realtime → client.functions.createRealtime", () => {
+    expect(typeof client.functions.createRealtime).toBe("function");
   });
 
   it("GET /v3/functions/{name}/revisions → client.functions.listRevisions", () => {
@@ -98,8 +98,8 @@ describe("Spec endpoint coverage", () => {
   });
 
   // UTILITY
-  it("GET /v3/models → client.models.listModels", () => {
-    expect(typeof client.models.listModels).toBe("function");
+  it("GET /v3/models → client.models.list", () => {
+    expect(typeof client.models.list).toBe("function");
   });
 
   it("GET /health → client.system.healthCheck", () => {
