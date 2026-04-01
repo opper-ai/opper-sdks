@@ -4,7 +4,6 @@ dist/
 .env
 .env.local
 .env.*.local
-openapi.yaml
 .DS_Store
 .claude/
 docs/
