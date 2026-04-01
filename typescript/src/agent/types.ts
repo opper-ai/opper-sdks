@@ -5,8 +5,8 @@
 // OpenResponses wire types (ORRequest, ORResponse, etc.) and agent-layer types
 // (AgentConfig, AgentTool, RunResult, etc.)
 
+import type { StandardSchemaV1 } from "../schema.js";
 import type { JsonSchema, RequestOptions } from "../types.js";
-import type { InferOutput, StandardSchemaV1 } from "../schema.js";
 
 // ---------------------------------------------------------------------------
 // OpenResponses Wire Types — Request
@@ -22,10 +22,7 @@ export interface ORTool {
 }
 
 /** Input item sent to the server as part of the items array. */
-export type ORInputItem =
-  | ORMessageInputItem
-  | ORFunctionCallInputItem
-  | ORFunctionCallOutputItem;
+export type ORInputItem = ORMessageInputItem | ORFunctionCallInputItem | ORFunctionCallOutputItem;
 
 export interface ORMessageInputItem {
   type: "message";
@@ -381,4 +378,61 @@ export interface AggregatedUsage {
   totalTokens: number;
   cachedTokens?: number;
   reasoningTokens?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Streaming — User-Facing Events
+// ---------------------------------------------------------------------------
+
+/** Events yielded by `agent.stream()`. */
+export type AgentStreamEvent =
+  | IterationStartEvent
+  | TextDeltaEvent
+  | ToolStartEvent
+  | ToolEndEvent
+  | IterationEndEvent
+  | ResultEvent
+  | StreamErrorEvent;
+
+export interface IterationStartEvent {
+  type: "iteration_start";
+  iteration: number;
+}
+
+export interface TextDeltaEvent {
+  type: "text_delta";
+  text: string;
+}
+
+export interface ToolStartEvent {
+  type: "tool_start";
+  name: string;
+  callId: string;
+  input: unknown;
+}
+
+export interface ToolEndEvent {
+  type: "tool_end";
+  name: string;
+  callId: string;
+  output: unknown;
+  error?: string;
+  durationMs: number;
+}
+
+export interface IterationEndEvent {
+  type: "iteration_end";
+  iteration: number;
+  usage?: AggregatedUsage;
+}
+
+export interface ResultEvent {
+  type: "result";
+  output: unknown;
+  meta: RunMeta;
+}
+
+export interface StreamErrorEvent {
+  type: "error";
+  error: Error;
 }

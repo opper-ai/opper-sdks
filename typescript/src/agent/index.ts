@@ -4,7 +4,8 @@
 
 import { OpenResponsesClient } from "../clients/openresponses.js";
 import { isStandardSchema, resolveSchema } from "../schema.js";
-import { runLoop } from "./loop.js";
+import { runLoop, streamLoop } from "./loop.js";
+import { AgentStream } from "./stream.js";
 import type {
   AgentConfig,
   AgentTool,
@@ -189,6 +190,45 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     ) as Promise<RunResult<InferAgentOutput<S>>>;
   }
 
+  /**
+   * Stream the agent's execution, yielding events as they happen.
+   *
+   * Returns an AgentStream that can be iterated for events and also
+   * provides a `.result()` method for the final RunResult.
+   *
+   * @param input - A string prompt or an array of OpenResponses input items.
+   * @param options - Per-run overrides for model, temperature, etc.
+   */
+  stream(input: string | ORInputItem[], options?: RunOptions): AgentStream<InferAgentOutput<S>> {
+    const generator = this.createStreamGenerator(input, options);
+    return new AgentStream<InferAgentOutput<S>>(generator);
+  }
+
+  private async *createStreamGenerator(
+    input: string | ORInputItem[],
+    options?: RunOptions,
+  ): AsyncGenerator<import("./types.js").AgentStreamEvent, void, undefined> {
+    const outputSchema = await this.resolveOutputSchema();
+
+    yield* streamLoop(
+      this.client,
+      {
+        name: this.name,
+        instructions: this.instructions,
+        tools: this.tools,
+        model: this.model,
+        outputSchema,
+        temperature: this.temperature,
+        maxTokens: this.maxTokens,
+        maxIterations: this.maxIterations,
+        reasoningEffort: this.reasoningEffort,
+        parallelToolExecution: this.parallelToolExecution,
+      },
+      input,
+      options,
+    );
+  }
+
   /** Lazily resolve outputSchema from Standard Schema to JSON Schema. */
   private async resolveOutputSchema(): Promise<Record<string, unknown> | undefined> {
     if (!this.outputSchema) return undefined;
@@ -210,13 +250,17 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
 // Re-exports
 // ---------------------------------------------------------------------------
 
-export { AgentError, MaxIterationsError, AbortError } from "./errors.js";
+export { AbortError, AgentError, MaxIterationsError } from "./errors.js";
+export { AgentStream } from "./stream.js";
 
 export type {
   AgentConfig,
+  AgentStreamEvent,
   AgentTool,
   AggregatedUsage,
   InferAgentOutput,
+  IterationEndEvent,
+  IterationStartEvent,
   ORContentPart,
   ORError,
   ORFunctionCallArgsDeltaEvent,
@@ -240,10 +284,15 @@ export type {
   ORTextFormat,
   ORTool,
   ORUsage,
+  ResultEvent,
   RunMeta,
   RunOptions,
   RunResult,
   SchemaLike,
+  StreamErrorEvent,
+  TextDeltaEvent,
   ToolCallRecord,
   ToolConfig,
+  ToolEndEvent,
+  ToolStartEvent,
 } from "./types.js";

@@ -3,9 +3,10 @@
 // =============================================================================
 
 import type { OpenResponsesClient } from "../clients/openresponses.js";
-import { AgentError, MaxIterationsError, AbortError } from "./errors.js";
+import { AbortError, AgentError, MaxIterationsError } from "./errors.js";
 import { resolveToolSchema } from "./index.js";
 import type {
+  AgentStreamEvent,
   AgentTool,
   AggregatedUsage,
   ORFunctionCallOutputItemResponse,
@@ -13,6 +14,7 @@ import type {
   OROutputItem,
   ORRequest,
   ORResponse,
+  ORStreamEvent,
   ORTool,
   ORUsage,
   RunOptions,
@@ -82,8 +84,7 @@ function addUsage(agg: AggregatedUsage, usage?: ORUsage): void {
     agg.cachedTokens = (agg.cachedTokens ?? 0) + usage.input_tokens_details.cached_tokens;
   }
   if (usage.output_tokens_details?.reasoning_tokens) {
-    agg.reasoningTokens =
-      (agg.reasoningTokens ?? 0) + usage.output_tokens_details.reasoning_tokens;
+    agg.reasoningTokens = (agg.reasoningTokens ?? 0) + usage.output_tokens_details.reasoning_tokens;
   }
 }
 
@@ -143,6 +144,88 @@ async function executeTool(
   }
 }
 
+/** Build the ORRequest from loop config, items, and per-run options. */
+function buildRequest(
+  config: LoopConfig,
+  items: ORInputItem[],
+  orTools: ORTool[],
+  options?: RunOptions,
+): ORRequest {
+  return {
+    input: items,
+    instructions: config.instructions,
+    ...(orTools.length > 0 ? { tools: orTools } : {}),
+    ...((options?.model ?? config.model) ? { model: options?.model ?? config.model } : {}),
+    ...((options?.temperature ?? config.temperature)
+      ? { temperature: options?.temperature ?? config.temperature }
+      : {}),
+    ...((options?.maxTokens ?? config.maxTokens)
+      ? { max_output_tokens: options?.maxTokens ?? config.maxTokens }
+      : {}),
+    ...((options?.reasoningEffort ?? config.reasoningEffort)
+      ? { reasoning: { effort: options?.reasoningEffort ?? config.reasoningEffort } }
+      : {}),
+    ...(config.outputSchema
+      ? { text: { format: { type: "json_schema", name: "output", schema: config.outputSchema } } }
+      : {}),
+  };
+}
+
+/** Parse output: extract text and optionally parse structured output. */
+function parseOutput(text: string | undefined, outputSchema?: Record<string, unknown>): unknown {
+  if (outputSchema && text) {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+  return text;
+}
+
+/** Append function calls and their results to the items array. */
+function appendToolResults(
+  items: ORInputItem[],
+  functionCalls: ORFunctionCallOutputItemResponse[],
+  toolRecords: ToolCallRecord[],
+): void {
+  for (const fc of functionCalls) {
+    items.push({
+      type: "function_call",
+      call_id: fc.call_id,
+      name: fc.name,
+      arguments: fc.arguments,
+    });
+  }
+  for (const record of toolRecords) {
+    items.push({
+      type: "function_call_output",
+      call_id: record.callId,
+      output: record.error
+        ? JSON.stringify({ error: record.error })
+        : JSON.stringify(record.output),
+    });
+  }
+}
+
+/** Execute tool calls (parallel or sequential). */
+async function executeTools(
+  resolvedTools: AgentTool[],
+  functionCalls: ORFunctionCallOutputItemResponse[],
+  parallel: boolean,
+): Promise<ToolCallRecord[]> {
+  if (parallel) {
+    return Promise.all(
+      functionCalls.map((fc) => executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments)),
+    );
+  }
+  const records: ToolCallRecord[] = [];
+  for (const fc of functionCalls) {
+    records.push(await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments));
+  }
+  return records;
+}
+
 // ---------------------------------------------------------------------------
 // runLoop — non-streaming agentic loop
 // ---------------------------------------------------------------------------
@@ -161,53 +244,23 @@ export async function runLoop(
   input: string | ORInputItem[],
   options?: RunOptions,
 ): Promise<RunResult> {
-  // Resolve tool schemas (Standard Schema → JSON Schema)
   const resolvedTools = await Promise.all(config.tools.map(resolveToolSchema));
   const orTools = resolvedTools.map(toORTool);
 
-  // Build items array — full conversation history, accumulated across iterations
   const items: ORInputItem[] =
-    typeof input === "string"
-      ? [{ type: "message", role: "user", content: input }]
-      : [...input];
+    typeof input === "string" ? [{ type: "message", role: "user", content: input }] : [...input];
 
-  const usage: AggregatedUsage = {
-    inputTokens: 0,
-    outputTokens: 0,
-    totalTokens: 0,
-  };
+  const usage: AggregatedUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
   const allToolCalls: ToolCallRecord[] = [];
   const maxIterations = options?.maxIterations ?? config.maxIterations;
   let lastOutput: unknown;
   let responseId: string | undefined;
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
-    // Check abort
-    if (options?.signal?.aborted) {
-      throw new AbortError();
-    }
+    if (options?.signal?.aborted) throw new AbortError();
 
-    // Build request
-    const request: ORRequest = {
-      input: items,
-      instructions: config.instructions,
-      ...(orTools.length > 0 ? { tools: orTools } : {}),
-      ...(options?.model ?? config.model ? { model: options?.model ?? config.model } : {}),
-      ...(options?.temperature ?? config.temperature
-        ? { temperature: options?.temperature ?? config.temperature }
-        : {}),
-      ...(options?.maxTokens ?? config.maxTokens
-        ? { max_output_tokens: options?.maxTokens ?? config.maxTokens }
-        : {}),
-      ...(options?.reasoningEffort ?? config.reasoningEffort
-        ? { reasoning: { effort: options?.reasoningEffort ?? config.reasoningEffort } }
-        : {}),
-      ...(config.outputSchema
-        ? { text: { format: { type: "json_schema", name: "output", schema: config.outputSchema } } }
-        : {}),
-    };
+    const request = buildRequest(config, items, orTools, options);
 
-    // Call server
     let response: ORResponse;
     try {
       response = await client.create(request, options?.requestOptions);
@@ -216,84 +269,270 @@ export async function runLoop(
       throw new AgentError("Server call failed", err);
     }
 
-    // Track usage and response ID
     addUsage(usage, response.usage);
     responseId = response.id;
 
-    // Check for server error
     if (response.error) {
       throw new AgentError(`Server error: ${response.error.message}`);
     }
 
-    // Extract function calls from response
     const functionCalls = extractFunctionCalls(response.output);
 
-    // No function calls → done
     if (functionCalls.length === 0) {
-      const text = extractText(response.output);
-      let output: unknown = text;
-
-      // Try to parse structured output
-      if (config.outputSchema && text) {
-        try {
-          output = JSON.parse(text);
-        } catch {
-          // Leave as string if JSON parsing fails
-        }
-      }
-
+      const output = parseOutput(extractText(response.output), config.outputSchema);
       return {
         output,
-        meta: {
-          usage,
-          iterations: iteration,
-          toolCalls: allToolCalls,
-          responseId,
-        },
+        meta: { usage, iterations: iteration, toolCalls: allToolCalls, responseId },
       };
     }
 
-    // Execute tools
+    const toolRecords = await executeTools(
+      resolvedTools,
+      functionCalls,
+      config.parallelToolExecution,
+    );
+    allToolCalls.push(...toolRecords);
+    appendToolResults(items, functionCalls, toolRecords);
+    lastOutput = extractText(response.output);
+  }
+
+  throw new MaxIterationsError(maxIterations, lastOutput, allToolCalls);
+}
+
+// ---------------------------------------------------------------------------
+// streamLoop — streaming agentic loop
+// ---------------------------------------------------------------------------
+
+/** Accumulated state for a single streaming tool call. */
+interface PendingToolCall {
+  callId: string;
+  name: string;
+  arguments: string;
+  outputIndex: number;
+}
+
+/**
+ * Process an SSE stream from the OpenResponses endpoint.
+ * Yields text_delta events and accumulates function calls internally.
+ * Returns the completed ORResponse and collected function calls.
+ */
+async function* consumeStream(
+  stream: AsyncGenerator<ORStreamEvent, void, undefined>,
+): AsyncGenerator<
+  AgentStreamEvent,
+  { response: ORResponse | undefined; functionCalls: ORFunctionCallOutputItemResponse[] }
+> {
+  const pendingCalls = new Map<number, PendingToolCall>();
+  let completedResponse: ORResponse | undefined;
+
+  for await (const event of stream) {
+    switch (event.type) {
+      case "response.output_text.delta":
+        yield { type: "text_delta", text: event.delta };
+        break;
+
+      case "response.function_call_arguments.delta": {
+        const existing = pendingCalls.get(event.output_index);
+        if (existing) {
+          existing.arguments += event.delta;
+        }
+        break;
+      }
+
+      case "response.function_call_arguments.done": {
+        const existing = pendingCalls.get(event.output_index);
+        if (existing) {
+          existing.arguments = event.arguments;
+        }
+        break;
+      }
+
+      case "response.output_item.added": {
+        if (event.item.type === "function_call") {
+          pendingCalls.set(event.output_index, {
+            callId: event.item.call_id,
+            name: event.item.name,
+            arguments: "",
+            outputIndex: event.output_index,
+          });
+        }
+        break;
+      }
+
+      case "response.completed":
+        completedResponse = event.response;
+        break;
+
+      case "response.failed":
+      case "response.incomplete":
+        completedResponse = event.response;
+        break;
+
+      case "error":
+        throw new AgentError(`Stream error: ${event.error.message}`);
+    }
+  }
+
+  // Convert pending calls to ORFunctionCallOutputItemResponse format
+  const functionCalls: ORFunctionCallOutputItemResponse[] = [];
+  for (const pending of pendingCalls.values()) {
+    functionCalls.push({
+      type: "function_call",
+      id: `fc_${pending.outputIndex}`,
+      call_id: pending.callId,
+      name: pending.name,
+      arguments: pending.arguments,
+      status: "completed",
+    });
+  }
+
+  return { response: completedResponse, functionCalls };
+}
+
+/**
+ * Execute the agentic loop (streaming).
+ *
+ * Same logic as runLoop, but uses createStream() and yields AgentStreamEvents.
+ * Text deltas are yielded as they arrive. Tool calls are accumulated from SSE
+ * events and executed after the stream completes for each iteration.
+ */
+export async function* streamLoop(
+  client: OpenResponsesClient,
+  config: LoopConfig,
+  input: string | ORInputItem[],
+  options?: RunOptions,
+): AsyncGenerator<AgentStreamEvent, void, undefined> {
+  const resolvedTools = await Promise.all(config.tools.map(resolveToolSchema));
+  const orTools = resolvedTools.map(toORTool);
+
+  const items: ORInputItem[] =
+    typeof input === "string" ? [{ type: "message", role: "user", content: input }] : [...input];
+
+  const usage: AggregatedUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+  const allToolCalls: ToolCallRecord[] = [];
+  const maxIterations = options?.maxIterations ?? config.maxIterations;
+  let responseId: string | undefined;
+
+  for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    if (options?.signal?.aborted) throw new AbortError();
+
+    yield { type: "iteration_start", iteration };
+
+    const request = buildRequest(config, items, orTools, options);
+
+    // Stream the response
+    let sseStream: AsyncGenerator<ORStreamEvent, void, undefined>;
+    try {
+      sseStream = client.createStream(request, options?.requestOptions);
+    } catch (err) {
+      if (options?.signal?.aborted) throw new AbortError();
+      throw new AgentError("Server call failed", err);
+    }
+
+    // Consume SSE events — yields text_delta events, accumulates tool calls
+    const consumer = consumeStream(sseStream);
+    let consumerResult: IteratorResult<
+      AgentStreamEvent,
+      {
+        response: ORResponse | undefined;
+        functionCalls: ORFunctionCallOutputItemResponse[];
+      }
+    >;
+
+    // Forward all yielded events and get the return value
+    while (true) {
+      consumerResult = await consumer.next();
+      if (consumerResult.done) break;
+      yield consumerResult.value;
+    }
+
+    const { response, functionCalls } = consumerResult.value;
+
+    // Track usage
+    if (response?.usage) {
+      addUsage(usage, response.usage);
+    }
+    if (response?.id) {
+      responseId = response.id;
+    }
+
+    // Check for server error
+    if (response?.error) {
+      throw new AgentError(`Server error: ${response.error.message}`);
+    }
+
+    // No function calls → done
+    if (functionCalls.length === 0) {
+      const output = parseOutput(
+        response ? extractText(response.output) : undefined,
+        config.outputSchema,
+      );
+
+      const meta = { usage, iterations: iteration, toolCalls: allToolCalls, responseId };
+
+      yield { type: "iteration_end", iteration, usage: { ...usage } };
+      yield { type: "result", output, meta };
+      return;
+    }
+
+    // Execute tools — yield tool_start / tool_end events
     const toolRecords: ToolCallRecord[] = [];
 
+    const executeAndYield = async function* (
+      fc: ORFunctionCallOutputItemResponse,
+    ): AsyncGenerator<AgentStreamEvent> {
+      let parsed: unknown;
+      try {
+        parsed = fc.arguments ? JSON.parse(fc.arguments) : {};
+      } catch {
+        parsed = fc.arguments;
+      }
+
+      yield { type: "tool_start", name: fc.name, callId: fc.call_id, input: parsed };
+
+      const record = await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments);
+      toolRecords.push(record);
+
+      yield {
+        type: "tool_end",
+        name: fc.name,
+        callId: fc.call_id,
+        output: record.output,
+        error: record.error,
+        durationMs: record.durationMs,
+      };
+    };
+
     if (config.parallelToolExecution) {
-      const results = await Promise.all(
-        functionCalls.map((fc) => executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments)),
+      // Run tools in parallel, but collect events to yield in order
+      const toolGenerators = functionCalls.map((fc) => executeAndYield(fc));
+      const eventArrays = await Promise.all(
+        toolGenerators.map(async (gen) => {
+          const events: AgentStreamEvent[] = [];
+          for await (const event of gen) {
+            events.push(event);
+          }
+          return events;
+        }),
       );
-      toolRecords.push(...results);
+      for (const events of eventArrays) {
+        for (const event of events) {
+          yield event;
+        }
+      }
     } else {
       for (const fc of functionCalls) {
-        const record = await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments);
-        toolRecords.push(record);
+        for await (const event of executeAndYield(fc)) {
+          yield event;
+        }
       }
     }
 
     allToolCalls.push(...toolRecords);
+    appendToolResults(items, functionCalls, toolRecords);
 
-    // Accumulate into items: all function_call items first (the assistant's
-    // tool calls), then all function_call_output items (our results).
-    for (const fc of functionCalls) {
-      items.push({
-        type: "function_call",
-        call_id: fc.call_id,
-        name: fc.name,
-        arguments: fc.arguments,
-      });
-    }
-    for (const record of toolRecords) {
-      items.push({
-        type: "function_call_output",
-        call_id: record.callId,
-        output: record.error
-          ? JSON.stringify({ error: record.error })
-          : JSON.stringify(record.output),
-      });
-    }
-
-    // Track last output for MaxIterationsError
-    lastOutput = extractText(response.output);
+    yield { type: "iteration_end", iteration, usage: { ...usage } };
   }
 
-  // Max iterations reached
-  throw new MaxIterationsError(maxIterations, lastOutput, allToolCalls);
+  throw new MaxIterationsError(maxIterations, undefined, allToolCalls);
 }

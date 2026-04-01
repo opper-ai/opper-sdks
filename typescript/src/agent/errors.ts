@@ -2,7 +2,7 @@
 // Agent Layer — Error Classes
 // =============================================================================
 
-import type { RunResult, ToolCallRecord } from "./types.js";
+import type { ToolCallRecord } from "./types.js";
 
 /** Base error for all agent-related errors. */
 export class AgentError extends Error {
