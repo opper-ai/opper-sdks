@@ -324,6 +324,7 @@ export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | und
   maxIterations?: number;
   reasoningEffort?: "low" | "medium" | "high";
   parallelToolExecution?: boolean;
+  hooks?: Hooks;
   client?: { apiKey?: string; baseUrl?: string };
 }
 
@@ -334,6 +335,79 @@ export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | und
  */
 // biome-ignore lint/suspicious/noExplicitAny: `any` required for conditional type inference
 export type InferAgentOutput<S> = S extends StandardSchemaV1<any, infer O> ? O : unknown;
+
+// ---------------------------------------------------------------------------
+// Hooks — Lifecycle Observability
+// ---------------------------------------------------------------------------
+
+/** Base context shared by all hooks. */
+interface HookContextBase {
+  agent: string;
+}
+
+/** Context for onAgentStart — fired before the loop begins. */
+export interface AgentStartHookContext extends HookContextBase {
+  input: string | ORInputItem[];
+}
+
+/** Context for onAgentEnd — fired after the loop completes (success or error). */
+export interface AgentEndHookContext extends HookContextBase {
+  result?: RunResult;
+  error?: Error;
+}
+
+/** Context for onIterationStart — fired at the beginning of each iteration. */
+export interface IterationStartHookContext extends HookContextBase {
+  iteration: number;
+}
+
+/** Context for onIterationEnd — fired at the end of each iteration. */
+export interface IterationEndHookContext extends HookContextBase {
+  iteration: number;
+  usage: AggregatedUsage;
+}
+
+/** Context for onLLMCall — fired before calling the OpenResponses endpoint. */
+export interface LLMCallHookContext extends HookContextBase {
+  iteration: number;
+  request: ORRequest;
+}
+
+/** Context for onLLMResponse — fired after receiving the response. */
+export interface LLMResponseHookContext extends HookContextBase {
+  iteration: number;
+  response: ORResponse;
+}
+
+/** Context for onToolStart — fired before executing a tool. */
+export interface ToolStartHookContext extends HookContextBase {
+  iteration: number;
+  name: string;
+  callId: string;
+  input: unknown;
+}
+
+/** Context for onToolEnd — fired after executing a tool. */
+export interface ToolEndHookContext extends HookContextBase {
+  iteration: number;
+  name: string;
+  callId: string;
+  output: unknown;
+  error?: string;
+  durationMs: number;
+}
+
+/** Lifecycle hooks for observing and reacting to agent execution. */
+export interface Hooks {
+  onAgentStart?: (ctx: AgentStartHookContext) => void | Promise<void>;
+  onAgentEnd?: (ctx: AgentEndHookContext) => void | Promise<void>;
+  onIterationStart?: (ctx: IterationStartHookContext) => void | Promise<void>;
+  onIterationEnd?: (ctx: IterationEndHookContext) => void | Promise<void>;
+  onLLMCall?: (ctx: LLMCallHookContext) => void | Promise<void>;
+  onLLMResponse?: (ctx: LLMResponseHookContext) => void | Promise<void>;
+  onToolStart?: (ctx: ToolStartHookContext) => void | Promise<void>;
+  onToolEnd?: (ctx: ToolEndHookContext) => void | Promise<void>;
+}
 
 /** Per-run option overrides. */
 export interface RunOptions {

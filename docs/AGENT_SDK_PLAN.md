@@ -156,10 +156,10 @@ typescript/src/
 ---
 
 ### Phase 5: Hooks & Observability
-- [ ] Define `Hooks` interface and `HookContext`
-- [ ] Hook dispatch helper
-- [ ] Wire hooks into `runLoop()` and `streamLoop()`
-- [ ] Tests: hook call order, async hooks, context mutation
+- [x] Define `Hooks` interface and 8 hook context types
+- [x] Hook dispatch helper (`dispatchHook` — safe async, error-swallowing)
+- [x] Wire hooks into `runLoop()` and `streamLoop()`
+- [x] Tests: hook call order, async hooks, sync hooks, error swallowing, context data, partial hooks, streaming hooks (11 tests passing)
 
 **Files:** `agent/hooks.ts`, `agent/types.ts`, updates to `agent/loop.ts`
 **Tests:** `__tests__/agent-hooks.test.ts`

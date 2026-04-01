@@ -9,6 +9,7 @@ import { AgentStream } from "./stream.js";
 import type {
   AgentConfig,
   AgentTool,
+  Hooks,
   InferAgentOutput,
   ORInputItem,
   RunOptions,
@@ -125,6 +126,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   readonly maxIterations: number;
   readonly reasoningEffort?: "low" | "medium" | "high";
   readonly parallelToolExecution: boolean;
+  readonly hooks?: Hooks;
 
   private readonly client: OpenResponsesClient;
   private resolvedOutputSchema?: Record<string, unknown>;
@@ -140,6 +142,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.reasoningEffort = config.reasoningEffort;
     this.parallelToolExecution = config.parallelToolExecution ?? true;
+    this.hooks = config.hooks;
 
     // Create OpenResponses client
     const apiKey =
@@ -184,6 +187,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         maxIterations: this.maxIterations,
         reasoningEffort: this.reasoningEffort,
         parallelToolExecution: this.parallelToolExecution,
+        hooks: this.hooks,
       },
       input,
       options,
@@ -223,6 +227,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         maxIterations: this.maxIterations,
         reasoningEffort: this.reasoningEffort,
         parallelToolExecution: this.parallelToolExecution,
+        hooks: this.hooks,
       },
       input,
       options,
@@ -255,12 +260,19 @@ export { AgentStream } from "./stream.js";
 
 export type {
   AgentConfig,
+  AgentEndHookContext,
+  AgentStartHookContext,
   AgentStreamEvent,
   AgentTool,
   AggregatedUsage,
+  Hooks,
   InferAgentOutput,
   IterationEndEvent,
+  IterationEndHookContext,
   IterationStartEvent,
+  IterationStartHookContext,
+  LLMCallHookContext,
+  LLMResponseHookContext,
   ORContentPart,
   ORError,
   ORFunctionCallArgsDeltaEvent,
@@ -294,5 +306,7 @@ export type {
   ToolCallRecord,
   ToolConfig,
   ToolEndEvent,
+  ToolEndHookContext,
   ToolStartEvent,
+  ToolStartHookContext,
 } from "./types.js";
