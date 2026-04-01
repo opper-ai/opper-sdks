@@ -16,6 +16,7 @@ from ..types import (
     RevisionInfo,
     RunResponse,
     StreamChunk,
+    _from_dict,
 )
 
 
@@ -33,27 +34,27 @@ class FunctionsClient:
 
     def list(self, *, options: RequestOptions | None = None) -> list[FunctionInfo]:
         data = self._client._get("/v3/functions", options=options)
-        return [FunctionInfo(**f) for f in (data or {}).get("functions", [])]
+        return [_from_dict(FunctionInfo, f) for f in (data or {}).get("functions", [])]
 
     async def list_async(self, *, options: RequestOptions | None = None) -> list[FunctionInfo]:
         data = await self._client._get_async("/v3/functions", options=options)
-        return [FunctionInfo(**f) for f in (data or {}).get("functions", [])]
+        return [_from_dict(FunctionInfo, f) for f in (data or {}).get("functions", [])]
 
     def get(self, name: str, *, options: RequestOptions | None = None) -> FunctionDetails:
         data = self._client._get(self._fn_path(name), options=options)
-        return FunctionDetails(**data)
+        return _from_dict(FunctionDetails, data)
 
     async def get_async(self, name: str, *, options: RequestOptions | None = None) -> FunctionDetails:
         data = await self._client._get_async(self._fn_path(name), options=options)
-        return FunctionDetails(**data)
+        return _from_dict(FunctionDetails, data)
 
     def update(self, name: str, *, source: str, options: RequestOptions | None = None) -> FunctionDetails:
         data = self._client._put(self._fn_path(name), {"source": source}, options=options)
-        return FunctionDetails(**data)
+        return _from_dict(FunctionDetails, data)
 
     async def update_async(self, name: str, *, source: str, options: RequestOptions | None = None) -> FunctionDetails:
         data = await self._client._put_async(self._fn_path(name), {"source": source}, options=options)
-        return FunctionDetails(**data)
+        return _from_dict(FunctionDetails, data)
 
     def delete(self, name: str, *, options: RequestOptions | None = None) -> None:
         self._client._delete(self._fn_path(name), options=options)
@@ -106,7 +107,7 @@ class FunctionsClient:
         if tools is not None:
             body["tools"] = tools
         data = self._client._post(f"{self._fn_path(name)}/realtime", body, options=options)
-        return RealtimeCreateResponse(**data)
+        return _from_dict(RealtimeCreateResponse, data)
 
     async def create_realtime_async(
         self,
@@ -129,7 +130,7 @@ class FunctionsClient:
         if tools is not None:
             body["tools"] = tools
         data = await self._client._post_async(f"{self._fn_path(name)}/realtime", body, options=options)
-        return RealtimeCreateResponse(**data)
+        return _from_dict(RealtimeCreateResponse, data)
 
     def get_realtime_ws_url(self, name: str) -> str:
         base = self._client._base_url
@@ -141,31 +142,31 @@ class FunctionsClient:
 
     def list_revisions(self, name: str, *, options: RequestOptions | None = None) -> list[RevisionInfo]:
         data = self._client._get(f"{self._fn_path(name)}/revisions", options=options)
-        return [RevisionInfo(**r) for r in (data or {}).get("revisions", [])]
+        return [_from_dict(RevisionInfo, r) for r in (data or {}).get("revisions", [])]
 
     async def list_revisions_async(self, name: str, *, options: RequestOptions | None = None) -> list[RevisionInfo]:
         data = await self._client._get_async(f"{self._fn_path(name)}/revisions", options=options)
-        return [RevisionInfo(**r) for r in (data or {}).get("revisions", [])]
+        return [_from_dict(RevisionInfo, r) for r in (data or {}).get("revisions", [])]
 
     def get_revision(self, name: str, revision_id: int, *, options: RequestOptions | None = None) -> FunctionRevision:
         data = self._client._get(f"{self._fn_path(name)}/revisions/{revision_id}", options=options)
-        return FunctionRevision(**data)
+        return _from_dict(FunctionRevision, data)
 
     async def get_revision_async(
         self, name: str, revision_id: int, *, options: RequestOptions | None = None
     ) -> FunctionRevision:
         data = await self._client._get_async(f"{self._fn_path(name)}/revisions/{revision_id}", options=options)
-        return FunctionRevision(**data)
+        return _from_dict(FunctionRevision, data)
 
     def revert_revision(self, name: str, revision_id: int, *, options: RequestOptions | None = None) -> FunctionDetails:
         data = self._client._post(f"{self._fn_path(name)}/revisions/{revision_id}/revert", options=options)
-        return FunctionDetails(**data)
+        return _from_dict(FunctionDetails, data)
 
     async def revert_revision_async(
         self, name: str, revision_id: int, *, options: RequestOptions | None = None
     ) -> FunctionDetails:
         data = await self._client._post_async(f"{self._fn_path(name)}/revisions/{revision_id}/revert", options=options)
-        return FunctionDetails(**data)
+        return _from_dict(FunctionDetails, data)
 
     # --- Examples -------------------------------------------------------------
 

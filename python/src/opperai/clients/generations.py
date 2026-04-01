@@ -6,7 +6,7 @@ from typing import Any
 from urllib.parse import quote
 
 from .._base_client import BaseClient
-from ..types import GenerationsListMeta, GenerationsListResponse, RequestOptions
+from ..types import GenerationsListMeta, GenerationsListResponse, RequestOptions, _from_dict
 
 
 class GenerationsClient:
@@ -34,7 +34,7 @@ class GenerationsClient:
         meta_raw = (data or {}).get("meta", {})
         return GenerationsListResponse(
             data=(data or {}).get("data", []),
-            meta=GenerationsListMeta(**meta_raw) if meta_raw else GenerationsListMeta(),
+            meta=_from_dict(GenerationsListMeta, meta_raw) if meta_raw else GenerationsListMeta(),
         )
 
     async def list_async(
@@ -56,7 +56,7 @@ class GenerationsClient:
         meta_raw = (data or {}).get("meta", {})
         return GenerationsListResponse(
             data=(data or {}).get("data", []),
-            meta=GenerationsListMeta(**meta_raw) if meta_raw else GenerationsListMeta(),
+            meta=_from_dict(GenerationsListMeta, meta_raw) if meta_raw else GenerationsListMeta(),
         )
 
     def get(self, id: str, *, options: RequestOptions | None = None) -> dict[str, Any]:

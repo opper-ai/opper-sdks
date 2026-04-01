@@ -19,6 +19,7 @@ from ..types import (
     RegisterFileUploadResponse,
     RequestOptions,
     UploadFileResponse,
+    _from_dict,
 )
 
 KB_PATH = "/v2/knowledge"
@@ -43,7 +44,7 @@ class KnowledgeClient:
         if embedding_model is not None:
             body["embedding_model"] = embedding_model
         data = self._client._post(KB_PATH, body, options=options)
-        return CreateKnowledgeBaseResponse(**data)
+        return _from_dict(CreateKnowledgeBaseResponse, data)
 
     async def create_async(
         self,
@@ -56,7 +57,7 @@ class KnowledgeClient:
         if embedding_model is not None:
             body["embedding_model"] = embedding_model
         data = await self._client._post_async(KB_PATH, body, options=options)
-        return CreateKnowledgeBaseResponse(**data)
+        return _from_dict(CreateKnowledgeBaseResponse, data)
 
     def list(
         self,
@@ -71,7 +72,7 @@ class KnowledgeClient:
         if limit is not None:
             query["limit"] = limit
         data = self._client._get(KB_PATH, query=query, options=options)
-        return [KnowledgeBaseInfo(**kb) for kb in (data or {}).get("data", [])]
+        return [_from_dict(KnowledgeBaseInfo, kb) for kb in (data or {}).get("data", [])]
 
     async def list_async(
         self,
@@ -86,23 +87,23 @@ class KnowledgeClient:
         if limit is not None:
             query["limit"] = limit
         data = await self._client._get_async(KB_PATH, query=query, options=options)
-        return [KnowledgeBaseInfo(**kb) for kb in (data or {}).get("data", [])]
+        return [_from_dict(KnowledgeBaseInfo, kb) for kb in (data or {}).get("data", [])]
 
     def get(self, id: str, *, options: RequestOptions | None = None) -> GetKnowledgeBaseResponse:
         data = self._client._get(f"{KB_PATH}/{quote(id, safe='')}", options=options)
-        return GetKnowledgeBaseResponse(**data)
+        return _from_dict(GetKnowledgeBaseResponse, data)
 
     async def get_async(self, id: str, *, options: RequestOptions | None = None) -> GetKnowledgeBaseResponse:
         data = await self._client._get_async(f"{KB_PATH}/{quote(id, safe='')}", options=options)
-        return GetKnowledgeBaseResponse(**data)
+        return _from_dict(GetKnowledgeBaseResponse, data)
 
     def get_by_name(self, name: str, *, options: RequestOptions | None = None) -> GetKnowledgeBaseResponse:
         data = self._client._get(f"{KB_PATH}/by-name/{quote(name, safe='')}", options=options)
-        return GetKnowledgeBaseResponse(**data)
+        return _from_dict(GetKnowledgeBaseResponse, data)
 
     async def get_by_name_async(self, name: str, *, options: RequestOptions | None = None) -> GetKnowledgeBaseResponse:
         data = await self._client._get_async(f"{KB_PATH}/by-name/{quote(name, safe='')}", options=options)
-        return GetKnowledgeBaseResponse(**data)
+        return _from_dict(GetKnowledgeBaseResponse, data)
 
     def delete(self, id: str, *, options: RequestOptions | None = None) -> None:
         self._client._delete(f"{KB_PATH}/{quote(id, safe='')}", options=options)
@@ -136,7 +137,7 @@ class KnowledgeClient:
         if config:
             body["configuration"] = config
         data = self._client._post(f"{KB_PATH}/{quote(kb_id, safe='')}/add", body, options=options)
-        return AddDocumentResponse(**data)
+        return _from_dict(AddDocumentResponse, data)
 
     async def add_async(
         self,
@@ -162,7 +163,7 @@ class KnowledgeClient:
         if config:
             body["configuration"] = config
         data = await self._client._post_async(f"{KB_PATH}/{quote(kb_id, safe='')}/add", body, options=options)
-        return AddDocumentResponse(**data)
+        return _from_dict(AddDocumentResponse, data)
 
     def query(
         self,
@@ -189,7 +190,7 @@ class KnowledgeClient:
             body["parent_span_id"] = parent_span_id
         data = self._client._post(f"{KB_PATH}/{quote(kb_id, safe='')}/query", body, options=options)
         if isinstance(data, list):
-            return [QueryResult(**r) for r in data]
+            return [_from_dict(QueryResult, r) for r in data]
         return []
 
     async def query_async(
@@ -217,12 +218,12 @@ class KnowledgeClient:
             body["parent_span_id"] = parent_span_id
         data = await self._client._post_async(f"{KB_PATH}/{quote(kb_id, safe='')}/query", body, options=options)
         if isinstance(data, list):
-            return [QueryResult(**r) for r in data]
+            return [_from_dict(QueryResult, r) for r in data]
         return []
 
     def get_document(self, kb_id: str, key: str, *, options: RequestOptions | None = None) -> GetDocumentResponse:
         data = self._client._get(f"{KB_PATH}/{quote(kb_id, safe='')}/documents/{quote(key, safe='')}", options=options)
-        return GetDocumentResponse(**data)
+        return _from_dict(GetDocumentResponse, data)
 
     async def get_document_async(
         self, kb_id: str, key: str, *, options: RequestOptions | None = None
@@ -230,7 +231,7 @@ class KnowledgeClient:
         data = await self._client._get_async(
             f"{KB_PATH}/{quote(kb_id, safe='')}/documents/{quote(key, safe='')}", options=options
         )
-        return GetDocumentResponse(**data)
+        return _from_dict(GetDocumentResponse, data)
 
     def delete_documents(
         self,
@@ -243,7 +244,7 @@ class KnowledgeClient:
         if filters is not None:
             body["filters"] = filters
         data = self._client._delete(f"{KB_PATH}/{quote(kb_id, safe='')}/query", body=body, options=options)
-        return DeleteDocumentsResponse(**(data or {}))
+        return _from_dict(DeleteDocumentsResponse, data or {})
 
     async def delete_documents_async(
         self,
@@ -258,7 +259,7 @@ class KnowledgeClient:
         data = await self._client._delete_async(
             f"{KB_PATH}/{quote(kb_id, safe='')}/query", body=body, options=options
         )
-        return DeleteDocumentsResponse(**(data or {}))
+        return _from_dict(DeleteDocumentsResponse, data or {})
 
     # --- File Operations ------------------------------------------------------
 
@@ -289,7 +290,7 @@ class KnowledgeClient:
             fields=fields,
             options=options,
         )
-        return UploadFileResponse(**data)
+        return _from_dict(UploadFileResponse, data)
 
     async def upload_file_async(
         self,
@@ -318,7 +319,7 @@ class KnowledgeClient:
             fields=fields,
             options=options,
         )
-        return UploadFileResponse(**data)
+        return _from_dict(UploadFileResponse, data)
 
     def get_upload_url(
         self, kb_id: str, *, filename: str, options: RequestOptions | None = None
@@ -328,7 +329,7 @@ class KnowledgeClient:
             query={"filename": filename},
             options=options,
         )
-        return GetUploadUrlResponse(**data)
+        return _from_dict(GetUploadUrlResponse, data)
 
     async def get_upload_url_async(
         self, kb_id: str, *, filename: str, options: RequestOptions | None = None
@@ -338,7 +339,7 @@ class KnowledgeClient:
             query={"filename": filename},
             options=options,
         )
-        return GetUploadUrlResponse(**data)
+        return _from_dict(GetUploadUrlResponse, data)
 
     def register_file(
         self,
@@ -363,7 +364,7 @@ class KnowledgeClient:
         if metadata is not None:
             body["metadata"] = metadata
         data = self._client._post(f"{KB_PATH}/{quote(kb_id, safe='')}/register_file", body, options=options)
-        return RegisterFileUploadResponse(**data)
+        return _from_dict(RegisterFileUploadResponse, data)
 
     async def register_file_async(
         self,
@@ -390,7 +391,7 @@ class KnowledgeClient:
         data = await self._client._post_async(
             f"{KB_PATH}/{quote(kb_id, safe='')}/register_file", body, options=options
         )
-        return RegisterFileUploadResponse(**data)
+        return _from_dict(RegisterFileUploadResponse, data)
 
     def list_files(
         self,
@@ -406,7 +407,7 @@ class KnowledgeClient:
         if limit is not None:
             query["limit"] = limit
         data = self._client._get(f"{KB_PATH}/{quote(kb_id, safe='')}/files", query=query, options=options)
-        return [FileInfo(**f) for f in (data or {}).get("data", [])]
+        return [_from_dict(FileInfo, f) for f in (data or {}).get("data", [])]
 
     async def list_files_async(
         self,
@@ -422,7 +423,7 @@ class KnowledgeClient:
         if limit is not None:
             query["limit"] = limit
         data = await self._client._get_async(f"{KB_PATH}/{quote(kb_id, safe='')}/files", query=query, options=options)
-        return [FileInfo(**f) for f in (data or {}).get("data", [])]
+        return [_from_dict(FileInfo, f) for f in (data or {}).get("data", [])]
 
     def get_download_url(self, kb_id: str, file_id: str, *, options: RequestOptions | None = None) -> str:
         data = self._client._get(

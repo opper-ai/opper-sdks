@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .._base_client import BaseClient
-from ..types import EmbeddingsDataItem, EmbeddingsResponse, EmbeddingsUsageInfo, RequestOptions
+from ..types import EmbeddingsDataItem, EmbeddingsResponse, EmbeddingsUsageInfo, RequestOptions, _from_dict
 
 
 class EmbeddingsClient:
@@ -56,9 +56,9 @@ class EmbeddingsClient:
 
 
 def _parse_embeddings_response(data: dict[str, Any]) -> EmbeddingsResponse:
-    items = [EmbeddingsDataItem(**d) for d in data.get("data", [])]
+    items = [_from_dict(EmbeddingsDataItem, d) for d in data.get("data", [])]
     usage_raw = data.get("usage", {})
-    usage = EmbeddingsUsageInfo(**usage_raw) if usage_raw else EmbeddingsUsageInfo()
+    usage = _from_dict(EmbeddingsUsageInfo, usage_raw) if usage_raw else EmbeddingsUsageInfo()
     return EmbeddingsResponse(
         object=data.get("object", ""),
         data=items,
