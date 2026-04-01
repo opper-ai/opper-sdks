@@ -544,6 +544,7 @@ class ModelInfo:
     region: str = ""
     country: str = ""
     api_type: str = ""
+    aliases: list[str] = field(default_factory=list)
     retired_at: str | None = None
     successor: str | None = None
 

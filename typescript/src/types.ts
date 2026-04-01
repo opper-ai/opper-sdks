@@ -474,6 +474,7 @@ export interface ModelInfo {
   readonly id: string;
   readonly name: string;
   readonly provider: string;
+  readonly aliases?: string[];
   readonly capabilities?: Record<string, unknown>;
   readonly pricing?: Record<string, unknown>;
   readonly parameters?: Record<string, unknown>;
