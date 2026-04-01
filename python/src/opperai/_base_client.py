@@ -24,6 +24,7 @@ from .types import (
     ToolCallDeltaChunk,
     ToolCallStartChunk,
     UsageInfo,
+    _from_dict,
 )
 
 DEFAULT_BASE_URL = "https://api.opper.ai"
@@ -342,7 +343,7 @@ def _parse_chunk(data: dict[str, Any], event_type: str) -> StreamChunk | None:
         )
     elif chunk_type == "done":
         usage_data = data.get("usage")
-        usage = UsageInfo(**usage_data) if isinstance(usage_data, dict) else None
+        usage = _from_dict(UsageInfo, usage_data) if isinstance(usage_data, dict) else None
         return DoneChunk(usage=usage)
     elif chunk_type == "error":
         return ErrorChunk(error=data.get("error", ""))

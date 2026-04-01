@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from dataclasses import fields as _dc_fields
 from typing import Any, Generic, Literal, TypedDict, TypeVar
+
+_DC = TypeVar("_DC")
+
+
+def _from_dict(cls: type[_DC], data: dict[str, Any]) -> _DC:
+    """Create a dataclass instance from a dict, ignoring unknown keys."""
+    known = {f.name for f in _dc_fields(cls)}  # type: ignore[arg-type]
+    return cls(**{k: v for k, v in data.items() if k in known})
 
 # ---------------------------------------------------------------------------
 # MIME type to file extension mapping

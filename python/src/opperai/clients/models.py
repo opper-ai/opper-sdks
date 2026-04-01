@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .._base_client import BaseClient
-from ..types import ModelInfo, ModelsResponse, RequestOptions
+from ..types import ModelInfo, ModelsResponse, RequestOptions, _from_dict
 
 
 class ModelsClient:
@@ -43,7 +43,7 @@ class ModelsClient:
             if val is not None:
                 query[key] = val
         data = self._client._get("/v3/models", query=query, options=options)
-        models = [ModelInfo(**m) for m in (data or {}).get("models", [])]
+        models = [_from_dict(ModelInfo, m) for m in (data or {}).get("models", [])]
         return ModelsResponse(models=models)
 
     async def list_async(
@@ -75,5 +75,5 @@ class ModelsClient:
             if val is not None:
                 query[key] = val
         data = await self._client._get_async("/v3/models", query=query, options=options)
-        models = [ModelInfo(**m) for m in (data or {}).get("models", [])]
+        models = [_from_dict(ModelInfo, m) for m in (data or {}).get("models", [])]
         return ModelsResponse(models=models)
