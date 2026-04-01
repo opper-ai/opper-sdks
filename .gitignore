@@ -8,6 +8,7 @@ openapi.yaml
 .DS_Store
 .claude/
 docs/
+**/plans/
 
 # Generated example output
 typescript/output.png
