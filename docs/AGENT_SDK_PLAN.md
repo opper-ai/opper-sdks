@@ -320,3 +320,10 @@ These are patterns identified from studying production agentic systems (see [AGE
 - **Coordinator**: leader agent dispatches to specialists via message-passing
 - **Async background**: spawn sub-agents that run independently, notify on completion
 - Beyond `asTool()` — generalizable primitives users compose for their architecture
+
+### Tool Output Schema
+- Add optional `outputSchema` (Zod / JSON Schema) to `ToolConfig` and `AgentTool`
+- Use it for compile-time type inference on `execute` return type
+- Auto-append return shape to the tool description sent to the model
+- Optionally validate `execute` results at runtime before sending to the model
+- Note: only Google Gemini supports output schemas at the API level today; OpenAI and Anthropic do not. This would be a DX/validation feature, not a model capability. Revisit if providers add support.

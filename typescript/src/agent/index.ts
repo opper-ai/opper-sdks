@@ -4,6 +4,7 @@
 
 import { OpenResponsesClient } from "../clients/openresponses.js";
 import { isStandardSchema, resolveSchema } from "../schema.js";
+import { Conversation } from "./conversation.js";
 import { runLoop, streamLoop } from "./loop.js";
 import { AgentStream } from "./stream.js";
 import type {
@@ -60,7 +61,9 @@ import type {
  * });
  * ```
  */
-export function tool<TInput = unknown>(config: ToolConfig<TInput>): AgentTool {
+export function tool<TParams extends SchemaLike | undefined = undefined>(
+  config: ToolConfig<TParams>,
+): AgentTool {
   return {
     name: config.name,
     description: config.description,
@@ -235,6 +238,24 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   }
 
   /**
+   * Create a stateful multi-turn conversation with this agent.
+   *
+   * The conversation tracks the full items history across `.send()` calls
+   * so the agent sees prior turns as context.
+   *
+   * @example
+   * ```typescript
+   * const conv = agent.conversation();
+   * await conv.send('My name is Alice.');
+   * const r = await conv.send('What is my name?');
+   * // Agent remembers "Alice" from the prior turn
+   * ```
+   */
+  conversation(): Conversation<S> {
+    return new Conversation<S>(this);
+  }
+
+  /**
    * Wrap this agent as a tool that another agent can call.
    *
    * The returned tool accepts a string `input` and runs this agent to completion,
@@ -261,7 +282,8 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         },
         required: ["input"],
       },
-      execute: async ({ input }: { input: string }) => {
+      execute: async (params: unknown) => {
+        const { input } = params as { input: string };
         const result = await this.run(input);
         return {
           output: result.output,
@@ -294,6 +316,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
 // Re-exports
 // ---------------------------------------------------------------------------
 
+export { Conversation } from "./conversation.js";
 export { AbortError, AgentError, MaxIterationsError } from "./errors.js";
 export { AgentStream } from "./stream.js";
 

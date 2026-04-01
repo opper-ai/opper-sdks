@@ -26,7 +26,7 @@ export type ORInputItem = ORMessageInputItem | ORFunctionCallInputItem | ORFunct
 
 export interface ORMessageInputItem {
   type: "message";
-  role: "user" | "system" | "developer";
+  role: "user" | "assistant" | "system" | "developer";
   content: string;
 }
 
@@ -294,13 +294,15 @@ export interface ORStreamErrorEvent {
 /** Schema-like type: JSON Schema object or Standard Schema V1. */
 export type SchemaLike = JsonSchema | StandardSchemaV1;
 
-/** Configuration for defining a tool. */
-export interface ToolConfig<TInput = unknown> {
+/** Configuration for defining a tool with Standard Schema type inference. */
+export interface ToolConfig<TParams extends SchemaLike | undefined = SchemaLike | undefined> {
   name: string;
   description: string;
-  parameters?: SchemaLike;
+  parameters?: TParams;
   timeoutMs?: number;
-  execute: (input: TInput) => unknown | Promise<unknown>;
+  execute: (
+    input: TParams extends StandardSchemaV1<infer I> ? I : unknown,
+  ) => unknown | Promise<unknown>;
 }
 
 /** A resolved agent tool — parameters resolved to JSON Schema. */
