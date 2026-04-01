@@ -234,6 +234,45 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     );
   }
 
+  /**
+   * Wrap this agent as a tool that another agent can call.
+   *
+   * The returned tool accepts a string `input` and runs this agent to completion,
+   * returning an object with the agent's output and metadata (usage, iterations, tool calls).
+   *
+   * @example
+   * ```typescript
+   * const researcher = new Agent({ name: 'researcher', instructions: '...' });
+   * const coordinator = new Agent({
+   *   name: 'coordinator',
+   *   instructions: 'Delegate research tasks to the researcher tool.',
+   *   tools: [researcher.asTool({ name: 'research', description: 'Research a topic' })],
+   * });
+   * ```
+   */
+  asTool(config: { name: string; description: string }): AgentTool {
+    return tool({
+      name: config.name,
+      description: config.description,
+      parameters: {
+        type: "object",
+        properties: {
+          input: { type: "string", description: "The input prompt for the sub-agent" },
+        },
+        required: ["input"],
+      },
+      execute: async ({ input }: { input: string }) => {
+        const result = await this.run(input);
+        return {
+          output: result.output,
+          usage: result.meta.usage,
+          iterations: result.meta.iterations,
+          toolCalls: result.meta.toolCalls.length,
+        };
+      },
+    });
+  }
+
   /** Lazily resolve outputSchema from Standard Schema to JSON Schema. */
   private async resolveOutputSchema(): Promise<Record<string, unknown> | undefined> {
     if (!this.outputSchema) return undefined;

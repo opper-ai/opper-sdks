@@ -168,10 +168,10 @@ typescript/src/
 ---
 
 ### Phase 6: Multi-Agent Composition
-- [ ] `agent.asTool(name, description)` — wraps agent as a tool
-- [ ] Usage aggregation across sub-agents
-- [ ] Trace propagation: parent span ID flows to sub-agent
-- [ ] Tests: parent calls sub-agent via tool, usage aggregation, nested agents
+- [x] `agent.asTool(name, description)` — wraps agent as a tool
+- [x] Usage aggregation: sub-agent result includes output, usage, iterations, toolCalls
+- [x] Tests: asTool creates valid tool, parent-child delegation, usage in output, error handling, hooks on both agents (6 tests passing)
+- [ ] Trace propagation: parent span ID flows to sub-agent (deferred — can be added via hooks)
 
 **Files:** `agent/index.ts` (asTool method)
 **Tests:** `__tests__/agent-multi.test.ts`
@@ -212,6 +212,46 @@ typescript/src/
 **Files:** `index.ts`
 **Tests:** existing tests still pass + integration test
 **Verify:** `npm test`, `npm run lint`, `tsc --noEmit`
+
+---
+
+### Phase 10: Opper Observability — Traces & Spans for Agents
+**Goal:** Agent runs appear as structured traces in Opper's observability dashboard.
+
+**Key discovery:** The `/v3/compat/openresponses` endpoint accepts tracing headers (from OpenAPI spec):
+- `X-Opper-Parent-Span-Id` — parent span ID for distributed tracing context
+- `X-Opper-Name` — function name for tracing and routing
+
+The server handles span creation automatically when these headers are present. This means the agent SDK just needs to:
+
+1. Create a parent span for the agent execution at run start
+2. Pass `X-Opper-Parent-Span-Id` on each LLM call so the server links them as children
+3. Create child spans for local tool executions (these don't go through the API)
+4. Close/update spans at the end
+
+**Two-layer approach:**
+- **LLM calls** → server-side tracing via `X-Opper-Parent-Span-Id` header (automatic)
+- **Tool calls + agent lifecycle** → client-side spans via `SpansClient` (queued, flushed in finally)
+- **Sub-agents** → nested execution span with `parentId` linking to parent tool span
+
+**Implementation via hooks:** `createTracingHooks(spansClient)` factory returns a `Hooks` object. The loop passes headers through `RequestOptions`. Zero changes to the loop itself.
+
+- [ ] Pass `X-Opper-Parent-Span-Id` and `X-Opper-Name` headers on LLM calls via `onLLMCall` hook or loop config
+- [ ] Parent execution span created on `onAgentStart`, closed on `onAgentEnd`
+- [ ] Tool spans as children via `SpansClient` (`onToolStart` / `onToolEnd`)
+- [ ] Queued span updates flushed via `Promise.allSettled()` in `onAgentEnd`
+- [ ] Sub-agent trace propagation — `asTool` passes parent span ID to child agent
+- [ ] `opper.agent(config)` auto-injects tracing hooks
+
+**Key reuse:**
+- `SpansClient` (`clients/spans.ts`) — span CRUD for tool + agent lifecycle spans
+- `getTraceContext()` / `runWithTraceContext()` (`context.ts`) — ALS propagation for sub-agents
+- `RequestOptions.headers` — already supported by `OpenResponsesClient` for passing trace headers
+- `Hooks` interface (Phase 5) — zero changes to the loop
+
+**Files:** `agent/tracing.ts` (new), updates to `index.ts` for `opper.agent()`
+**Tests:** `__tests__/agent-tracing.test.ts`
+**Verify:** `npm test`, live test showing traces in Opper dashboard
 
 ---
 
