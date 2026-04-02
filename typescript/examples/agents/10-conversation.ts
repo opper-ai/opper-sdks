@@ -2,7 +2,7 @@
 // The Conversation class tracks items history across turns so the agent
 // remembers prior context without you managing the items array manually.
 import { z } from "zod";
-import { Agent, tool } from "../../src/agent/index.js";
+import { Agent, tool } from "../../src/index.js";
 
 // A simple note-taking tool to show tool calls within conversations
 const notes: string[] = [];

@@ -1,7 +1,7 @@
 // Your first agent — a simple agentic loop with no tools
 // The Agent class handles the loop: it calls the model, collects the response,
 // and returns when the model produces a final answer.
-import { Agent } from "../../src/agent/index.js";
+import { Agent } from "../../src/index.js";
 
 const agent = new Agent({
   name: "my-first-agent",

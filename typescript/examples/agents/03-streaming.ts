@@ -1,6 +1,6 @@
 // Streaming — observe the agent's work as it happens
 import { z } from "zod";
-import { Agent, tool } from "../../src/agent/index.js";
+import { Agent, tool } from "../../src/index.js";
 
 const getWeather = tool({
   name: "get_weather",

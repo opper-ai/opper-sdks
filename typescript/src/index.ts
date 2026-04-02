@@ -2,6 +2,8 @@
 // Opper SDK - Main Entry Point
 // =============================================================================
 
+import { Agent } from "./agent/index.js";
+import type { AgentConfig, SchemaLike } from "./agent/types.js";
 import { ArtifactsClient } from "./clients/artifacts.js";
 import { EmbeddingsClient } from "./clients/embeddings.js";
 import { FunctionsClient } from "./clients/functions.js";
@@ -122,8 +124,11 @@ export class Opper {
   /** Client for knowledge base operations (v2 API). */
   readonly knowledge: KnowledgeClient;
 
+  private readonly resolvedConfig: { apiKey: string; baseUrl: string };
+
   constructor(config?: ClientConfig) {
     const resolved = resolveConfig(config);
+    this.resolvedConfig = resolved;
 
     this.functions = new FunctionsClient(resolved);
     this.spans = new SpansClient(resolved);
@@ -455,6 +460,32 @@ export class Opper {
     return this.call<Transcription>(name, buildSpeechToTextRequest(opts), reqOpts);
   }
 
+  /**
+   * Create an Agent with the client config from this Opper instance.
+   *
+   * The agent inherits the API key and base URL, so you don't need to pass
+   * `client` in the config. In Phase 10, this will also auto-inject tracing hooks.
+   *
+   * @example
+   * ```typescript
+   * const opper = new Opper();
+   * const agent = opper.agent({
+   *   name: 'assistant',
+   *   instructions: 'Be helpful.',
+   *   tools: [myTool],
+   * });
+   * const result = await agent.run('Hello!');
+   * ```
+   */
+  agent<S extends SchemaLike | undefined = undefined>(
+    config: Omit<AgentConfig<S>, "client">,
+  ): Agent<S> {
+    return new Agent<S>({
+      ...config,
+      client: this.resolvedConfig,
+    } as AgentConfig<S>);
+  }
+
   /** Resolve any Standard Schema fields (output_schema, input_schema, tools) to plain JSON Schema. */
   private async resolveRequest(request: RunRequest | SchemaRunRequest): Promise<RunRequest> {
     const wire: Record<string, unknown> = {};
@@ -690,3 +721,39 @@ export type {
   Transcription,
 } from "./media.js";
 export { saveMedia } from "./media.js";
+
+// ---------------------------------------------------------------------------
+// Re-exports: Agent layer
+// ---------------------------------------------------------------------------
+
+export type {
+  AgentConfig,
+  AgentStreamEvent,
+  AgentTool,
+  AggregatedUsage,
+  Hooks,
+  InferAgentOutput,
+  MCPServerConfig,
+  MCPSSEConfig,
+  MCPStdioConfig,
+  MCPStreamableHTTPConfig,
+  ORInputItem,
+  ORRequest,
+  ORResponse,
+  RunMeta,
+  RunOptions,
+  RunResult,
+  ToolConfig,
+  ToolProvider,
+} from "./agent/index.js";
+export {
+  AbortError,
+  Agent,
+  AgentError,
+  AgentStream,
+  Conversation,
+  MaxIterationsError,
+  MCPToolProvider,
+  mcp,
+  tool,
+} from "./agent/index.js";

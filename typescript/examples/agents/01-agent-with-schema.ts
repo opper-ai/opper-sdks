@@ -1,6 +1,6 @@
 // Agent with structured output — use a Zod schema to get typed results
 import { z } from "zod";
-import { Agent } from "../../src/agent/index.js";
+import { Agent } from "../../src/index.js";
 
 const SummarySchema = z.object({
   title: z.string().describe("A short title for the summary"),

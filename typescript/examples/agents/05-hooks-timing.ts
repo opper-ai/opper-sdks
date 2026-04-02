@@ -1,8 +1,8 @@
 // Hooks for performance measurement — track LLM latency and tool execution time
 // This pattern is useful for building dashboards or sending metrics to your observability stack.
 import { z } from "zod";
-import { Agent, tool } from "../../src/agent/index.js";
-import type { Hooks } from "../../src/agent/types.js";
+import { Agent, tool } from "../../src/index.js";
+import type { Hooks } from "../../src/index.js";
 
 const getWeather = tool({
   name: "get_weather",

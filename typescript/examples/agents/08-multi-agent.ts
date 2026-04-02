@@ -1,8 +1,8 @@
 // Multi-agent — a coordinator dispatches to specialist agents that have their own tools
 // Each specialist focuses on one domain with dedicated tools; the coordinator orchestrates.
 import { z } from "zod";
-import { Agent, tool } from "../../src/agent/index.js";
-import type { Hooks } from "../../src/agent/types.js";
+import { Agent, tool } from "../../src/index.js";
+import type { Hooks } from "../../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Tools for the specialists

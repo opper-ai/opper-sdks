@@ -180,9 +180,9 @@ typescript/src/
 ---
 
 ### Phase 7: Conversation / Multi-Turn
-- [ ] Direct items input — pass items array to `run()`
-- [ ] `Conversation` helper with `.send()` tracking items across turns
-- [ ] Tests: multi-turn with context retention, tool calls within conversation turns
+- [x] Direct items input — pass items array to `run()`
+- [x] `Conversation` helper with `.send()` tracking items across turns
+- [x] Tests: multi-turn with context retention, tool calls within conversation turns (7 tests passing)
 
 **Files:** `agent/conversation.ts`, updates to `agent/index.ts`
 **Tests:** `__tests__/agent-conversation.test.ts`
@@ -191,11 +191,11 @@ typescript/src/
 ---
 
 ### Phase 8: MCP Tool Providers
-- [ ] `mcp()` factory function
-- [ ] `ToolProvider` interface: `setup()` → `AgentTool[]`, `teardown()`
-- [ ] Stdio transport (spawn subprocess, JSON-RPC over stdin/stdout)
-- [ ] Tool name prefixing: `mcp__<server>__<toolname>`
-- [ ] Tests: mock MCP server, tool discovery, execution
+- [x] `mcp()` factory function
+- [x] `ToolProvider` interface: `setup()` → `AgentTool[]`, `teardown()`
+- [x] Stdio, SSE, and Streamable HTTP transports
+- [x] Tool name prefixing: `mcp__<server>__<toolname>`
+- [x] Tests: mock MCP server, tool discovery, execution (14 tests passing)
 
 **Files:** `agent/mcp/index.ts`
 **Tests:** `__tests__/agent-mcp.test.ts`
@@ -204,9 +204,10 @@ typescript/src/
 ---
 
 ### Phase 9: Wire into Opper Class + Exports
-- [ ] Add `opper.agent(config)` factory method on `Opper` class
-- [ ] Export all agent types from `index.ts`
-- [ ] Standalone `Agent` usage (reads `OPPER_API_KEY` from env)
+- [x] Add `opper.agent(config)` factory method on `Opper` class
+- [x] Export all agent types from `index.ts`
+- [x] Standalone `Agent` usage (reads `OPPER_API_KEY` from env)
+- [x] Update all examples to import from package root
 - [ ] Integration test with live API (skipped without key)
 
 **Files:** `index.ts`

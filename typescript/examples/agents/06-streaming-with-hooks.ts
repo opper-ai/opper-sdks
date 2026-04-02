@@ -1,8 +1,8 @@
 // Streaming + Hooks — combine live output with lifecycle observability
 // Hooks fire alongside stream events, so you can log/trace without parsing the stream yourself.
 import { z } from "zod";
-import { Agent, tool } from "../../src/agent/index.js";
-import type { Hooks } from "../../src/agent/types.js";
+import { Agent, tool } from "../../src/index.js";
+import type { Hooks } from "../../src/index.js";
 
 const calculate = tool({
   name: "calculate",

@@ -1,8 +1,8 @@
 // Hooks — observe every lifecycle event during an agent run
 // Hooks let you log, trace, or measure without touching the agent logic.
 import { z } from "zod";
-import { Agent, tool } from "../../src/agent/index.js";
-import type { Hooks } from "../../src/agent/types.js";
+import { Agent, tool } from "../../src/index.js";
+import type { Hooks } from "../../src/index.js";
 
 const lookupCity = tool({
   name: "lookup_city",

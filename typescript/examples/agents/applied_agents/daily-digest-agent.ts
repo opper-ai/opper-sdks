@@ -23,8 +23,8 @@
  */
 
 import { z } from "zod";
-import { Agent, mcp } from "../../../src/agent/index.js";
-import type { MCPStreamableHTTPConfig } from "../../../src/agent/index.js";
+import { Agent, mcp } from "../../../src/index.js";
+import type { MCPStreamableHTTPConfig } from "../../../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Schemas

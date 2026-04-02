@@ -1,6 +1,6 @@
 // Agent as tool — wrap a specialist agent so another agent can call it
 // asTool() is the building block for multi-agent composition.
-import { Agent } from "../../src/agent/index.js";
+import { Agent } from "../../src/index.js";
 
 // A specialist agent that only knows about geography
 const geographer = new Agent({

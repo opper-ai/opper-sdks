@@ -1,6 +1,6 @@
 // Agent with tools — the loop executes tool calls automatically until done
 import { z } from "zod";
-import { Agent, tool } from "../../src/agent/index.js";
+import { Agent, tool } from "../../src/index.js";
 
 // Simulated database of products
 const PRODUCTS: Record<string, { name: string; price: number; stock: number }> = {

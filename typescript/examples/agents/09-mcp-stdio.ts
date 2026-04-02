@@ -9,7 +9,7 @@
 // Run with:
 //   npx tsx examples/agents/09-mcp-stdio.ts
 
-import { Agent, mcp } from "../../src/agent/index.js";
+import { Agent, mcp } from "../../src/index.js";
 
 // Define the MCP server as a reusable constant
 const FilesystemMCP = mcp({
