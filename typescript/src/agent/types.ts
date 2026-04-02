@@ -314,11 +314,23 @@ export interface AgentTool {
   execute: (input: unknown) => unknown | Promise<unknown>;
 }
 
+/** A tool provider that dynamically supplies tools with lifecycle management. */
+export interface ToolProvider {
+  type: "tool_provider";
+  setup(): Promise<AgentTool[]>;
+  teardown(): Promise<void>;
+}
+
+/** Type guard: is this an AgentTool or a ToolProvider? */
+export function isToolProvider(t: AgentTool | ToolProvider): t is ToolProvider {
+  return "type" in t && (t as ToolProvider).type === "tool_provider";
+}
+
 /** Configuration for creating an Agent — with Standard Schema output type inference. */
 export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | undefined> {
   name: string;
   instructions: string;
-  tools?: AgentTool[];
+  tools?: (AgentTool | ToolProvider)[];
   model?: string;
   outputSchema?: S;
   temperature?: number;

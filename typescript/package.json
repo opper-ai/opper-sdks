@@ -41,15 +41,20 @@
   ],
   "license": "MIT",
   "peerDependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
     "zod": {
       "optional": true
     }
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/node": "^25.4.0",
     "@types/ws": "^8.18.1",
     "tsx": "^4.21.0",

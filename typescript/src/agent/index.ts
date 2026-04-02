@@ -17,7 +17,9 @@ import type {
   RunResult,
   SchemaLike,
   ToolConfig,
+  ToolProvider,
 } from "./types.js";
+import { isToolProvider } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // tool() factory
@@ -131,13 +133,19 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   readonly parallelToolExecution: boolean;
   readonly hooks?: Hooks;
 
+  private readonly providers: ToolProvider[];
   private readonly client: OpenResponsesClient;
   private resolvedOutputSchema?: Record<string, unknown>;
 
   constructor(config: AgentConfig<S>) {
     this.name = config.name;
     this.instructions = config.instructions;
-    this.tools = config.tools ?? [];
+
+    // Partition tools and providers
+    const allItems = config.tools ?? [];
+    this.tools = allItems.filter((t): t is AgentTool => !isToolProvider(t));
+    this.providers = allItems.filter(isToolProvider);
+
     this.model = config.model;
     this.outputSchema = config.outputSchema;
     this.temperature = config.temperature;
@@ -175,26 +183,32 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     input: string | ORInputItem[],
     options?: RunOptions,
   ): Promise<RunResult<InferAgentOutput<S>>> {
-    const outputSchema = await this.resolveOutputSchema();
+    const providerTools = await this.activateProviders();
+    try {
+      const outputSchema = await this.resolveOutputSchema();
+      const allTools = [...this.tools, ...providerTools];
 
-    return runLoop(
-      this.client,
-      {
-        name: this.name,
-        instructions: this.instructions,
-        tools: this.tools,
-        model: this.model,
-        outputSchema,
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        maxIterations: this.maxIterations,
-        reasoningEffort: this.reasoningEffort,
-        parallelToolExecution: this.parallelToolExecution,
-        hooks: this.hooks,
-      },
-      input,
-      options,
-    ) as Promise<RunResult<InferAgentOutput<S>>>;
+      return (await runLoop(
+        this.client,
+        {
+          name: this.name,
+          instructions: this.instructions,
+          tools: allTools,
+          model: this.model,
+          outputSchema,
+          temperature: this.temperature,
+          maxTokens: this.maxTokens,
+          maxIterations: this.maxIterations,
+          reasoningEffort: this.reasoningEffort,
+          parallelToolExecution: this.parallelToolExecution,
+          hooks: this.hooks,
+        },
+        input,
+        options,
+      )) as RunResult<InferAgentOutput<S>>;
+    } finally {
+      await this.deactivateProviders();
+    }
   }
 
   /**
@@ -215,26 +229,32 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     input: string | ORInputItem[],
     options?: RunOptions,
   ): AsyncGenerator<import("./types.js").AgentStreamEvent, void, undefined> {
-    const outputSchema = await this.resolveOutputSchema();
+    const providerTools = await this.activateProviders();
+    try {
+      const outputSchema = await this.resolveOutputSchema();
+      const allTools = [...this.tools, ...providerTools];
 
-    yield* streamLoop(
-      this.client,
-      {
-        name: this.name,
-        instructions: this.instructions,
-        tools: this.tools,
-        model: this.model,
-        outputSchema,
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        maxIterations: this.maxIterations,
-        reasoningEffort: this.reasoningEffort,
-        parallelToolExecution: this.parallelToolExecution,
-        hooks: this.hooks,
-      },
-      input,
-      options,
-    );
+      yield* streamLoop(
+        this.client,
+        {
+          name: this.name,
+          instructions: this.instructions,
+          tools: allTools,
+          model: this.model,
+          outputSchema,
+          temperature: this.temperature,
+          maxTokens: this.maxTokens,
+          maxIterations: this.maxIterations,
+          reasoningEffort: this.reasoningEffort,
+          parallelToolExecution: this.parallelToolExecution,
+          hooks: this.hooks,
+        },
+        input,
+        options,
+      );
+    } finally {
+      await this.deactivateProviders();
+    }
   }
 
   /**
@@ -295,6 +315,30 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     });
   }
 
+  /** Activate all tool providers, returning discovered tools. */
+  private async activateProviders(): Promise<AgentTool[]> {
+    if (this.providers.length === 0) return [];
+
+    const providerTools: AgentTool[] = [];
+    for (const provider of this.providers) {
+      try {
+        const tools = await provider.setup();
+        providerTools.push(...tools);
+      } catch (err) {
+        console.warn(
+          `[Agent:${this.name}] MCP provider setup failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+    return providerTools;
+  }
+
+  /** Deactivate all tool providers (disconnect MCP servers, etc.). */
+  private async deactivateProviders(): Promise<void> {
+    if (this.providers.length === 0) return;
+    await Promise.allSettled(this.providers.map((p) => p.teardown()));
+  }
+
   /** Lazily resolve outputSchema from Standard Schema to JSON Schema. */
   private async resolveOutputSchema(): Promise<Record<string, unknown> | undefined> {
     if (!this.outputSchema) return undefined;
@@ -318,8 +362,14 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
 
 export { Conversation } from "./conversation.js";
 export { AbortError, AgentError, MaxIterationsError } from "./errors.js";
+export type {
+  MCPServerConfig,
+  MCPSSEConfig,
+  MCPStdioConfig,
+  MCPStreamableHTTPConfig,
+} from "./mcp/index.js";
+export { MCPToolProvider, mcp } from "./mcp/index.js";
 export { AgentStream } from "./stream.js";
-
 export type {
   AgentConfig,
   AgentEndHookContext,
@@ -369,6 +419,7 @@ export type {
   ToolConfig,
   ToolEndEvent,
   ToolEndHookContext,
+  ToolProvider,
   ToolStartEvent,
   ToolStartHookContext,
 } from "./types.js";
