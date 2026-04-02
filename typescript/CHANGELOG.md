@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-beta.5] - 2026-04-02
+
+### Fixed
+
+- Strip Zod v4 auto-added safe-integer bounds (`minimum`/`maximum`) from `z.number().int()` in JSON Schema output. These bounds caused 400 errors with APIs that reject min/max on integer types (e.g. Anthropic output schemas). User-specified bounds are preserved.
+
 ## [4.0.0-beta.4] - 2026-04-01
 
 ### Added
@@ -48,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.5]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.5
 [4.0.0-beta.4]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.4
 [4.0.0-beta.3]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.3
 [4.0.0-beta.2]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.2
