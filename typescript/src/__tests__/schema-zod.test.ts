@@ -19,6 +19,49 @@ describe("toJsonSchema with Zod", () => {
     expect(props.age.type).toBe("number");
   });
 
+  it("strips Zod auto-added safe-integer bounds from z.number().int()", async () => {
+    const schema = z.object({
+      count: z.number().int(),
+    });
+
+    const result = await toJsonSchema(schema);
+    const props = result.properties as Record<string, Record<string, unknown>>;
+
+    expect(props.count.type).toBe("integer");
+    expect(props.count.minimum).toBeUndefined();
+    expect(props.count.maximum).toBeUndefined();
+  });
+
+  it("preserves user-specified bounds on integer types", async () => {
+    const schema = z.object({
+      age: z.number().int().min(0).max(150),
+    });
+
+    const result = await toJsonSchema(schema);
+    const props = result.properties as Record<string, Record<string, unknown>>;
+
+    expect(props.age.type).toBe("integer");
+    expect(props.age.minimum).toBe(0);
+    expect(props.age.maximum).toBe(150);
+  });
+
+  it("strips safe-integer bounds from nested integer types", async () => {
+    const schema = z.object({
+      items: z.array(z.object({ qty: z.number().int() })),
+    });
+
+    const result = await toJsonSchema(schema);
+    const items = result.properties as Record<string, Record<string, unknown>>;
+    const innerProps = (items.items.items as Record<string, unknown>).properties as Record<
+      string,
+      Record<string, unknown>
+    >;
+
+    expect(innerProps.qty.type).toBe("integer");
+    expect(innerProps.qty.minimum).toBeUndefined();
+    expect(innerProps.qty.maximum).toBeUndefined();
+  });
+
   it("extracts JSON Schema from a Zod array schema", async () => {
     const schema = z.array(z.string());
     const result = await toJsonSchema(schema);

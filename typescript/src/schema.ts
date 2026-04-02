@@ -124,7 +124,9 @@ export async function toJsonSchema(schema: StandardSchemaV1): Promise<Record<str
     try {
       const zod = await import("zod");
       // biome-ignore lint/suspicious/noExplicitAny: Zod's toJSONSchema expects its own schema type
-      return zod.toJSONSchema(schema as any) as Record<string, unknown>;
+      const jsonSchema = zod.toJSONSchema(schema as any) as Record<string, unknown>;
+      stripZodIntegerBounds(jsonSchema);
+      return jsonSchema;
     } catch {
       throw new Error(
         "Zod schema detected but could not import 'zod'. Install zod v4: npm install zod",
@@ -137,4 +139,39 @@ export async function toJsonSchema(schema: StandardSchemaV1): Promise<Record<str
     `Standard Schema vendor "${vendor}" is not yet supported for automatic JSON Schema extraction. ` +
       "Pass output_schema directly, or wrap your JSON Schema with jsonSchema().",
   );
+}
+
+// ---------------------------------------------------------------------------
+// Zod v4 integer bounds cleanup
+// ---------------------------------------------------------------------------
+
+/**
+ * Zod v4's `z.number().int()` emits `{ type: "integer", minimum: MIN_SAFE_INTEGER, maximum: MAX_SAFE_INTEGER }`.
+ * These auto-added bounds are not user-specified and cause 400 errors with APIs that reject
+ * min/max on integer types (e.g. Anthropic output schemas). Strip them only when they exactly
+ * match the JS safe-integer constants, preserving any user-specified bounds.
+ */
+function stripZodIntegerBounds(node: Record<string, unknown>): void {
+  if (
+    node.type === "integer" &&
+    node.minimum === Number.MIN_SAFE_INTEGER &&
+    node.maximum === Number.MAX_SAFE_INTEGER
+  ) {
+    delete node.minimum;
+    delete node.maximum;
+  }
+
+  // Recurse into properties, items, additionalProperties, etc.
+  for (const value of Object.values(node)) {
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      stripZodIntegerBounds(value as Record<string, unknown>);
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "object" && item !== null) {
+          stripZodIntegerBounds(item as Record<string, unknown>);
+        }
+      }
+    }
+  }
 }
