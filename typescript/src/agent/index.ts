@@ -142,6 +142,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   private readonly client: OpenResponsesClient;
   private readonly spansClient?: SpansClient;
   private resolvedOutputSchema?: Record<string, unknown>;
+  private _pendingSpanUpdates: Promise<void>[] = [];
 
   constructor(config: AgentConfig<S>) {
     this.name = config.name;
@@ -183,7 +184,9 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     // Create SpansClient and wrap tools for tracing
     if (this.tracing) {
       this.spansClient = new SpansClient({ apiKey, baseUrl });
-      this.tools = rawTools.map((t) => wrapToolWithTracing(t, this.spansClient!));
+      this.tools = rawTools.map((t) =>
+        wrapToolWithTracing(t, this.spansClient!, this._pendingSpanUpdates),
+      );
     } else {
       this.tools = rawTools;
     }
@@ -223,17 +226,33 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         this.executeRun(input, options, traceContext),
       );
 
-      await this.spansClient.update(span.id, {
-        end_time: new Date().toISOString(),
-        output: typeof result.output === "string" ? result.output : JSON.stringify(result.output),
-      });
+      this._pendingSpanUpdates.push(
+        this.spansClient
+          .update(span.id, {
+            end_time: new Date().toISOString(),
+            output:
+              typeof result.output === "string" ? result.output : JSON.stringify(result.output),
+          })
+          .catch(() => {}),
+      );
+
+      await Promise.allSettled(this._pendingSpanUpdates);
+      this._pendingSpanUpdates = [];
 
       return result;
     } catch (error) {
-      await this.spansClient.update(span.id, {
-        end_time: new Date().toISOString(),
-        error: error instanceof Error ? error.message : String(error),
-      });
+      this._pendingSpanUpdates.push(
+        this.spansClient
+          .update(span.id, {
+            end_time: new Date().toISOString(),
+            error: error instanceof Error ? error.message : String(error),
+          })
+          .catch(() => {}),
+      );
+
+      await Promise.allSettled(this._pendingSpanUpdates);
+      this._pendingSpanUpdates = [];
+
       throw error;
     }
   }
@@ -327,17 +346,28 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
       }
 
       const output = lastResult?.output;
-      await this.spansClient!.update(span.id, {
-        end_time: new Date().toISOString(),
-        ...(output !== undefined
-          ? { output: typeof output === "string" ? output : JSON.stringify(output) }
-          : {}),
-      });
+      this._pendingSpanUpdates.push(
+        this.spansClient!.update(span.id, {
+          end_time: new Date().toISOString(),
+          ...(output !== undefined
+            ? { output: typeof output === "string" ? output : JSON.stringify(output) }
+            : {}),
+        }).catch(() => {}),
+      );
+
+      await Promise.allSettled(this._pendingSpanUpdates);
+      this._pendingSpanUpdates = [];
     } catch (error) {
-      await this.spansClient!.update(span.id, {
-        end_time: new Date().toISOString(),
-        error: error instanceof Error ? error.message : String(error),
-      });
+      this._pendingSpanUpdates.push(
+        this.spansClient!.update(span.id, {
+          end_time: new Date().toISOString(),
+          error: error instanceof Error ? error.message : String(error),
+        }).catch(() => {}),
+      );
+
+      await Promise.allSettled(this._pendingSpanUpdates);
+      this._pendingSpanUpdates = [];
+
       throw error;
     }
   }
@@ -484,7 +514,11 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
 // ---------------------------------------------------------------------------
 
 /** Wrap a tool's execute to create a span and set ALS context during execution. */
-function wrapToolWithTracing(t: AgentTool, spansClient: SpansClient): AgentTool {
+function wrapToolWithTracing(
+  t: AgentTool,
+  spansClient: SpansClient,
+  pendingUpdates: Promise<void>[],
+): AgentTool {
   return {
     ...t,
     execute: async (params: unknown) => {
@@ -514,21 +548,25 @@ function wrapToolWithTracing(t: AgentTool, spansClient: SpansClient): AgentTool 
           () => Promise.resolve(t.execute(params)),
         );
 
-        await spansClient
-          .update(span.id, {
-            end_time: new Date().toISOString(),
-            output: JSON.stringify(result),
-          })
-          .catch(() => {});
+        pendingUpdates.push(
+          spansClient
+            .update(span.id, {
+              end_time: new Date().toISOString(),
+              output: JSON.stringify(result),
+            })
+            .catch(() => {}),
+        );
 
         return result;
       } catch (error) {
-        await spansClient
-          .update(span.id, {
-            end_time: new Date().toISOString(),
-            error: error instanceof Error ? error.message : String(error),
-          })
-          .catch(() => {});
+        pendingUpdates.push(
+          spansClient
+            .update(span.id, {
+              end_time: new Date().toISOString(),
+              error: error instanceof Error ? error.message : String(error),
+            })
+            .catch(() => {}),
+        );
         throw error;
       }
     },
