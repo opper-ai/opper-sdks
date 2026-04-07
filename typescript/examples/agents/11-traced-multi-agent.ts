@@ -1,10 +1,8 @@
-// Traced multi-agent — agents created via opper.agent() get automatic tracing
+// Traced multi-agent — Agent traces automatically, no Opper class needed.
 // All LLM calls, tool executions, and sub-agent runs appear as a trace tree
 // in the Opper dashboard. Use `traceName` to customize how agents appear.
 import { z } from "zod";
-import { Opper, tool } from "../../src/index.js";
-
-const opper = new Opper();
+import { Agent, tool } from "../../src/index.js";
 
 const analyzeMarket = tool({
   name: "analyze_market",
@@ -30,21 +28,21 @@ const analyzeAudience = tool({
 });
 
 // traceName overrides the function name in traces (default is `name`)
-// In the dashboard these show as: agent:editorial/researcher, agent:editorial/writer
-const researcher = opper.agent({
+// In the dashboard these show as: editorial/researcher, editorial/writer
+const researcher = new Agent({
   name: "researcher",
   traceName: "editorial/researcher",
   instructions: "You research markets and audiences. Use your tools, then summarize findings concisely.",
   tools: [analyzeMarket, analyzeAudience],
 });
 
-const writer = opper.agent({
+const writer = new Agent({
   name: "writer",
   traceName: "editorial/writer",
   instructions: "You write marketing copy. Given research, produce a tagline and short description.",
 });
 
-const coordinator = opper.agent({
+const coordinator = new Agent({
   name: "coordinator",
   traceName: "editorial/coordinator",
   instructions: `You coordinate an editorial pipeline:

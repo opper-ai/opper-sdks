@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Agent, Opper, TracedAgent, mergeHooks, tool } from "../index.js";
+import { Agent, Opper, mergeHooks, tool } from "../index.js";
 import type { Hooks, ORResponse } from "../agent/types.js";
 
 // ---------------------------------------------------------------------------
@@ -156,14 +156,15 @@ describe("Agent Tracing", () => {
     vi.restoreAllMocks();
   });
 
-  describe("TracedAgent via opper.agent()", () => {
+  describe("Agent with tracing (default)", () => {
     it("creates a parent span on run and closes it on completion", async () => {
       globalThis.fetch = createMockFetch([makeORResponse("Hello!")]);
 
-      const opper = new Opper({ apiKey: "test-key", baseUrl: "https://api.test.com" });
-      const agent = opper.agent({ name: "test-agent", instructions: "Be helpful." });
-
-      expect(agent).toBeInstanceOf(TracedAgent);
+      const agent = new Agent({
+        name: "test-agent",
+        instructions: "Be helpful.",
+        client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
+      });
 
       const result = await agent.run("Hi");
       expect(result.output).toBe("Hello!");
@@ -184,8 +185,11 @@ describe("Agent Tracing", () => {
     it("sends X-Opper-Parent-Span-Id header on LLM calls", async () => {
       globalThis.fetch = createMockFetch([makeORResponse("Hello!")]);
 
-      const opper = new Opper({ apiKey: "test-key", baseUrl: "https://api.test.com" });
-      const agent = opper.agent({ name: "my-agent", instructions: "Test." });
+      const agent = new Agent({
+        name: "my-agent",
+        instructions: "Test.",
+        client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
+      });
 
       await agent.run("Hi");
 
@@ -211,8 +215,12 @@ describe("Agent Tracing", () => {
         makeORResponse("Greeted Alice!"),
       ]);
 
-      const opper = new Opper({ apiKey: "test-key", baseUrl: "https://api.test.com" });
-      const agent = opper.agent({ name: "greeter", instructions: "Greet.", tools: [greet] });
+      const agent = new Agent({
+        name: "greeter",
+        instructions: "Greet.",
+        tools: [greet],
+        client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
+      });
 
       await agent.run("Greet Alice");
 
@@ -277,8 +285,11 @@ describe("Agent Tracing", () => {
         throw new Error(`Unexpected: ${url}`);
       });
 
-      const opper = new Opper({ apiKey: "test-key", baseUrl: "https://api.test.com" });
-      const agent = opper.agent({ name: "fail-agent", instructions: "Fail." });
+      const agent = new Agent({
+        name: "fail-agent",
+        instructions: "Fail.",
+        client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
+      });
 
       await expect(agent.run("Hi")).rejects.toThrow();
 
@@ -298,11 +309,11 @@ describe("Agent Tracing", () => {
         onAgentEnd: () => { events.push("user:end"); },
       };
 
-      const opper = new Opper({ apiKey: "test-key", baseUrl: "https://api.test.com" });
-      const agent = opper.agent({
+      const agent = new Agent({
         name: "hooked",
         instructions: "Test.",
         hooks: userHooks,
+        client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
       });
 
       await agent.run("Hi");
@@ -317,13 +328,14 @@ describe("Agent Tracing", () => {
     });
   });
 
-  describe("new Agent() (no tracing)", () => {
-    it("does not create spans when using Agent directly", async () => {
+  describe("Agent with tracing: false", () => {
+    it("does not create spans when tracing is disabled", async () => {
       globalThis.fetch = createMockFetch([makeORResponse("Hello!")]);
 
       const agent = new Agent({
         name: "plain",
         instructions: "Test.",
+        tracing: false,
         client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
       });
 
@@ -398,12 +410,10 @@ describe("Agent Tracing", () => {
 
   describe("Sub-agent trace propagation", () => {
     it("sub-agent skips redundant span — LLM calls nest directly under tool span", async () => {
-      const opper = new Opper({ apiKey: "test-key", baseUrl: "https://api.test.com" });
-
-      // Sub-agent is also a TracedAgent (created via opper.agent)
-      const subAgent = opper.agent({
+      const subAgent = new Agent({
         name: "sub",
         instructions: "Sub.",
+        client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
       });
 
       globalThis.fetch = createMockFetch([
@@ -415,10 +425,11 @@ describe("Agent Tracing", () => {
         makeORResponse("Done with sub result"),
       ]);
 
-      const parent = opper.agent({
+      const parent = new Agent({
         name: "parent",
         instructions: "Delegate.",
         tools: [subAgent.asTool({ name: "delegate", description: "Delegate to sub" })],
+        client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
       });
 
       const result = await parent.run("Do the thing");

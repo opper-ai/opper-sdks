@@ -71,6 +71,7 @@ function makeAgent(overrides: Record<string, unknown> = {}) {
   return new Agent({
     name: "test-agent",
     instructions: "You are a helpful assistant.",
+    tracing: false,
     client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
     ...overrides,
   });

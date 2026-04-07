@@ -2,7 +2,7 @@
 // Opper SDK - Main Entry Point
 // =============================================================================
 
-import { type Agent, TracedAgent } from "./agent/index.js";
+import { Agent } from "./agent/index.js";
 import type { AgentConfig, SchemaLike } from "./agent/types.js";
 import { ArtifactsClient } from "./clients/artifacts.js";
 import { EmbeddingsClient } from "./clients/embeddings.js";
@@ -461,11 +461,11 @@ export class Opper {
   }
 
   /**
-   * Create a traced Agent with the client config from this Opper instance.
+   * Create an Agent with the client config from this Opper instance.
    *
-   * The agent inherits the API key and base URL, and automatically creates
-   * trace spans in Opper's observability dashboard. Agent runs, LLM calls,
-   * and tool executions appear as a structured trace tree.
+   * The agent inherits the API key and base URL. Tracing is enabled by
+   * default — agent runs, LLM calls, and tool executions appear as a
+   * structured trace tree in the Opper dashboard.
    *
    * @example
    * ```typescript
@@ -482,10 +482,10 @@ export class Opper {
   agent<S extends SchemaLike | undefined = undefined>(
     config: Omit<AgentConfig<S>, "client">,
   ): Agent<S> {
-    return new TracedAgent<S>(
-      { ...config, client: this.resolvedConfig } as AgentConfig<S>,
-      this.spans,
-    );
+    return new Agent<S>({
+      ...config,
+      client: this.resolvedConfig,
+    } as AgentConfig<S>);
   }
 
   /** Resolve any Standard Schema fields (output_schema, input_schema, tools) to plain JSON Schema. */
@@ -759,6 +759,5 @@ export {
   MCPToolProvider,
   mcp,
   mergeHooks,
-  TracedAgent,
   tool,
 } from "./agent/index.js";

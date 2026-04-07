@@ -247,6 +247,7 @@ describe("Agent with MCP providers", () => {
     const agent = new Agent({
       name: "test-agent",
       instructions: "Test",
+      tracing: false,
       tools: [regularTool, provider],
       client: { apiKey: "test-key" },
     });
@@ -278,6 +279,7 @@ describe("Agent with MCP providers", () => {
     const agent = new Agent({
       name: "test-agent",
       instructions: "Test",
+      tracing: false,
       tools: [fakeProvider],
       client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
     });
@@ -309,6 +311,7 @@ describe("Agent with MCP providers", () => {
     const agent = new Agent({
       name: "test-agent",
       instructions: "Test",
+      tracing: false,
       tools: [fakeProvider],
       client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
     });
@@ -335,6 +338,7 @@ describe("Agent with MCP providers", () => {
     const agent = new Agent({
       name: "test-agent",
       instructions: "Test",
+      tracing: false,
       tools: [regularTool, failingProvider],
       client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
     });
@@ -373,6 +377,7 @@ describe("Agent with MCP providers", () => {
     const agent = new Agent({
       name: "test-agent",
       instructions: "Test",
+      tracing: false,
       tools: [fakeProvider],
       client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
     });
@@ -418,6 +423,7 @@ describe("Agent with MCP providers", () => {
     const agent = new Agent({
       name: "test-agent",
       instructions: "Test",
+      tracing: false,
       tools: [fakeProvider],
       client: { apiKey: "test-key", baseUrl: "https://api.test.com" },
     });

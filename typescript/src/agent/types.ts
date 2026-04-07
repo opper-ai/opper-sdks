@@ -341,8 +341,10 @@ export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | und
   reasoningEffort?: "low" | "medium" | "high";
   parallelToolExecution?: boolean;
   hooks?: Hooks;
-  /** Override the function name used for tracing. Defaults to `name`. Sent as `agent:{traceName}`. */
+  /** Override the function name used for tracing. Defaults to `name`. */
   traceName?: string;
+  /** Enable/disable tracing. Defaults to `true`. Set to `false` to skip span creation. */
+  tracing?: boolean;
   client?: { apiKey?: string; baseUrl?: string };
 }
 
