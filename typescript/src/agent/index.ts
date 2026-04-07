@@ -218,8 +218,9 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     });
 
     try {
-      const result = await runWithTraceContext({ spanId: span.id, traceId: span.trace_id }, () =>
-        this.executeRun(input, options),
+      const traceContext = { spanId: span.id, traceId: span.trace_id };
+      const result = await runWithTraceContext(traceContext, () =>
+        this.executeRun(input, options, traceContext),
       );
 
       await this.spansClient.update(span.id, {
@@ -241,6 +242,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   private async executeRun(
     input: string | ORInputItem[],
     options?: RunOptions,
+    traceContext?: { spanId: string; traceId: string },
   ): Promise<RunResult<InferAgentOutput<S>>> {
     const providerTools = await this.activateProviders();
     try {
@@ -262,6 +264,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
           reasoningEffort: this.reasoningEffort,
           parallelToolExecution: this.parallelToolExecution,
           hooks: this.hooks,
+          traceContext,
         },
         input,
         options,
@@ -295,9 +298,10 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   ): AsyncGenerator<AgentStreamEvent, void, undefined> {
     const parentCtx = getTraceContext();
 
-    // Sub-agent called from a tool span — skip redundant agent span
+    // Sub-agent called from a tool span — skip redundant agent span,
+    // but pass the parent context explicitly (ALS unreliable in generators)
     if (parentCtx?.isToolSpan) {
-      yield* this.executeStream(input, options);
+      yield* this.executeStream(input, options, parentCtx);
       return;
     }
 
@@ -308,17 +312,14 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
       ...(parentCtx ? { trace_id: parentCtx.traceId, parent_id: parentCtx.spanId } : {}),
     });
 
-    try {
-      // Execute the stream within ALS context so every LLM call gets tracing headers.
-      // We yield from a nested generator that runs inside runWithTraceContext.
-      const tracedStream = runWithTraceContext(
-        { spanId: span.id, traceId: span.trace_id },
-        () => this.executeStream(input, options),
-      );
+    // Pass trace context explicitly — ALS doesn't propagate reliably through
+    // async generator yield points in Node.js.
+    const traceContext = { spanId: span.id, traceId: span.trace_id };
 
+    try {
       let lastResult: RunResult<InferAgentOutput<S>> | undefined;
 
-      for await (const event of tracedStream) {
+      for await (const event of this.executeStream(input, options, traceContext)) {
         if (event.type === "result") {
           lastResult = event as unknown as RunResult<InferAgentOutput<S>>;
         }
@@ -345,6 +346,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   private async *executeStream(
     input: string | ORInputItem[],
     options?: RunOptions,
+    traceContext?: { spanId: string; traceId: string },
   ): AsyncGenerator<AgentStreamEvent, void, undefined> {
     const providerTools = await this.activateProviders();
     try {
@@ -366,6 +368,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
           reasoningEffort: this.reasoningEffort,
           parallelToolExecution: this.parallelToolExecution,
           hooks: this.hooks,
+          traceContext,
         },
         input,
         options,

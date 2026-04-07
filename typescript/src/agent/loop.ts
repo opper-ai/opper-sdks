@@ -3,7 +3,7 @@
 // =============================================================================
 
 import type { OpenResponsesClient } from "../clients/openresponses.js";
-import { getTraceContext } from "../context.js";
+import { getTraceContext, runWithTraceContext } from "../context.js";
 import type { RequestOptions } from "../types.js";
 import { AbortError, AgentError, MaxIterationsError } from "./errors.js";
 import { dispatchHook } from "./hooks.js";
@@ -43,6 +43,8 @@ interface LoopConfig {
   reasoningEffort?: "low" | "medium" | "high";
   parallelToolExecution: boolean;
   hooks?: Hooks;
+  /** Explicit trace context — used when ALS propagation isn't reliable (e.g. streaming). */
+  traceContext?: { spanId: string; traceId: string };
 }
 
 // ---------------------------------------------------------------------------
@@ -189,12 +191,13 @@ function parseOutput(text: string | undefined, outputSchema?: Record<string, unk
   return text;
 }
 
-/** Merge tracing headers from ALS context into request options. */
+/** Merge tracing headers into request options. Uses explicit context first, ALS fallback. */
 function withTracingHeaders(
   traceName: string,
+  traceContext: { spanId: string; traceId: string } | undefined,
   options?: RequestOptions,
 ): RequestOptions | undefined {
-  const ctx = getTraceContext();
+  const ctx = traceContext ?? getTraceContext();
   if (!ctx) return options;
   return {
     ...options,
@@ -239,6 +242,7 @@ async function executeToolsWithHooks(
   hooks: Hooks | undefined,
   agent: string,
   iteration: number,
+  traceContext?: { spanId: string; traceId: string },
 ): Promise<ToolCallRecord[]> {
   const run = async (fc: ORFunctionCallOutputItemResponse): Promise<ToolCallRecord> => {
     let parsed: unknown;
@@ -256,7 +260,13 @@ async function executeToolsWithHooks(
       input: parsed,
     });
 
-    const record = await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments);
+    // Set ALS context for tool execution so wrapToolWithTracing can create child spans.
+    // Needed for streaming where ALS doesn't propagate through async generators.
+    const record = traceContext
+      ? await runWithTraceContext(traceContext, () =>
+          executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments),
+        )
+      : await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments);
 
     await dispatchHook(hooks, "onToolEnd", {
       agent,
@@ -328,7 +338,7 @@ export async function runLoop(
       try {
         response = await client.create(
           request,
-          withTracingHeaders(config.traceName, options?.requestOptions),
+          withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
         );
       } catch (err) {
         if (options?.signal?.aborted) throw new AbortError();
@@ -370,6 +380,7 @@ export async function runLoop(
         hooks,
         config.name,
         iteration,
+        config.traceContext,
       );
       allToolCalls.push(...toolRecords);
       appendToolResults(items, functionCalls, toolRecords);
@@ -526,7 +537,7 @@ export async function* streamLoop(
       try {
         sseStream = client.createStream(
           request,
-          withTracingHeaders(config.traceName, options?.requestOptions),
+          withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
         );
       } catch (err) {
         if (options?.signal?.aborted) throw new AbortError();
@@ -616,7 +627,11 @@ export async function* streamLoop(
 
         yield { type: "tool_start", name: fc.name, callId: fc.call_id, input: parsed };
 
-        const record = await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments);
+        const record = config.traceContext
+          ? await runWithTraceContext(config.traceContext, () =>
+              executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments),
+            )
+          : await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments);
         toolRecords.push(record);
 
         await dispatchHook(hooks, "onToolEnd", {
