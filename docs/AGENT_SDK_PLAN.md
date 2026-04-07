@@ -171,7 +171,7 @@ typescript/src/
 - [x] `agent.asTool(name, description)` — wraps agent as a tool
 - [x] Usage aggregation: sub-agent result includes output, usage, iterations, toolCalls
 - [x] Tests: asTool creates valid tool, parent-child delegation, usage in output, error handling, hooks on both agents (6 tests passing)
-- [ ] Trace propagation: parent span ID flows to sub-agent (deferred — can be added via hooks)
+- [x] Trace propagation: parent span ID flows to sub-agent via ALS context
 
 **Files:** `agent/index.ts` (asTool method)
 **Tests:** `__tests__/agent-multi.test.ts`
@@ -208,7 +208,7 @@ typescript/src/
 - [x] Export all agent types from `index.ts`
 - [x] Standalone `Agent` usage (reads `OPPER_API_KEY` from env)
 - [x] Update all examples to import from package root
-- [ ] Integration test with live API (skipped without key)
+- [x] Integration test with live API (skipped without key)
 
 **Files:** `index.ts`
 **Tests:** existing tests still pass + integration test
@@ -237,12 +237,12 @@ The server handles span creation automatically when these headers are present. T
 
 **Implementation via hooks:** `createTracingHooks(spansClient)` factory returns a `Hooks` object. The loop passes headers through `RequestOptions`. Zero changes to the loop itself.
 
-- [ ] Pass `X-Opper-Parent-Span-Id` and `X-Opper-Name` headers on LLM calls via `onLLMCall` hook or loop config
-- [ ] Parent execution span created on `onAgentStart`, closed on `onAgentEnd`
-- [ ] Tool spans as children via `SpansClient` (`onToolStart` / `onToolEnd`)
-- [ ] Queued span updates flushed via `Promise.allSettled()` in `onAgentEnd`
-- [ ] Sub-agent trace propagation — `asTool` passes parent span ID to child agent
-- [ ] `opper.agent(config)` auto-injects tracing hooks
+- [x] Pass `X-Opper-Parent-Span-Id` and `X-Opper-Name` headers on LLM calls via loop config
+- [x] Parent execution span created in `run()`/`stream()`, closed after completion
+- [x] Tool spans as children via `wrapToolWithTracing` + `SpansClient`
+- [x] Queued span updates flushed via `Promise.allSettled()` before returning
+- [x] Sub-agent trace propagation — ALS context flows through `asTool` + `wrapToolWithTracing`
+- [x] Standalone `Agent` auto-creates `SpansClient` when `tracing: true` (default)
 
 **Key reuse:**
 - `SpansClient` (`clients/spans.ts`) — span CRUD for tool + agent lifecycle spans
@@ -283,13 +283,13 @@ The server handles span creation automatically when these headers are present. T
 
 **Implementation:**
 
-- [ ] Add `RetryPolicy` config: `{ maxRetries: 3, backoffMs: 1000, backoffMultiplier: 2 }`
-- [ ] Wrap LLM calls in retry logic with backoff for transient failures (5xx, timeouts, rate limits)
-- [ ] On exhausted retries, inject a developer message into items: `"The server returned an error: {details}. Adjust your approach or inform the user."`
-- [ ] Handle `response.error` by injecting it as context instead of throwing
-- [ ] Handle stream `error` events the same way
-- [ ] Add `onMaxIterations` option: `"throw"` (default, current behavior) or `"return_partial"` (return best output so far)
-- [ ] Add `onError` hook for user observability of recovered errors
+- [x] Add `RetryPolicy` config: `{ maxRetries, initialDelayMs, backoffMultiplier }` — opt-in via `retry` field
+- [x] Wrap LLM calls in retry logic with backoff for transient failures (5xx, 429, network errors)
+- [x] On exhausted retries, inject a developer message into items as context for the model
+- [x] Handle `response.error` by injecting it as context instead of throwing (when `retry` enabled)
+- [x] Handle stream errors the same way — buffer events, retry on failure, inject on exhaustion
+- [x] Add `onMaxIterations` option: `"throw"` (default) or `"return_partial"` (return best output so far)
+- [x] Add `onError` hook for user observability of recovered errors (fires on retry and final injection)
 - [ ] Context compaction strategy (stretch goal): when token limit is hit, summarize older turns and retry
 
 **What stays fatal (always throws):**

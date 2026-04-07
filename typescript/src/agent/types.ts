@@ -328,6 +328,16 @@ export function isToolProvider(t: AgentTool | ToolProvider): t is ToolProvider {
   return "type" in t && (t as ToolProvider).type === "tool_provider";
 }
 
+/** Retry policy for transient LLM call failures. */
+export interface RetryPolicy {
+  /** Maximum number of retries before giving up. Default: 2 */
+  maxRetries?: number;
+  /** Initial delay in milliseconds before the first retry. Default: 1000 */
+  initialDelayMs?: number;
+  /** Multiplier applied to the delay after each retry. Default: 2 */
+  backoffMultiplier?: number;
+}
+
 /** Configuration for creating an Agent — with Standard Schema output type inference. */
 export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | undefined> {
   name: string;
@@ -346,6 +356,10 @@ export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | und
   /** Enable/disable tracing. Defaults to `true`. Set to `false` to skip span creation. */
   tracing?: boolean;
   client?: { apiKey?: string; baseUrl?: string };
+  /** Retry policy for transient LLM call failures (5xx, rate limits, network errors). */
+  retry?: RetryPolicy;
+  /** Behavior when max iterations is reached. `"throw"` (default) or `"return_partial"`. */
+  onMaxIterations?: "throw" | "return_partial";
 }
 
 /**
@@ -417,6 +431,13 @@ export interface ToolEndHookContext extends HookContextBase {
   durationMs: number;
 }
 
+/** Context for onError — fired when a recoverable error occurs and is injected as context. */
+export interface ErrorHookContext extends HookContextBase {
+  iteration: number;
+  error: Error;
+  willRetry: boolean;
+}
+
 /** Lifecycle hooks for observing and reacting to agent execution. */
 export interface Hooks {
   onAgentStart?: (ctx: AgentStartHookContext) => void | Promise<void>;
@@ -427,6 +448,8 @@ export interface Hooks {
   onLLMResponse?: (ctx: LLMResponseHookContext) => void | Promise<void>;
   onToolStart?: (ctx: ToolStartHookContext) => void | Promise<void>;
   onToolEnd?: (ctx: ToolEndHookContext) => void | Promise<void>;
+  /** Fired when a recoverable error occurs (transient LLM failure, server error in response). */
+  onError?: (ctx: ErrorHookContext) => void | Promise<void>;
 }
 
 /** Per-run option overrides. */

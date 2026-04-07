@@ -16,6 +16,7 @@ import type {
   Hooks,
   InferAgentOutput,
   ORInputItem,
+  RetryPolicy,
   RunOptions,
   RunResult,
   SchemaLike,
@@ -137,6 +138,8 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   readonly hooks?: Hooks;
   readonly traceName: string;
   readonly tracing: boolean;
+  readonly retry?: RetryPolicy;
+  readonly onMaxIterations?: "throw" | "return_partial";
 
   private readonly providers: ToolProvider[];
   private readonly client: OpenResponsesClient;
@@ -163,6 +166,8 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     this.parallelToolExecution = config.parallelToolExecution ?? true;
     this.hooks = config.hooks;
     this.traceName = config.traceName ?? config.name;
+    this.retry = config.retry;
+    this.onMaxIterations = config.onMaxIterations;
 
     // Create clients
     const apiKey =
@@ -284,6 +289,8 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
           parallelToolExecution: this.parallelToolExecution,
           hooks: this.hooks,
           traceContext,
+          retry: this.retry,
+          onMaxIterations: this.onMaxIterations,
         },
         input,
         options,
@@ -399,6 +406,8 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
           parallelToolExecution: this.parallelToolExecution,
           hooks: this.hooks,
           traceContext,
+          retry: this.retry,
+          onMaxIterations: this.onMaxIterations,
         },
         input,
         options,
@@ -595,6 +604,7 @@ export type {
   AgentStreamEvent,
   AgentTool,
   AggregatedUsage,
+  ErrorHookContext,
   Hooks,
   InferAgentOutput,
   IterationEndEvent,
@@ -627,6 +637,7 @@ export type {
   ORTool,
   ORUsage,
   ResultEvent,
+  RetryPolicy,
   RunMeta,
   RunOptions,
   RunResult,

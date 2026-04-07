@@ -4,7 +4,12 @@
 
 import type { OpenResponsesClient } from "../clients/openresponses.js";
 import { getTraceContext, runWithTraceContext } from "../context.js";
-import type { RequestOptions } from "../types.js";
+import {
+  AuthenticationError,
+  InternalServerError,
+  RateLimitError,
+  type RequestOptions,
+} from "../types.js";
 import { AbortError, AgentError, MaxIterationsError } from "./errors.js";
 import { dispatchHook } from "./hooks.js";
 import { resolveToolSchema } from "./index.js";
@@ -21,6 +26,7 @@ import type {
   ORStreamEvent,
   ORTool,
   ORUsage,
+  RetryPolicy,
   RunOptions,
   RunResult,
   ToolCallRecord,
@@ -45,6 +51,10 @@ interface LoopConfig {
   hooks?: Hooks;
   /** Explicit trace context — used when ALS propagation isn't reliable (e.g. streaming). */
   traceContext?: { spanId: string; traceId: string };
+  /** Retry policy for transient LLM call failures. */
+  retry?: RetryPolicy;
+  /** Behavior when max iterations is reached. */
+  onMaxIterations?: "throw" | "return_partial";
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +105,83 @@ function addUsage(agg: AggregatedUsage, usage?: ORUsage): void {
     agg.reasoningTokens = (agg.reasoningTokens ?? 0) + usage.output_tokens_details.reasoning_tokens;
   }
 }
+
+// ---------------------------------------------------------------------------
+// Error recovery helpers
+// ---------------------------------------------------------------------------
+
+const DEFAULT_RETRY: Required<RetryPolicy> = {
+  maxRetries: 2,
+  initialDelayMs: 1000,
+  backoffMultiplier: 2,
+};
+
+/** Returns true if the error is transient and worth retrying (5xx, 429, network). */
+function isRetryable(err: unknown): boolean {
+  if (err instanceof AuthenticationError) return false;
+  if (err instanceof RateLimitError) return true;
+  if (err instanceof InternalServerError) return true;
+  // Network errors (fetch failures) surface as TypeError
+  if (err instanceof TypeError) return true;
+  return false;
+}
+
+/** Returns true if the error is fatal and should never be recovered. */
+function isFatal(err: unknown): boolean {
+  if (err instanceof AbortError) return true;
+  if (err instanceof AuthenticationError) return true;
+  return false;
+}
+
+/** Retry an async operation with exponential backoff for retryable errors. */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  policy: RetryPolicy,
+  hooks: Hooks | undefined,
+  agentName: string,
+  iteration: number,
+  signal?: AbortSignal,
+): Promise<T> {
+  const { maxRetries, initialDelayMs, backoffMultiplier } = {
+    ...DEFAULT_RETRY,
+    ...policy,
+  };
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (signal?.aborted) throw new AbortError();
+      if (!isRetryable(err) || attempt === maxRetries) throw err;
+
+      await dispatchHook(hooks, "onError", {
+        agent: agentName,
+        iteration,
+        error: err instanceof Error ? err : new Error(String(err)),
+        willRetry: true,
+      });
+
+      const delay = initialDelayMs * backoffMultiplier ** attempt;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
+/** Create a system message to inject a recovered error into the conversation. */
+function errorToItem(message: string): ORInputItem {
+  return {
+    type: "message",
+    role: "system",
+    content: `[Error] ${message} — adjust your approach or inform the user.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tool execution
+// ---------------------------------------------------------------------------
 
 /** Execute a single tool call, returning a ToolCallRecord. */
 async function executeTool(
@@ -335,14 +422,44 @@ export async function runLoop(
       await dispatchHook(hooks, "onLLMCall", { agent: config.name, iteration, request });
 
       let response: ORResponse;
-      try {
-        response = await client.create(
-          request,
-          withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
-        );
-      } catch (err) {
-        if (options?.signal?.aborted) throw new AbortError();
-        throw new AgentError("Server call failed", err);
+      if (config.retry) {
+        // Error recovery enabled — retry transient failures, inject errors as context
+        try {
+          response = await withRetry(
+            () =>
+              client.create(
+                request,
+                withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
+              ),
+            config.retry,
+            hooks,
+            config.name,
+            iteration,
+            options?.signal,
+          );
+        } catch (err) {
+          if (isFatal(err)) throw err;
+          const wrapped = err instanceof Error ? err : new Error(String(err));
+          await dispatchHook(hooks, "onError", {
+            agent: config.name,
+            iteration,
+            error: wrapped,
+            willRetry: false,
+          });
+          items.push(errorToItem(wrapped.message));
+          continue;
+        }
+      } else {
+        // No retry — legacy behavior, throw immediately
+        try {
+          response = await client.create(
+            request,
+            withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
+          );
+        } catch (err) {
+          if (options?.signal?.aborted) throw new AbortError();
+          throw new AgentError("Server call failed", err);
+        }
       }
 
       await dispatchHook(hooks, "onLLMResponse", { agent: config.name, iteration, response });
@@ -351,6 +468,17 @@ export async function runLoop(
       responseId = response.id;
 
       if (response.error) {
+        if (config.retry) {
+          const err = new AgentError(`Server error: ${response.error.message}`);
+          await dispatchHook(hooks, "onError", {
+            agent: config.name,
+            iteration,
+            error: err,
+            willRetry: false,
+          });
+          items.push(errorToItem(response.error.message));
+          continue;
+        }
         throw new AgentError(`Server error: ${response.error.message}`);
       }
 
@@ -391,6 +519,16 @@ export async function runLoop(
         iteration,
         usage: { ...usage },
       });
+    }
+
+    if (config.onMaxIterations === "return_partial") {
+      const output = parseOutput(lastOutput as string | undefined, config.outputSchema);
+      const result: RunResult = {
+        output,
+        meta: { usage, iterations: maxIterations, toolCalls: allToolCalls, responseId },
+      };
+      await dispatchHook(hooks, "onAgentEnd", { agent: config.name, result });
+      return result;
     }
 
     throw new MaxIterationsError(maxIterations, lastOutput, allToolCalls);
@@ -532,36 +670,92 @@ export async function* streamLoop(
 
       await dispatchHook(hooks, "onLLMCall", { agent: config.name, iteration, request });
 
-      // Stream the response
-      let sseStream: AsyncGenerator<ORStreamEvent, void, undefined>;
-      try {
-        sseStream = client.createStream(
-          request,
-          withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
-        );
-      } catch (err) {
-        if (options?.signal?.aborted) throw new AbortError();
-        throw new AgentError("Server call failed", err);
-      }
+      let response: ORResponse | undefined;
+      let functionCalls: ORFunctionCallOutputItemResponse[];
+      let streamRecovered = false;
 
-      // Consume SSE events — yields text_delta events, accumulates tool calls
-      const consumer = consumeStream(sseStream);
-      let consumerResult: IteratorResult<
-        AgentStreamEvent,
-        {
-          response: ORResponse | undefined;
-          functionCalls: ORFunctionCallOutputItemResponse[];
+      if (config.retry) {
+        // Error recovery enabled — retry transient failures, buffer events until success
+        try {
+          const streamResult = await withRetry(
+            async () => {
+              const sseStream = client.createStream(
+                request,
+                withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
+              );
+              const events: AgentStreamEvent[] = [];
+              const consumer = consumeStream(sseStream);
+              let consumerResult: IteratorResult<
+                AgentStreamEvent,
+                {
+                  response: ORResponse | undefined;
+                  functionCalls: ORFunctionCallOutputItemResponse[];
+                }
+              >;
+              while (true) {
+                consumerResult = await consumer.next();
+                if (consumerResult.done) break;
+                events.push(consumerResult.value);
+              }
+              return { events, ...consumerResult.value };
+            },
+            config.retry,
+            hooks,
+            config.name,
+            iteration,
+            options?.signal,
+          );
+
+          for (const event of streamResult.events) {
+            yield event;
+          }
+          response = streamResult.response;
+          functionCalls = streamResult.functionCalls;
+        } catch (err) {
+          if (isFatal(err)) throw err;
+          const wrapped = err instanceof Error ? err : new Error(String(err));
+          await dispatchHook(hooks, "onError", {
+            agent: config.name,
+            iteration,
+            error: wrapped,
+            willRetry: false,
+          });
+          items.push(errorToItem(wrapped.message));
+          streamRecovered = true;
+          functionCalls = [];
         }
-      >;
+      } else {
+        // No retry — legacy behavior, stream events directly
+        let sseStream: AsyncGenerator<ORStreamEvent, void, undefined>;
+        try {
+          sseStream = client.createStream(
+            request,
+            withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
+          );
+        } catch (err) {
+          if (options?.signal?.aborted) throw new AbortError();
+          throw new AgentError("Server call failed", err);
+        }
 
-      // Forward all yielded events and get the return value
-      while (true) {
-        consumerResult = await consumer.next();
-        if (consumerResult.done) break;
-        yield consumerResult.value;
+        const consumer = consumeStream(sseStream);
+        let consumerResult: IteratorResult<
+          AgentStreamEvent,
+          {
+            response: ORResponse | undefined;
+            functionCalls: ORFunctionCallOutputItemResponse[];
+          }
+        >;
+        while (true) {
+          consumerResult = await consumer.next();
+          if (consumerResult.done) break;
+          yield consumerResult.value;
+        }
+
+        response = consumerResult.value.response;
+        functionCalls = consumerResult.value.functionCalls;
       }
 
-      const { response, functionCalls } = consumerResult.value;
+      if (streamRecovered) continue;
 
       if (response) {
         await dispatchHook(hooks, "onLLMResponse", { agent: config.name, iteration, response });
@@ -577,6 +771,17 @@ export async function* streamLoop(
 
       // Check for server error
       if (response?.error) {
+        if (config.retry) {
+          const err = new AgentError(`Server error: ${response.error.message}`);
+          await dispatchHook(hooks, "onError", {
+            agent: config.name,
+            iteration,
+            error: err,
+            willRetry: false,
+          });
+          items.push(errorToItem(response.error.message));
+          continue;
+        }
         throw new AgentError(`Server error: ${response.error.message}`);
       }
 
@@ -689,6 +894,16 @@ export async function* streamLoop(
       });
 
       yield { type: "iteration_end", iteration, usage: { ...usage } };
+    }
+
+    if (config.onMaxIterations === "return_partial") {
+      const result: RunResult = {
+        output: undefined,
+        meta: { usage, iterations: maxIterations, toolCalls: allToolCalls, responseId },
+      };
+      await dispatchHook(hooks, "onAgentEnd", { agent: config.name, result });
+      yield { type: "result", output: undefined, meta: result.meta };
+      return;
     }
 
     throw new MaxIterationsError(maxIterations, undefined, allToolCalls);
