@@ -256,6 +256,53 @@ The server handles span creation automatically when these headers are present. T
 
 ---
 
+### Phase 11: Error Recovery — Resilient Agent Loop
+**Goal:** The agent loop never crashes from recoverable errors. Instead, errors are fed back to the model as context so it can decide how to proceed — retry, try an alternative, or gracefully explain the failure.
+
+**Current behavior:** Tool execution errors are already caught and serialized as `function_call_output` (the model sees them and adapts). But these errors crash the loop immediately:
+- LLM call failures (network timeout, 5xx, rate limit) → `AgentError`
+- Server-reported errors (`response.error`) → `AgentError`
+- Stream errors (`error` SSE event) → `AgentError`
+- Max iterations → `MaxIterationsError`
+
+**Design:** Wrap each error source in a recovery handler. Recoverable errors are injected into the items array as a system/developer message describing the failure, and the loop continues. Unrecoverable errors (e.g. auth failure, abort signal) still throw immediately.
+
+**Error categories and recovery strategy:**
+
+| Error | Recoverable? | Recovery |
+|---|---|---|
+| LLM call: network timeout / 5xx | Yes | Retry with exponential backoff (max 3), then inject error message |
+| LLM call: rate limit (429) | Yes | Wait for `Retry-After` header, then retry |
+| LLM call: auth (401/403) | No | Throw immediately — nothing the model can do |
+| Server `response.error` | Yes | Inject error message, let model adapt |
+| Stream `error` event | Yes | Inject error message, continue loop |
+| Context too long (token limit) | Yes | Auto-compact: summarize older items, retry |
+| Max output tokens hit | Yes | Yield partial output, continue with follow-up |
+| Max iterations | Configurable | New option: `onMaxIterations: "throw" | "return_partial"` (default: `"throw"`) |
+| Abort signal | No | Throw `AbortError` immediately |
+
+**Implementation:**
+
+- [ ] Add `RetryPolicy` config: `{ maxRetries: 3, backoffMs: 1000, backoffMultiplier: 2 }`
+- [ ] Wrap LLM calls in retry logic with backoff for transient failures (5xx, timeouts, rate limits)
+- [ ] On exhausted retries, inject a developer message into items: `"The server returned an error: {details}. Adjust your approach or inform the user."`
+- [ ] Handle `response.error` by injecting it as context instead of throwing
+- [ ] Handle stream `error` events the same way
+- [ ] Add `onMaxIterations` option: `"throw"` (default, current behavior) or `"return_partial"` (return best output so far)
+- [ ] Add `onError` hook for user observability of recovered errors
+- [ ] Context compaction strategy (stretch goal): when token limit is hit, summarize older turns and retry
+
+**What stays fatal (always throws):**
+- Authentication failures (401/403) — no recovery possible
+- `AbortSignal` — user explicitly cancelled
+- Malformed responses that can't be parsed at all
+
+**Files:** updates to `agent/loop.ts`, `agent/types.ts` (new config options), `agent/errors.ts`
+**Tests:** `__tests__/agent-recovery.test.ts`
+**Verify:** `npm test`, manual test with simulated failures
+
+---
+
 ## Spec Update
 
 - [x] Update `typescript/SPEC.md` — OpenResponses architecture throughout
@@ -298,9 +345,7 @@ These are patterns identified from studying production agentic systems (see [AGE
 - No change to existing tools — metadata is purely additive
 
 ### Error Recovery Loop
-- Structured recovery in `runLoop()` / `streamLoop()`: context too long → auto-compact → retry; max output tokens → yield partial → continue
-- Feed errors back to model as information instead of crashing the loop
-- Keeps long-running agents resilient
+→ Promoted to **Phase 11** (see above)
 
 ### Deferred / Lazy Tool Loading
 - For agents with many tools (especially MCP), avoid bloating the prompt with all schemas

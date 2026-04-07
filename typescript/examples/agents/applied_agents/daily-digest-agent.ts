@@ -24,7 +24,7 @@
 
 import { z } from "zod";
 import { Agent, mcp } from "../../../src/index.js";
-import type { MCPStreamableHTTPConfig } from "../../../src/index.js";
+import type { Hooks, MCPStreamableHTTPConfig } from "../../../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
@@ -167,6 +167,31 @@ if (isWeekendPrep) {
   tools.push(SearchMCP);
 }
 
+const hooks: Hooks = {
+  onIterationStart: ({ iteration }) => {
+    console.log(`\n--- Iteration ${iteration} ---`);
+  },
+  onToolStart: ({ name, input }) => {
+    const preview = JSON.stringify(input).slice(0, 120);
+    console.log(`  → ${name}(${preview}${JSON.stringify(input).length > 120 ? "..." : ""})`);
+  },
+  onToolEnd: ({ name, output, error, durationMs }) => {
+    if (error) {
+      console.log(`  ✗ ${name} failed (${durationMs}ms): ${error}`);
+    } else {
+      const preview = JSON.stringify(output).slice(0, 150);
+      console.log(`  ← ${name} (${durationMs}ms): ${preview}${JSON.stringify(output).length > 150 ? "..." : ""}`);
+    }
+  },
+  onAgentEnd: ({ result, error }) => {
+    if (error) {
+      console.log(`\n✗ Agent failed: ${error.message}`);
+    } else if (result) {
+      console.log(`\n✓ Agent completed in ${result.meta.iterations} iteration(s)`);
+    }
+  },
+};
+
 const agent = new Agent({
   name: "daily-digest",
   instructions,
@@ -174,6 +199,7 @@ const agent = new Agent({
   model: "anthropic/claude-sonnet-4-6",
   tools,
   maxIterations: 30,
+  hooks,
 });
 
 // ---------------------------------------------------------------------------
