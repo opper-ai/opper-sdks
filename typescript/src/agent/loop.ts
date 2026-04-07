@@ -3,6 +3,8 @@
 // =============================================================================
 
 import type { OpenResponsesClient } from "../clients/openresponses.js";
+import { getTraceContext } from "../context.js";
+import type { RequestOptions } from "../types.js";
 import { AbortError, AgentError, MaxIterationsError } from "./errors.js";
 import { dispatchHook } from "./hooks.js";
 import { resolveToolSchema } from "./index.js";
@@ -30,6 +32,7 @@ import type {
 
 interface LoopConfig {
   name: string;
+  traceName: string;
   instructions: string;
   tools: AgentTool[];
   model?: string;
@@ -186,6 +189,23 @@ function parseOutput(text: string | undefined, outputSchema?: Record<string, unk
   return text;
 }
 
+/** Merge tracing headers from ALS context into request options. */
+function withTracingHeaders(
+  traceName: string,
+  options?: RequestOptions,
+): RequestOptions | undefined {
+  const ctx = getTraceContext();
+  if (!ctx) return options;
+  return {
+    ...options,
+    headers: {
+      ...options?.headers,
+      "X-Opper-Parent-Span-Id": ctx.spanId,
+      "X-Opper-Name": traceName,
+    },
+  };
+}
+
 /** Append function calls and their results to the items array. */
 function appendToolResults(
   items: ORInputItem[],
@@ -306,7 +326,10 @@ export async function runLoop(
 
       let response: ORResponse;
       try {
-        response = await client.create(request, options?.requestOptions);
+        response = await client.create(
+          request,
+          withTracingHeaders(config.traceName, options?.requestOptions),
+        );
       } catch (err) {
         if (options?.signal?.aborted) throw new AbortError();
         throw new AgentError("Server call failed", err);
@@ -501,7 +524,10 @@ export async function* streamLoop(
       // Stream the response
       let sseStream: AsyncGenerator<ORStreamEvent, void, undefined>;
       try {
-        sseStream = client.createStream(request, options?.requestOptions);
+        sseStream = client.createStream(
+          request,
+          withTracingHeaders(config.traceName, options?.requestOptions),
+        );
       } catch (err) {
         if (options?.signal?.aborted) throw new AbortError();
         throw new AgentError("Server call failed", err);

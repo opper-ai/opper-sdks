@@ -3,12 +3,17 @@
 // =============================================================================
 
 import { OpenResponsesClient } from "../clients/openresponses.js";
+import type { SpansClient } from "../clients/spans.js";
+import { getTraceContext, runWithTraceContext } from "../context.js";
 import { isStandardSchema, resolveSchema } from "../schema.js";
 import { Conversation } from "./conversation.js";
 import { runLoop, streamLoop } from "./loop.js";
 import { AgentStream } from "./stream.js";
+// Re-exported below; not used directly in this file
+// import { createToolTracingHooks, mergeHooks } from "./tracing.js";
 import type {
   AgentConfig,
+  AgentStreamEvent,
   AgentTool,
   Hooks,
   InferAgentOutput,
@@ -132,6 +137,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   readonly reasoningEffort?: "low" | "medium" | "high";
   readonly parallelToolExecution: boolean;
   readonly hooks?: Hooks;
+  readonly traceName: string;
 
   private readonly providers: ToolProvider[];
   private readonly client: OpenResponsesClient;
@@ -154,6 +160,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     this.reasoningEffort = config.reasoningEffort;
     this.parallelToolExecution = config.parallelToolExecution ?? true;
     this.hooks = config.hooks;
+    this.traceName = config.traceName ?? config.name;
 
     // Create OpenResponses client
     const apiKey =
@@ -192,6 +199,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         this.client,
         {
           name: this.name,
+          traceName: this.traceName,
           instructions: this.instructions,
           tools: allTools,
           model: this.model,
@@ -238,6 +246,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         this.client,
         {
           name: this.name,
+          traceName: this.traceName,
           instructions: this.instructions,
           tools: allTools,
           model: this.model,
@@ -292,7 +301,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
    * ```
    */
   asTool(config: { name: string; description: string }): AgentTool {
-    return tool({
+    const agentTool = tool({
       name: config.name,
       description: config.description,
       parameters: {
@@ -313,6 +322,8 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         };
       },
     });
+    agentTool._subAgent = true;
+    return agentTool;
   }
 
   /** Activate all tool providers, returning discovered tools. */
@@ -357,6 +368,192 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
 }
 
 // ---------------------------------------------------------------------------
+// Tool tracing wrapper
+// ---------------------------------------------------------------------------
+
+/** Wrap a tool's execute to create a span and set ALS context during execution. */
+function wrapToolWithTracing(t: AgentTool, spansClient: SpansClient): AgentTool {
+  return {
+    ...t,
+    execute: async (params: unknown) => {
+      const traceCtx = getTraceContext();
+      if (!traceCtx) return t.execute(params);
+
+      let span: { id: string; trace_id: string };
+      try {
+        span = await spansClient.create({
+          name: t.name,
+          start_time: new Date().toISOString(),
+          input: JSON.stringify(params),
+          trace_id: traceCtx.traceId,
+          parent_id: traceCtx.spanId,
+          ...(t._subAgent
+            ? { type: "SubAgent", tags: { tool: true, subagent: true } }
+            : { type: "tool", tags: { tool: true } }),
+        });
+      } catch {
+        // If span creation fails, run the tool without tracing
+        return t.execute(params);
+      }
+
+      try {
+        const result = await runWithTraceContext(
+          { spanId: span.id, traceId: span.trace_id, isToolSpan: true },
+          () => Promise.resolve(t.execute(params)),
+        );
+
+        await spansClient
+          .update(span.id, {
+            end_time: new Date().toISOString(),
+            output: JSON.stringify(result),
+          })
+          .catch(() => {});
+
+        return result;
+      } catch (error) {
+        await spansClient
+          .update(span.id, {
+            end_time: new Date().toISOString(),
+            error: error instanceof Error ? error.message : String(error),
+          })
+          .catch(() => {});
+        throw error;
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// TracedAgent — Agent with automatic Opper observability
+// ---------------------------------------------------------------------------
+
+/**
+ * An Agent that automatically creates trace spans in Opper's observability dashboard.
+ *
+ * Created by `opper.agent()` — users don't instantiate this directly.
+ * Wraps `run()` and `stream()` to:
+ * - Create a parent span for the agent execution
+ * - Set ALS trace context so the loop injects `X-Opper-Parent-Span-Id` headers
+ * - Wrap tool execute functions to create child spans with ALS context
+ * - Close spans on completion or error
+ *
+ * Sub-agents via `asTool()` automatically nest under the tool span in the trace.
+ */
+export class TracedAgent<S extends SchemaLike | undefined = undefined> extends Agent<S> {
+  private readonly spansClient: SpansClient;
+
+  constructor(config: AgentConfig<S>, spansClient: SpansClient) {
+    // Wrap each tool's execute to create spans and set ALS context.
+    // This ensures sub-agents called from tools nest under the tool span.
+    const wrappedTools = config.tools?.map((t) => {
+      if (isToolProvider(t)) return t;
+      return wrapToolWithTracing(t as AgentTool, spansClient);
+    });
+    super({ ...config, tools: wrappedTools });
+    this.spansClient = spansClient;
+  }
+
+  override async run(
+    input: string | ORInputItem[],
+    options?: RunOptions,
+  ): Promise<RunResult<InferAgentOutput<S>>> {
+    const parentCtx = getTraceContext();
+
+    // When called from a tool span (sub-agent via asTool), the tool span
+    // already serves as the container — skip creating a redundant agent span.
+    if (parentCtx?.isToolSpan) {
+      return super.run(input, options);
+    }
+
+    const span = await this.spansClient.create({
+      name: this.traceName,
+      start_time: new Date().toISOString(),
+      input: typeof input === "string" ? input : JSON.stringify(input),
+      ...(parentCtx ? { trace_id: parentCtx.traceId, parent_id: parentCtx.spanId } : {}),
+    });
+
+    try {
+      const result = await runWithTraceContext({ spanId: span.id, traceId: span.trace_id }, () =>
+        super.run(input, options),
+      );
+
+      await this.spansClient.update(span.id, {
+        end_time: new Date().toISOString(),
+        output: typeof result.output === "string" ? result.output : JSON.stringify(result.output),
+      });
+
+      return result;
+    } catch (error) {
+      await this.spansClient.update(span.id, {
+        end_time: new Date().toISOString(),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  override stream(
+    input: string | ORInputItem[],
+    options?: RunOptions,
+  ): AgentStream<InferAgentOutput<S>> {
+    const generator = this.createTracedStreamGenerator(input, options);
+    return new AgentStream<InferAgentOutput<S>>(generator);
+  }
+
+  private async *createTracedStreamGenerator(
+    input: string | ORInputItem[],
+    options?: RunOptions,
+  ): AsyncGenerator<AgentStreamEvent, void, undefined> {
+    const parentCtx = getTraceContext();
+
+    // When called from a tool span (sub-agent), skip redundant agent span
+    if (parentCtx?.isToolSpan) {
+      for await (const event of super.stream(input, options)) {
+        yield event;
+      }
+      return;
+    }
+
+    const span = await this.spansClient.create({
+      name: this.traceName,
+      start_time: new Date().toISOString(),
+      input: typeof input === "string" ? input : JSON.stringify(input),
+      ...(parentCtx ? { trace_id: parentCtx.traceId, parent_id: parentCtx.spanId } : {}),
+    });
+
+    try {
+      // Run the stream generator within ALS context
+      const innerStream = runWithTraceContext({ spanId: span.id, traceId: span.trace_id }, () =>
+        super.stream(input, options),
+      );
+
+      let lastResult: RunResult<InferAgentOutput<S>> | undefined;
+
+      for await (const event of innerStream) {
+        if (event.type === "result") {
+          lastResult = event as unknown as RunResult<InferAgentOutput<S>>;
+        }
+        yield event;
+      }
+
+      const output = lastResult?.output;
+      await this.spansClient.update(span.id, {
+        end_time: new Date().toISOString(),
+        ...(output !== undefined
+          ? { output: typeof output === "string" ? output : JSON.stringify(output) }
+          : {}),
+      });
+    } catch (error) {
+      await this.spansClient.update(span.id, {
+        end_time: new Date().toISOString(),
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Re-exports
 // ---------------------------------------------------------------------------
 
@@ -370,6 +567,7 @@ export type {
 } from "./mcp/index.js";
 export { MCPToolProvider, mcp } from "./mcp/index.js";
 export { AgentStream } from "./stream.js";
+export { createToolTracingHooks, mergeHooks } from "./tracing.js";
 export type {
   AgentConfig,
   AgentEndHookContext,

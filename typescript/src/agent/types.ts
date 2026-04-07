@@ -312,6 +312,8 @@ export interface AgentTool {
   parameters?: JsonSchema;
   timeoutMs?: number;
   execute: (input: unknown) => unknown | Promise<unknown>;
+  /** @internal Set by `asTool()` to mark this tool as wrapping a sub-agent. */
+  _subAgent?: boolean;
 }
 
 /** A tool provider that dynamically supplies tools with lifecycle management. */
@@ -339,6 +341,8 @@ export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | und
   reasoningEffort?: "low" | "medium" | "high";
   parallelToolExecution?: boolean;
   hooks?: Hooks;
+  /** Override the function name used for tracing. Defaults to `name`. Sent as `agent:{traceName}`. */
+  traceName?: string;
   client?: { apiKey?: string; baseUrl?: string };
 }
 
