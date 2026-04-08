@@ -766,4 +766,62 @@ describe("Agent.stream()", () => {
     // Execution was sequential
     expect(order).toEqual([1, 2]);
   });
+
+  it("injects turn warnings and recovers on bonus turn (streaming)", async () => {
+    const makeToolCallSSE = (callId: string, name: string, args: string): ORStreamEvent[] => [
+      { type: "response.created", response: makeCompletedResponse() },
+      {
+        type: "response.output_item.added",
+        output_index: 0,
+        item: {
+          type: "function_call",
+          id: `fc_${callId}`,
+          call_id: callId,
+          name,
+          arguments: "",
+          status: "in_progress",
+        },
+      },
+      { type: "response.function_call_arguments.done", output_index: 0, call_id: callId, arguments: args },
+      {
+        type: "response.completed",
+        response: makeCompletedResponse({
+          output: [{ type: "function_call", id: `fc_${callId}`, call_id: callId, name, arguments: args, status: "completed" }],
+        }),
+      },
+    ];
+
+    const makeTextSSE = (text: string): ORStreamEvent[] => [
+      { type: "response.output_text.delta", output_index: 0, content_index: 0, delta: text },
+      {
+        type: "response.completed",
+        response: makeCompletedResponse({
+          output: [{ type: "message", id: "msg_001", role: "assistant", status: "completed", content: [{ type: "output_text", text }] }],
+        }),
+      },
+    ];
+
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(mockSSEResponse(makeToolCallSSE("c1", "work", "{}")))
+      .mockResolvedValueOnce(mockSSEResponse(makeToolCallSSE("c2", "work", "{}")))
+      .mockResolvedValueOnce(mockSSEResponse(makeToolCallSSE("c3", "work", "{}")))
+      .mockResolvedValueOnce(mockSSEResponse(makeTextSSE("Recovered!")));
+    globalThis.fetch = fetchMock;
+
+    const workTool = tool({ name: "work", description: "Work", execute: async () => "ok" });
+    const agent = makeAgent({ tools: [workTool], maxIterations: 3 });
+    const events = await collectEvents(agent.stream("Go"));
+
+    const result = events.find((e) => e.type === "result") as { type: "result"; output: unknown; meta: { iterations: number } };
+    expect(result.output).toBe("Recovered!");
+    expect(result.meta.iterations).toBe(4);
+
+    // Verify the recovery turn request had the warning
+    const fourthCallBody = JSON.parse(fetchMock.mock.calls[3][1].body);
+    const fourthItems = fourthCallBody.input as Array<Record<string, unknown>>;
+    const recoveryItem = fourthItems.find(
+      (item: Record<string, unknown>) => item.type === "message" && item.role === "system" && typeof item.content === "string" && (item.content as string).includes("Turn limit exceeded"),
+    );
+    expect(recoveryItem).toBeDefined();
+  });
 });

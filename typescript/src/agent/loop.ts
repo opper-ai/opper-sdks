@@ -696,16 +696,26 @@ export async function* streamLoop(
   const maxIterations = options?.maxIterations ?? config.maxIterations;
   const { hooks } = config;
   let responseId: string | undefined;
+  let lastIterationCalledTools = false;
 
   await dispatchHook(hooks, "onAgentStart", { agent: config.name, input });
 
   try {
-    for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    for (let iteration = 1; iteration <= maxIterations + 1; iteration++) {
       if (options?.signal?.aborted) throw new AbortError();
+
+      if (isRecoveryTurn(iteration, maxIterations) && !lastIterationCalledTools) {
+        break;
+      }
 
       await dispatchHook(hooks, "onIterationStart", { agent: config.name, iteration });
 
       yield { type: "iteration_start", iteration };
+
+      const warningMessage = getWarningMessage(iteration, maxIterations);
+      if (warningMessage) {
+        items.push({ type: "message", role: "system", content: warningMessage });
+      }
 
       const request = buildRequest(config, items, orTools, options);
 
@@ -941,6 +951,7 @@ export async function* streamLoop(
 
       allToolCalls.push(...toolRecords);
       appendToolResults(items, functionCalls, toolRecords);
+      lastIterationCalledTools = true;
 
       await dispatchHook(hooks, "onIterationEnd", {
         agent: config.name,
@@ -956,7 +967,7 @@ export async function* streamLoop(
         output: undefined,
         meta: {
           usage,
-          iterations: maxIterations,
+          iterations: maxIterations + 1,
           toolCalls: allToolCalls,
           responseId,
           ...(allReasoning.length > 0 ? { reasoning: allReasoning } : {}),
