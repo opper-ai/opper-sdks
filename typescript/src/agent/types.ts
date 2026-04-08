@@ -486,6 +486,8 @@ export interface RunMeta {
   iterations: number;
   toolCalls: ToolCallRecord[];
   responseId?: string;
+  /** Reasoning summaries, one per iteration that produced reasoning. */
+  reasoning?: string[];
 }
 
 /** Aggregated token usage across all iterations. */
@@ -505,6 +507,7 @@ export interface AggregatedUsage {
 export type AgentStreamEvent =
   | IterationStartEvent
   | TextDeltaEvent
+  | ReasoningDeltaEvent
   | ToolStartEvent
   | ToolEndEvent
   | IterationEndEvent
@@ -518,6 +521,11 @@ export interface IterationStartEvent {
 
 export interface TextDeltaEvent {
   type: "text_delta";
+  text: string;
+}
+
+export interface ReasoningDeltaEvent {
+  type: "reasoning_delta";
   text: string;
 }
 
@@ -552,4 +560,14 @@ export interface ResultEvent {
 export interface StreamErrorEvent {
   type: "error";
   error: Error;
+}
+
+// ---------------------------------------------------------------------------
+// Internal Signals (not part of AgentStreamEvent)
+// ---------------------------------------------------------------------------
+
+/** Internal signal yielded by consumeStream when a tool call's arguments are fully received. */
+export interface ToolReadySignal {
+  type: "tool_ready";
+  call: ORFunctionCallOutputItemResponse;
 }

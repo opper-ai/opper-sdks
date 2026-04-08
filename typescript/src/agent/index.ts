@@ -636,6 +636,7 @@ export type {
   ORTextFormat,
   ORTool,
   ORUsage,
+  ReasoningDeltaEvent,
   ResultEvent,
   RetryPolicy,
   RunMeta,
