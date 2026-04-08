@@ -581,15 +581,24 @@ async function* consumeStream(
   stream: AsyncGenerator<ORStreamEvent, void, undefined>,
 ): AsyncGenerator<
   AgentStreamEvent,
-  { response: ORResponse | undefined; functionCalls: ORFunctionCallOutputItemResponse[] }
+  { response: ORResponse | undefined; functionCalls: ORFunctionCallOutputItemResponse[]; reasoningText: string | undefined }
 > {
   const pendingCalls = new Map<number, PendingToolCall>();
   let completedResponse: ORResponse | undefined;
+  let reasoningText = "";
 
   for await (const event of stream) {
     switch (event.type) {
       case "response.output_text.delta":
         yield { type: "text_delta", text: event.delta };
+        break;
+
+      case "response.reasoning_summary_text.delta":
+        yield { type: "reasoning_delta", text: event.delta };
+        break;
+
+      case "response.reasoning_summary_text.done":
+        reasoningText = event.text;
         break;
 
       case "response.function_call_arguments.delta": {
@@ -647,7 +656,7 @@ async function* consumeStream(
     });
   }
 
-  return { response: completedResponse, functionCalls };
+  return { response: completedResponse, functionCalls, reasoningText: reasoningText || undefined };
 }
 
 /**
@@ -671,6 +680,7 @@ export async function* streamLoop(
 
   const usage: AggregatedUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
   const allToolCalls: ToolCallRecord[] = [];
+  const allReasoning: string[] = [];
   const maxIterations = options?.maxIterations ?? config.maxIterations;
   const { hooks } = config;
   let responseId: string | undefined;
@@ -709,6 +719,7 @@ export async function* streamLoop(
                 {
                   response: ORResponse | undefined;
                   functionCalls: ORFunctionCallOutputItemResponse[];
+                  reasoningText: string | undefined;
                 }
               >;
               while (true) {
@@ -730,6 +741,9 @@ export async function* streamLoop(
           }
           response = streamResult.response;
           functionCalls = streamResult.functionCalls;
+          if (streamResult.reasoningText) {
+            accumulateReasoning(allReasoning, streamResult.reasoningText);
+          }
         } catch (err) {
           if (isFatal(err)) throw err;
           const wrapped = err instanceof Error ? err : new Error(String(err));
@@ -762,6 +776,7 @@ export async function* streamLoop(
           {
             response: ORResponse | undefined;
             functionCalls: ORFunctionCallOutputItemResponse[];
+            reasoningText: string | undefined;
           }
         >;
         while (true) {
@@ -772,6 +787,9 @@ export async function* streamLoop(
 
         response = consumerResult.value.response;
         functionCalls = consumerResult.value.functionCalls;
+        if (consumerResult.value.reasoningText) {
+          accumulateReasoning(allReasoning, consumerResult.value.reasoningText);
+        }
       }
 
       if (streamRecovered) continue;
@@ -811,7 +829,13 @@ export async function* streamLoop(
           config.outputSchema,
         );
 
-        const meta = { usage, iterations: iteration, toolCalls: allToolCalls, responseId };
+        const meta = {
+          usage,
+          iterations: iteration,
+          toolCalls: allToolCalls,
+          responseId,
+          ...(allReasoning.length > 0 ? { reasoning: allReasoning } : {}),
+        };
 
         await dispatchHook(hooks, "onIterationEnd", {
           agent: config.name,
@@ -918,7 +942,13 @@ export async function* streamLoop(
     if (config.onMaxIterations === "return_partial") {
       const result: RunResult = {
         output: undefined,
-        meta: { usage, iterations: maxIterations, toolCalls: allToolCalls, responseId },
+        meta: {
+          usage,
+          iterations: maxIterations,
+          toolCalls: allToolCalls,
+          responseId,
+          ...(allReasoning.length > 0 ? { reasoning: allReasoning } : {}),
+        },
       };
       await dispatchHook(hooks, "onAgentEnd", { agent: config.name, result });
       yield { type: "result", output: undefined, meta: result.meta };

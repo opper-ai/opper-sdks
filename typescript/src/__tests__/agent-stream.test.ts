@@ -636,6 +636,46 @@ describe("Agent.stream()", () => {
     });
   });
 
+  it("yields reasoning_delta events from SSE reasoning events", async () => {
+    const completedResponse = makeCompletedResponse({
+      output: [
+        {
+          type: "reasoning",
+          id: "rs_001",
+          summary: [{ type: "summary_text", text: "Let me think about this." }],
+        },
+        {
+          type: "message",
+          id: "msg_001",
+          role: "assistant",
+          status: "completed",
+          content: [{ type: "output_text", text: "Hello" }],
+        },
+      ],
+    });
+
+    const sseEvents: ORStreamEvent[] = [
+      { type: "response.reasoning_summary_text.delta", output_index: 0, delta: "Let me think" },
+      { type: "response.reasoning_summary_text.delta", output_index: 0, delta: " about this." },
+      { type: "response.reasoning_summary_text.done", output_index: 0, text: "Let me think about this." },
+      { type: "response.output_text.delta", output_index: 1, content_index: 0, delta: "Hello" },
+      { type: "response.completed", response: completedResponse },
+    ];
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(mockSSEResponse(sseEvents));
+
+    const agent = makeAgent();
+    const events = await collectEvents(agent.stream("Hi"));
+
+    const reasoningDeltas = events.filter((e) => e.type === "reasoning_delta");
+    expect(reasoningDeltas).toHaveLength(2);
+    expect(reasoningDeltas[0]).toEqual({ type: "reasoning_delta", text: "Let me think" });
+    expect(reasoningDeltas[1]).toEqual({ type: "reasoning_delta", text: " about this." });
+
+    const result = events.find((e) => e.type === "result") as { type: "result"; meta: { reasoning?: string[] } };
+    expect(result.meta.reasoning).toEqual(["Let me think about this."]);
+  });
+
   it("handles sequential tool execution in streaming", async () => {
     const toolEvents: ORStreamEvent[] = [
       {
