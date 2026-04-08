@@ -492,6 +492,12 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         );
       }
     }
+    if (this.tracing && this.spansClient) {
+      return providerTools.map((t) =>
+        wrapToolWithTracing(t, this.spansClient!, this._pendingSpanUpdates),
+      );
+    }
+
     return providerTools;
   }
 
