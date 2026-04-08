@@ -767,6 +767,73 @@ describe("Agent.stream()", () => {
     expect(order).toEqual([1, 2]);
   });
 
+  it("launches tools eagerly as function_call_arguments.done arrives", async () => {
+    const executionTimestamps: { name: string; startedAt: number }[] = [];
+
+    const sseEvents: ORStreamEvent[] = [
+      { type: "response.created", response: makeCompletedResponse() },
+      {
+        type: "response.output_item.added",
+        output_index: 0,
+        item: { type: "function_call", id: "fc_0", call_id: "call_1", name: "fast_tool", arguments: "", status: "in_progress" },
+      },
+      { type: "response.function_call_arguments.done", output_index: 0, call_id: "call_1", arguments: '{"id":1}' },
+      {
+        type: "response.output_item.added",
+        output_index: 1,
+        item: { type: "function_call", id: "fc_1", call_id: "call_2", name: "fast_tool", arguments: "", status: "in_progress" },
+      },
+      { type: "response.function_call_arguments.done", output_index: 1, call_id: "call_2", arguments: '{"id":2}' },
+      {
+        type: "response.completed",
+        response: makeCompletedResponse({
+          output: [
+            { type: "function_call", id: "fc_0", call_id: "call_1", name: "fast_tool", arguments: '{"id":1}', status: "completed" },
+            { type: "function_call", id: "fc_1", call_id: "call_2", name: "fast_tool", arguments: '{"id":2}', status: "completed" },
+          ],
+        }),
+      },
+    ];
+
+    const textEvents: ORStreamEvent[] = [
+      { type: "response.output_text.delta", output_index: 0, content_index: 0, delta: "Done" },
+      {
+        type: "response.completed",
+        response: makeCompletedResponse({
+          output: [{ type: "message", id: "msg_001", role: "assistant", status: "completed", content: [{ type: "output_text", text: "Done" }] }],
+        }),
+      },
+    ];
+
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(mockSSEResponse(sseEvents))
+      .mockResolvedValueOnce(mockSSEResponse(textEvents));
+
+    const fastTool = tool({
+      name: "fast_tool",
+      description: "Fast tool",
+      parameters: { type: "object", properties: { id: { type: "number" } } },
+      execute: async ({ id }: { id: number }) => {
+        executionTimestamps.push({ name: `tool_${id}`, startedAt: Date.now() });
+        await new Promise((r) => setTimeout(r, 10));
+        return { id, result: "ok" };
+      },
+    });
+
+    const agent = makeAgent({ tools: [fastTool] });
+    const events = await collectEvents(agent.stream("Go"));
+
+    const toolEnds = events.filter((e) => e.type === "tool_end");
+    expect(toolEnds).toHaveLength(2);
+
+    expect(executionTimestamps).toHaveLength(2);
+    const timeDiff = Math.abs(executionTimestamps[0].startedAt - executionTimestamps[1].startedAt);
+    expect(timeDiff).toBeLessThan(50);
+
+    const result = events.find((e) => e.type === "result");
+    expect(result).toBeDefined();
+  });
+
   it("injects turn warnings and recovers on bonus turn (streaming)", async () => {
     const makeToolCallSSE = (callId: string, name: string, args: string): ORStreamEvent[] => [
       { type: "response.created", response: makeCompletedResponse() },

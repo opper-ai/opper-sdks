@@ -32,6 +32,7 @@ import type {
   RunOptions,
   RunResult,
   ToolCallRecord,
+  ToolReadySignal,
 } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -592,8 +593,12 @@ interface PendingToolCall {
 async function* consumeStream(
   stream: AsyncGenerator<ORStreamEvent, void, undefined>,
 ): AsyncGenerator<
-  AgentStreamEvent,
-  { response: ORResponse | undefined; functionCalls: ORFunctionCallOutputItemResponse[]; reasoningText: string | undefined }
+  AgentStreamEvent | ToolReadySignal,
+  {
+    response: ORResponse | undefined;
+    functionCalls: ORFunctionCallOutputItemResponse[];
+    reasoningText: string | undefined;
+  }
 > {
   const pendingCalls = new Map<number, PendingToolCall>();
   let completedResponse: ORResponse | undefined;
@@ -625,6 +630,17 @@ async function* consumeStream(
         const existing = pendingCalls.get(event.output_index);
         if (existing) {
           existing.arguments = event.arguments;
+          yield {
+            type: "tool_ready",
+            call: {
+              type: "function_call",
+              id: `fc_${existing.outputIndex}`,
+              call_id: existing.callId,
+              name: existing.name,
+              arguments: existing.arguments,
+              status: "completed",
+            },
+          } satisfies ToolReadySignal;
         }
         break;
       }
@@ -724,6 +740,8 @@ export async function* streamLoop(
       let response: ORResponse | undefined;
       let functionCalls: ORFunctionCallOutputItemResponse[];
       let streamRecovered = false;
+      const toolRecords: ToolCallRecord[] = [];
+      let toolsAlreadyExecuted = false;
 
       if (config.retry) {
         // Error recovery enabled — retry transient failures, buffer events until success
@@ -734,10 +752,10 @@ export async function* streamLoop(
                 request,
                 withTracingHeaders(config.traceName, config.traceContext, options?.requestOptions),
               );
-              const events: AgentStreamEvent[] = [];
+              const events: (AgentStreamEvent | ToolReadySignal)[] = [];
               const consumer = consumeStream(sseStream);
               let consumerResult: IteratorResult<
-                AgentStreamEvent,
+                AgentStreamEvent | ToolReadySignal,
                 {
                   response: ORResponse | undefined;
                   functionCalls: ORFunctionCallOutputItemResponse[];
@@ -759,7 +777,9 @@ export async function* streamLoop(
           );
 
           for (const event of streamResult.events) {
-            yield event;
+            if (event.type !== "tool_ready") {
+              yield event as AgentStreamEvent;
+            }
           }
           response = streamResult.response;
           functionCalls = streamResult.functionCalls;
@@ -780,7 +800,7 @@ export async function* streamLoop(
           functionCalls = [];
         }
       } else {
-        // No retry — legacy behavior, stream events directly
+        // Non-retry: stream events directly with eager tool execution
         let sseStream: AsyncGenerator<ORStreamEvent, void, undefined>;
         try {
           sseStream = client.createStream(
@@ -792,26 +812,126 @@ export async function* streamLoop(
           throw new AgentError("Server call failed", err);
         }
 
+        const toolPromises: Promise<{
+          fc: ORFunctionCallOutputItemResponse;
+          record: ToolCallRecord;
+          events: AgentStreamEvent[];
+        }>[] = [];
+        const eagerFunctionCalls: ORFunctionCallOutputItemResponse[] = [];
+
         const consumer = consumeStream(sseStream);
         let consumerResult: IteratorResult<
-          AgentStreamEvent,
+          AgentStreamEvent | ToolReadySignal,
           {
             response: ORResponse | undefined;
             functionCalls: ORFunctionCallOutputItemResponse[];
             reasoningText: string | undefined;
           }
         >;
+
         while (true) {
           consumerResult = await consumer.next();
           if (consumerResult.done) break;
-          yield consumerResult.value;
+
+          const event = consumerResult.value;
+          if (event.type === "tool_ready") {
+            const signal = event as ToolReadySignal;
+            eagerFunctionCalls.push(signal.call);
+
+            const toolPromise = (async () => {
+              let parsed: unknown;
+              try {
+                parsed = signal.call.arguments ? JSON.parse(signal.call.arguments) : {};
+              } catch {
+                parsed = signal.call.arguments;
+              }
+
+              await dispatchHook(hooks, "onToolStart", {
+                agent: config.name,
+                iteration,
+                name: signal.call.name,
+                callId: signal.call.call_id,
+                input: parsed,
+              });
+
+              const record = config.traceContext
+                ? await runWithTraceContext(config.traceContext, () =>
+                    executeTool(
+                      resolvedTools,
+                      signal.call.call_id,
+                      signal.call.name,
+                      signal.call.arguments,
+                    ),
+                  )
+                : await executeTool(
+                    resolvedTools,
+                    signal.call.call_id,
+                    signal.call.name,
+                    signal.call.arguments,
+                  );
+
+              await dispatchHook(hooks, "onToolEnd", {
+                agent: config.name,
+                iteration,
+                name: signal.call.name,
+                callId: signal.call.call_id,
+                output: record.output,
+                error: record.error,
+                durationMs: record.durationMs,
+              });
+
+              const toolEvents: AgentStreamEvent[] = [
+                {
+                  type: "tool_start",
+                  name: signal.call.name,
+                  callId: signal.call.call_id,
+                  input: parsed,
+                },
+                {
+                  type: "tool_end",
+                  name: signal.call.name,
+                  callId: signal.call.call_id,
+                  output: record.output,
+                  error: record.error,
+                  durationMs: record.durationMs,
+                },
+              ];
+
+              return { fc: signal.call, record, events: toolEvents };
+            })();
+
+            if (config.parallelToolExecution) {
+              toolPromises.push(toolPromise);
+            } else {
+              const toolResult = await toolPromise;
+              for (const ev of toolResult.events) {
+                yield ev;
+              }
+              toolRecords.push(toolResult.record);
+            }
+          } else {
+            yield event as AgentStreamEvent;
+          }
+        }
+
+        // Await parallel tool executions
+        if (config.parallelToolExecution && toolPromises.length > 0) {
+          const results = await Promise.all(toolPromises);
+          for (const toolResult of results) {
+            for (const ev of toolResult.events) {
+              yield ev;
+            }
+            toolRecords.push(toolResult.record);
+          }
         }
 
         response = consumerResult.value.response;
-        functionCalls = consumerResult.value.functionCalls;
+        functionCalls =
+          eagerFunctionCalls.length > 0 ? eagerFunctionCalls : consumerResult.value.functionCalls;
         if (consumerResult.value.reasoningText) {
           accumulateReasoning(allReasoning, consumerResult.value.reasoningText);
         }
+        toolsAlreadyExecuted = true;
       }
 
       if (streamRecovered) continue;
@@ -844,6 +964,80 @@ export async function* streamLoop(
         throw new AgentError(`Server error: ${response.error.message}`);
       }
 
+      // Execute tools for retry path (non-retry path already executed them eagerly)
+      if (!toolsAlreadyExecuted && functionCalls.length > 0) {
+        const executeAndYield = async function* (
+          fc: ORFunctionCallOutputItemResponse,
+        ): AsyncGenerator<AgentStreamEvent> {
+          let parsed: unknown;
+          try {
+            parsed = fc.arguments ? JSON.parse(fc.arguments) : {};
+          } catch {
+            parsed = fc.arguments;
+          }
+
+          await dispatchHook(hooks, "onToolStart", {
+            agent: config.name,
+            iteration,
+            name: fc.name,
+            callId: fc.call_id,
+            input: parsed,
+          });
+
+          yield { type: "tool_start", name: fc.name, callId: fc.call_id, input: parsed };
+
+          const record = config.traceContext
+            ? await runWithTraceContext(config.traceContext, () =>
+                executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments),
+              )
+            : await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments);
+          toolRecords.push(record);
+
+          await dispatchHook(hooks, "onToolEnd", {
+            agent: config.name,
+            iteration,
+            name: fc.name,
+            callId: fc.call_id,
+            output: record.output,
+            error: record.error,
+            durationMs: record.durationMs,
+          });
+
+          yield {
+            type: "tool_end",
+            name: fc.name,
+            callId: fc.call_id,
+            output: record.output,
+            error: record.error,
+            durationMs: record.durationMs,
+          };
+        };
+
+        if (config.parallelToolExecution) {
+          const toolGenerators = functionCalls.map((fc) => executeAndYield(fc));
+          const eventArrays = await Promise.all(
+            toolGenerators.map(async (gen) => {
+              const events: AgentStreamEvent[] = [];
+              for await (const event of gen) {
+                events.push(event);
+              }
+              return events;
+            }),
+          );
+          for (const events of eventArrays) {
+            for (const event of events) {
+              yield event;
+            }
+          }
+        } else {
+          for (const fc of functionCalls) {
+            for await (const event of executeAndYield(fc)) {
+              yield event;
+            }
+          }
+        }
+      }
+
       // No function calls → done
       if (functionCalls.length === 0) {
         const output = parseOutput(
@@ -872,81 +1066,6 @@ export async function* streamLoop(
 
         yield { type: "result", output, meta };
         return;
-      }
-
-      // Execute tools — yield tool_start / tool_end events
-      const toolRecords: ToolCallRecord[] = [];
-
-      const executeAndYield = async function* (
-        fc: ORFunctionCallOutputItemResponse,
-      ): AsyncGenerator<AgentStreamEvent> {
-        let parsed: unknown;
-        try {
-          parsed = fc.arguments ? JSON.parse(fc.arguments) : {};
-        } catch {
-          parsed = fc.arguments;
-        }
-
-        await dispatchHook(hooks, "onToolStart", {
-          agent: config.name,
-          iteration,
-          name: fc.name,
-          callId: fc.call_id,
-          input: parsed,
-        });
-
-        yield { type: "tool_start", name: fc.name, callId: fc.call_id, input: parsed };
-
-        const record = config.traceContext
-          ? await runWithTraceContext(config.traceContext, () =>
-              executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments),
-            )
-          : await executeTool(resolvedTools, fc.call_id, fc.name, fc.arguments);
-        toolRecords.push(record);
-
-        await dispatchHook(hooks, "onToolEnd", {
-          agent: config.name,
-          iteration,
-          name: fc.name,
-          callId: fc.call_id,
-          output: record.output,
-          error: record.error,
-          durationMs: record.durationMs,
-        });
-
-        yield {
-          type: "tool_end",
-          name: fc.name,
-          callId: fc.call_id,
-          output: record.output,
-          error: record.error,
-          durationMs: record.durationMs,
-        };
-      };
-
-      if (config.parallelToolExecution) {
-        // Run tools in parallel, but collect events to yield in order
-        const toolGenerators = functionCalls.map((fc) => executeAndYield(fc));
-        const eventArrays = await Promise.all(
-          toolGenerators.map(async (gen) => {
-            const events: AgentStreamEvent[] = [];
-            for await (const event of gen) {
-              events.push(event);
-            }
-            return events;
-          }),
-        );
-        for (const events of eventArrays) {
-          for (const event of events) {
-            yield event;
-          }
-        }
-      } else {
-        for (const fc of functionCalls) {
-          for await (const event of executeAndYield(fc)) {
-            yield event;
-          }
-        }
       }
 
       allToolCalls.push(...toolRecords);

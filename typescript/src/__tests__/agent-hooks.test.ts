@@ -423,12 +423,12 @@ describe("Agent hooks — stream()", () => {
 
     expect(log).toEqual([
       "agentStart:test-agent",
-      // iteration 1: tool call
+      // iteration 1: tool call (eager execution — tools fire before llmResp)
       "iterStart:1",
       "llmCall:1",
-      "llmResp:1",
       "toolStart:greet",
       "toolEnd:greet",
+      "llmResp:1",
       "iterEnd:1",
       // iteration 2: final text
       "iterStart:2",

@@ -241,7 +241,8 @@ describe("Agent error recovery", () => {
 
       const result = await agent.run("hello");
       // Should return instead of throwing
-      expect(result.meta.iterations).toBe(2);
+      // With turn awareness, loop runs up to maxIterations + 1 (recovery turn)
+      expect(result.meta.iterations).toBe(3);
       expect(result.meta.toolCalls.length).toBeGreaterThan(0);
     });
 
