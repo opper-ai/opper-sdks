@@ -13,6 +13,7 @@ import {
 import { AbortError, AgentError, MaxIterationsError } from "./errors.js";
 import { dispatchHook } from "./hooks.js";
 import { resolveToolSchema } from "./index.js";
+import { accumulateReasoning, extractReasoning } from "./reasoning.js";
 import type {
   AgentStreamEvent,
   AgentTool,
@@ -404,6 +405,7 @@ export async function runLoop(
 
   const usage: AggregatedUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
   const allToolCalls: ToolCallRecord[] = [];
+  const allReasoning: string[] = [];
   const maxIterations = options?.maxIterations ?? config.maxIterations;
   const { hooks } = config;
   let lastOutput: unknown;
@@ -467,6 +469,11 @@ export async function runLoop(
       addUsage(usage, response.usage);
       responseId = response.id;
 
+      const reasoning = extractReasoning(response.output);
+      if (reasoning) {
+        accumulateReasoning(allReasoning, reasoning);
+      }
+
       if (response.error) {
         if (config.retry) {
           const err = new AgentError(`Server error: ${response.error.message}`);
@@ -488,7 +495,13 @@ export async function runLoop(
         const output = parseOutput(extractText(response.output), config.outputSchema);
         const result: RunResult = {
           output,
-          meta: { usage, iterations: iteration, toolCalls: allToolCalls, responseId },
+          meta: {
+            usage,
+            iterations: iteration,
+            toolCalls: allToolCalls,
+            responseId,
+            ...(allReasoning.length > 0 ? { reasoning: allReasoning } : {}),
+          },
         };
 
         await dispatchHook(hooks, "onIterationEnd", {
@@ -525,7 +538,13 @@ export async function runLoop(
       const output = parseOutput(lastOutput as string | undefined, config.outputSchema);
       const result: RunResult = {
         output,
-        meta: { usage, iterations: maxIterations, toolCalls: allToolCalls, responseId },
+        meta: {
+          usage,
+          iterations: maxIterations,
+          toolCalls: allToolCalls,
+          responseId,
+          ...(allReasoning.length > 0 ? { reasoning: allReasoning } : {}),
+        },
       };
       await dispatchHook(hooks, "onAgentEnd", { agent: config.name, result });
       return result;

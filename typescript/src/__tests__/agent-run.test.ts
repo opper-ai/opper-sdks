@@ -509,4 +509,72 @@ describe("Agent.run()", () => {
       if (originalEnv) process.env.OPPER_API_KEY = originalEnv;
     }
   });
+
+  // -----------------------------------------------------------------------
+  // Reasoning in meta
+  // -----------------------------------------------------------------------
+
+  it("includes reasoning in meta when response has reasoning items", async () => {
+    const fetchMock = mockFetchSequence([
+      // Iteration 1: tool call with reasoning
+      makeORResponse({
+        output: [
+          {
+            type: "reasoning",
+            id: "rs_001",
+            summary: [{ type: "summary_text", text: "I should search for this." }],
+          },
+          {
+            type: "function_call",
+            id: "fc_0",
+            call_id: "call_1",
+            name: "search",
+            arguments: '{"q":"test"}',
+            status: "completed",
+          },
+        ],
+      }),
+      // Iteration 2: text response with reasoning
+      makeORResponse({
+        output: [
+          {
+            type: "reasoning",
+            id: "rs_002",
+            summary: [{ type: "summary_text", text: "The search returned good results." }],
+          },
+          {
+            type: "message",
+            id: "msg_001",
+            role: "assistant",
+            status: "completed",
+            content: [{ type: "output_text", text: "Found it!" }],
+          },
+        ],
+      }),
+    ]);
+    globalThis.fetch = fetchMock;
+
+    const searchTool = tool({
+      name: "search",
+      description: "Search",
+      execute: async () => ({ results: ["r1"] }),
+    });
+
+    const agent = makeAgent({ tools: [searchTool] });
+    const result = await agent.run("Find test");
+
+    expect(result.meta.reasoning).toEqual([
+      "I should search for this.",
+      "The search returned good results.",
+    ]);
+  });
+
+  it("omits reasoning from meta when no reasoning items present", async () => {
+    globalThis.fetch = mockFetchSequence([textResponse("Hello")]);
+
+    const agent = makeAgent();
+    const result = await agent.run("Hi");
+
+    expect(result.meta.reasoning).toBeUndefined();
+  });
 });
