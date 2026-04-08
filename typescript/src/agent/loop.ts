@@ -14,6 +14,7 @@ import { AbortError, AgentError, MaxIterationsError } from "./errors.js";
 import { dispatchHook } from "./hooks.js";
 import { resolveToolSchema } from "./index.js";
 import { accumulateReasoning, extractReasoning } from "./reasoning.js";
+import { getWarningMessage, isRecoveryTurn } from "./turn-awareness.js";
 import type {
   AgentStreamEvent,
   AgentTool,
@@ -410,14 +411,24 @@ export async function runLoop(
   const { hooks } = config;
   let lastOutput: unknown;
   let responseId: string | undefined;
+  let lastIterationCalledTools = false;
 
   await dispatchHook(hooks, "onAgentStart", { agent: config.name, input });
 
   try {
-    for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    for (let iteration = 1; iteration <= maxIterations + 1; iteration++) {
       if (options?.signal?.aborted) throw new AbortError();
 
+      if (isRecoveryTurn(iteration, maxIterations) && !lastIterationCalledTools) {
+        break;
+      }
+
       await dispatchHook(hooks, "onIterationStart", { agent: config.name, iteration });
+
+      const warningMessage = getWarningMessage(iteration, maxIterations);
+      if (warningMessage) {
+        items.push({ type: "message", role: "system", content: warningMessage });
+      }
 
       const request = buildRequest(config, items, orTools, options);
 
@@ -525,6 +536,7 @@ export async function runLoop(
       );
       allToolCalls.push(...toolRecords);
       appendToolResults(items, functionCalls, toolRecords);
+      lastIterationCalledTools = true;
       lastOutput = extractText(response.output);
 
       await dispatchHook(hooks, "onIterationEnd", {
@@ -540,7 +552,7 @@ export async function runLoop(
         output,
         meta: {
           usage,
-          iterations: maxIterations,
+          iterations: maxIterations + 1,
           toolCalls: allToolCalls,
           responseId,
           ...(allReasoning.length > 0 ? { reasoning: allReasoning } : {}),

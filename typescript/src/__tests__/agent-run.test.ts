@@ -312,7 +312,8 @@ describe("Agent.run()", () => {
       expect(err).toBeInstanceOf(MaxIterationsError);
       const maxErr = err as MaxIterationsError;
       expect(maxErr.iterations).toBe(3);
-      expect(maxErr.toolCalls).toHaveLength(3);
+      // 4 tool calls: 3 regular + 1 recovery turn (mock reuses last response)
+      expect(maxErr.toolCalls).toHaveLength(4);
     }
   });
 
@@ -576,5 +577,76 @@ describe("Agent.run()", () => {
     const result = await agent.run("Hi");
 
     expect(result.meta.reasoning).toBeUndefined();
+  });
+
+  // -----------------------------------------------------------------------
+  // Turn awareness
+  // -----------------------------------------------------------------------
+
+  it("injects warning messages near max iterations", async () => {
+    const fetchMock = mockFetchSequence([
+      toolCallResponse([{ call_id: "call_1", name: "work", arguments: "{}" }]),
+      toolCallResponse([{ call_id: "call_2", name: "work", arguments: "{}" }]),
+      toolCallResponse([{ call_id: "call_3", name: "work", arguments: "{}" }]),
+      textResponse("Done!"),
+    ]);
+    globalThis.fetch = fetchMock;
+
+    const workTool = tool({ name: "work", description: "Work", execute: async () => "ok" });
+    const agent = makeAgent({ tools: [workTool], maxIterations: 5 });
+    const result = await agent.run("Go");
+
+    expect(result.output).toBe("Done!");
+    expect(result.meta.iterations).toBe(4);
+
+    // Check iteration 3 (maxIterations - 2 = 3) has warning injected
+    const thirdCallBody = JSON.parse(fetchMock.mock.calls[2][1].body) as ORRequest;
+    const thirdItems = thirdCallBody.input as Array<Record<string, unknown>>;
+    const warningItem = thirdItems.find(
+      (item) => item.type === "message" && item.role === "system" && typeof item.content === "string" && (item.content as string).includes("2 turns remaining"),
+    );
+    expect(warningItem).toBeDefined();
+  });
+
+  it("recovers on bonus turn when model calls tools on final iteration", async () => {
+    const fetchMock = mockFetchSequence([
+      toolCallResponse([{ call_id: "call_1", name: "work", arguments: "{}" }]),
+      toolCallResponse([{ call_id: "call_2", name: "work", arguments: "{}" }]),
+      // Iteration 3 (maxIterations): still calls tools
+      toolCallResponse([{ call_id: "call_3", name: "work", arguments: "{}" }]),
+      // Recovery turn (iteration 4): finally produces output
+      textResponse("Recovered!"),
+    ]);
+    globalThis.fetch = fetchMock;
+
+    const workTool = tool({ name: "work", description: "Work", execute: async () => "ok" });
+    const agent = makeAgent({ tools: [workTool], maxIterations: 3 });
+    const result = await agent.run("Go");
+
+    expect(result.output).toBe("Recovered!");
+    expect(result.meta.iterations).toBe(4);
+
+    // Check recovery turn had the "Turn limit exceeded" message
+    const fourthCallBody = JSON.parse(fetchMock.mock.calls[3][1].body) as ORRequest;
+    const fourthItems = fourthCallBody.input as Array<Record<string, unknown>>;
+    const recoveryItem = fourthItems.find(
+      (item) => item.type === "message" && item.role === "system" && typeof item.content === "string" && (item.content as string).includes("Turn limit exceeded"),
+    );
+    expect(recoveryItem).toBeDefined();
+  });
+
+  it("throws MaxIterationsError when recovery turn also calls tools", async () => {
+    const fetchMock = mockFetchSequence([
+      toolCallResponse([{ call_id: "call_1", name: "work", arguments: "{}" }]),
+      toolCallResponse([{ call_id: "call_2", name: "work", arguments: "{}" }]),
+      toolCallResponse([{ call_id: "call_3", name: "work", arguments: "{}" }]),
+      toolCallResponse([{ call_id: "call_4", name: "work", arguments: "{}" }]),
+    ]);
+    globalThis.fetch = fetchMock;
+
+    const workTool = tool({ name: "work", description: "Work", execute: async () => "ok" });
+    const agent = makeAgent({ tools: [workTool], maxIterations: 3 });
+
+    await expect(agent.run("Go")).rejects.toThrow(MaxIterationsError);
   });
 });
