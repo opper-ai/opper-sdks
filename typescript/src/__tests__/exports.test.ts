@@ -21,4 +21,22 @@ describe("Public API surface", () => {
     expect(sdk.SpansClient).toBeDefined();
     expect(sdk.BaseClient).toBeDefined();
   });
+
+  it("exports agent layer", () => {
+    expect(sdk.Agent).toBeDefined();
+    expect(sdk.tool).toBeDefined();
+    expect(sdk.Conversation).toBeDefined();
+    expect(sdk.AgentStream).toBeDefined();
+    expect(sdk.mcp).toBeDefined();
+    expect(sdk.MCPToolProvider).toBeDefined();
+    expect(sdk.AgentError).toBeDefined();
+    expect(sdk.MaxIterationsError).toBeDefined();
+    expect(sdk.AbortError).toBeDefined();
+  });
+
+  it("Opper.agent() creates an Agent instance", () => {
+    const opper = new sdk.Opper({ apiKey: "test-key" });
+    const agent = opper.agent({ name: "test", instructions: "Be helpful." });
+    expect(agent).toBeInstanceOf(sdk.Agent);
+  });
 });

@@ -8,6 +8,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 export interface TraceContext {
   readonly spanId: string;
   readonly traceId: string;
+  /** Set by tool tracing wrappers so sub-agents skip redundant span creation. */
+  readonly isToolSpan?: boolean;
 }
 
 const traceStore = new AsyncLocalStorage<TraceContext>();

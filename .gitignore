@@ -6,7 +6,10 @@ dist/
 .env.*.local
 .DS_Store
 .claude/
+.agents/
+skills-lock.json
 docs/
+scripts/
 **/plans/
 
 # Generated example output

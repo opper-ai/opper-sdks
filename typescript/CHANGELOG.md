@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-beta.6] - 2026-04-09
+
+### Added
+
+- Agent layer with agentic loop, tool use, structured output, streaming, hooks, multi-agent composition, MCP tool providers, conversation/multi-turn support, tracing & observability, error recovery, reasoning extraction, eager tool execution, and turn awareness
+- OpenResponses client for the Opper responses API
+- 12 agent examples covering all features
+
+### Fixed
+
+- Lint warnings (replaced non-null assertions with type-safe casts)
+
 ## [4.0.0-beta.5] - 2026-04-02
 
 ### Fixed
