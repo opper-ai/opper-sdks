@@ -65,8 +65,11 @@ const checkStyleGuide = tool({
 // Specialist agents (each with their own tools)
 // ---------------------------------------------------------------------------
 
+// traceName customizes how agents appear in the Opper dashboard trace tree
+// e.g. "editorial/researcher" instead of just "researcher"
 const researcher = new Agent({
   name: "researcher",
+  traceName: "editorial/researcher",
   instructions:
     "You are a market researcher. Use your tools to gather data about the market " +
     "and target audience, then write a concise research brief (3-4 bullet points).",
@@ -75,6 +78,7 @@ const researcher = new Agent({
 
 const writer = new Agent({
   name: "writer",
+  traceName: "editorial/writer",
   instructions:
     "You are a copywriter. Always check the brand style guide first, then write copy " +
     "that follows it. Produce only the copy — a tagline and 2-3 sentence description. No commentary.",
@@ -96,6 +100,7 @@ const hooks: Hooks = {
 
 const coordinator = new Agent({
   name: "coordinator",
+  traceName: "editorial/coordinator",
   instructions:
     "You are an editorial coordinator. When asked to create marketing copy:\n" +
     "1. First, use the research tool to get market context and audience insights\n" +
