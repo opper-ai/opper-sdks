@@ -428,7 +428,7 @@ export async function runLoop(
 
       const warningMessage = getWarningMessage(iteration, maxIterations);
       if (warningMessage) {
-        items.push({ type: "message", role: "system", content: warningMessage });
+        items.push({ type: "message", role: "developer", content: warningMessage });
       }
 
       const request = buildRequest(config, items, orTools, options);
@@ -730,7 +730,7 @@ export async function* streamLoop(
 
       const warningMessage = getWarningMessage(iteration, maxIterations);
       if (warningMessage) {
-        items.push({ type: "message", role: "system", content: warningMessage });
+        items.push({ type: "message", role: "developer", content: warningMessage });
       }
 
       const request = buildRequest(config, items, orTools, options);

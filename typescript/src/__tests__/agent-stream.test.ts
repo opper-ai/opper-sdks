@@ -887,7 +887,7 @@ describe("Agent.stream()", () => {
     const fourthCallBody = JSON.parse(fetchMock.mock.calls[3][1].body);
     const fourthItems = fourthCallBody.input as Array<Record<string, unknown>>;
     const recoveryItem = fourthItems.find(
-      (item: Record<string, unknown>) => item.type === "message" && item.role === "system" && typeof item.content === "string" && (item.content as string).includes("Turn limit exceeded"),
+      (item: Record<string, unknown>) => item.type === "message" && item.role === "developer" && typeof item.content === "string" && (item.content as string).includes("Turn limit exceeded"),
     );
     expect(recoveryItem).toBeDefined();
   });

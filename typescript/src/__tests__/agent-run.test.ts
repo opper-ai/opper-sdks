@@ -603,7 +603,7 @@ describe("Agent.run()", () => {
     const thirdCallBody = JSON.parse(fetchMock.mock.calls[2][1].body) as ORRequest;
     const thirdItems = thirdCallBody.input as Array<Record<string, unknown>>;
     const warningItem = thirdItems.find(
-      (item) => item.type === "message" && item.role === "system" && typeof item.content === "string" && (item.content as string).includes("2 turns remaining"),
+      (item) => item.type === "message" && item.role === "developer" && typeof item.content === "string" && (item.content as string).includes("2 turns remaining"),
     );
     expect(warningItem).toBeDefined();
   });
@@ -630,7 +630,7 @@ describe("Agent.run()", () => {
     const fourthCallBody = JSON.parse(fetchMock.mock.calls[3][1].body) as ORRequest;
     const fourthItems = fourthCallBody.input as Array<Record<string, unknown>>;
     const recoveryItem = fourthItems.find(
-      (item) => item.type === "message" && item.role === "system" && typeof item.content === "string" && (item.content as string).includes("Turn limit exceeded"),
+      (item) => item.type === "message" && item.role === "developer" && typeof item.content === "string" && (item.content as string).includes("Turn limit exceeded"),
     );
     expect(recoveryItem).toBeDefined();
   });
