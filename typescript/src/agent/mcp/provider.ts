@@ -83,7 +83,7 @@ export class MCPToolProvider implements ToolProvider {
     const serverPrefix = normalizeName(this.config.name);
     const toolSuffix = normalizeName(mcpTool.name);
     const qualifiedName = `mcp__${serverPrefix}__${toolSuffix}`;
-    const client = this.client!;
+    const client = this.client as MCPClient;
     const originalName = mcpTool.name;
 
     return {

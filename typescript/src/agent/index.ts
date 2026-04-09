@@ -188,9 +188,10 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
 
     // Create SpansClient and wrap tools for tracing
     if (this.tracing) {
-      this.spansClient = new SpansClient({ apiKey, baseUrl });
+      const spansClient = new SpansClient({ apiKey, baseUrl });
+      this.spansClient = spansClient;
       this.tools = rawTools.map((t) =>
-        wrapToolWithTracing(t, this.spansClient!, this._pendingSpanUpdates),
+        wrapToolWithTracing(t, spansClient, this._pendingSpanUpdates),
       );
     } else {
       this.tools = rawTools;
@@ -331,7 +332,8 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
       return;
     }
 
-    const span = await this.spansClient!.create({
+    const spansClient = this.spansClient as SpansClient;
+    const span = await spansClient.create({
       name: this.traceName,
       start_time: new Date().toISOString(),
       input: typeof input === "string" ? input : JSON.stringify(input),
@@ -354,22 +356,26 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
 
       const output = lastResult?.output;
       this._pendingSpanUpdates.push(
-        this.spansClient!.update(span.id, {
-          end_time: new Date().toISOString(),
-          ...(output !== undefined
-            ? { output: typeof output === "string" ? output : JSON.stringify(output) }
-            : {}),
-        }).catch(() => {}),
+        spansClient
+          .update(span.id, {
+            end_time: new Date().toISOString(),
+            ...(output !== undefined
+              ? { output: typeof output === "string" ? output : JSON.stringify(output) }
+              : {}),
+          })
+          .catch(() => {}),
       );
 
       await Promise.allSettled(this._pendingSpanUpdates);
       this._pendingSpanUpdates = [];
     } catch (error) {
       this._pendingSpanUpdates.push(
-        this.spansClient!.update(span.id, {
-          end_time: new Date().toISOString(),
-          error: error instanceof Error ? error.message : String(error),
-        }).catch(() => {}),
+        spansClient
+          .update(span.id, {
+            end_time: new Date().toISOString(),
+            error: error instanceof Error ? error.message : String(error),
+          })
+          .catch(() => {}),
       );
 
       await Promise.allSettled(this._pendingSpanUpdates);
@@ -493,9 +499,8 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
       }
     }
     if (this.tracing && this.spansClient) {
-      return providerTools.map((t) =>
-        wrapToolWithTracing(t, this.spansClient!, this._pendingSpanUpdates),
-      );
+      const sc = this.spansClient as SpansClient;
+      return providerTools.map((t) => wrapToolWithTracing(t, sc, this._pendingSpanUpdates));
     }
 
     return providerTools;

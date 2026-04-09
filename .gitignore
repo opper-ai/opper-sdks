@@ -6,6 +6,8 @@ dist/
 .env.*.local
 .DS_Store
 .claude/
+.agents/
+skills-lock.json
 docs/
 **/plans/
 

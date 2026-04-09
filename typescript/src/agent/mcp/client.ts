@@ -103,7 +103,6 @@ export class MCPClient {
 
     // Extract text content from MCP CallToolResult
     const textParts: string[] =
-      // biome-ignore lint/suspicious/noExplicitAny: MCP SDK content type
       result.content
         // biome-ignore lint/suspicious/noExplicitAny: MCP SDK content type
         ?.filter((c: any) => c.type === "text" && c.text != null)

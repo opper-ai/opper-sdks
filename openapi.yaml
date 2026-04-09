@@ -432,6 +432,13 @@ components:
               type: integer
             completion_tokens:
               type: integer
+            completion_tokens_details:
+              properties:
+                reasoning_tokens:
+                  type: integer
+              required:
+                - reasoning_tokens
+              type: object
             prompt_tokens:
               type: integer
             server_tool_use:
@@ -553,6 +560,13 @@ components:
               type: integer
             completion_tokens:
               type: integer
+            completion_tokens_details:
+              properties:
+                reasoning_tokens:
+                  type: integer
+              required:
+                - reasoning_tokens
+              type: object
             prompt_tokens:
               type: integer
             server_tool_use:
@@ -631,6 +645,13 @@ components:
           type: integer
         completion_tokens:
           type: integer
+        completion_tokens_details:
+          properties:
+            reasoning_tokens:
+              type: integer
+          required:
+            - reasoning_tokens
+          type: object
         prompt_tokens:
           type: integer
         server_tool_use:
@@ -1490,6 +1511,8 @@ components:
           type: string
         description:
           type: string
+        featured:
+          type: boolean
         id:
           type: string
         model_id:
@@ -1537,8 +1560,6 @@ components:
                 default:
                   type: string
               type: object
-            max_tokens:
-              type: boolean
             realtime:
               properties:
                 default_voice:
@@ -1561,6 +1582,8 @@ components:
             reasoning:
               properties:
                 default:
+                  type: string
+                mode:
                   type: string
                 supported:
                   items:
@@ -1631,7 +1654,6 @@ components:
                   type: boolean
               type: object
           required:
-            - max_tokens
             - default_max_tokens
           type: object
         pricing:
@@ -1672,6 +1694,10 @@ components:
               type: number
             price_per_second:
               type: number
+            reasoning:
+              items:
+                type: number
+              type: array
             thresholds:
               items:
                 type: integer
@@ -1738,6 +1764,8 @@ components:
                 type: string
               description:
                 type: string
+              featured:
+                type: boolean
               id:
                 type: string
               model_id:
@@ -1785,8 +1813,6 @@ components:
                       default:
                         type: string
                     type: object
-                  max_tokens:
-                    type: boolean
                   realtime:
                     properties:
                       default_voice:
@@ -1809,6 +1835,8 @@ components:
                   reasoning:
                     properties:
                       default:
+                        type: string
+                      mode:
                         type: string
                       supported:
                         items:
@@ -1879,7 +1907,6 @@ components:
                         type: boolean
                     type: object
                 required:
-                  - max_tokens
                   - default_max_tokens
                 type: object
               pricing:
@@ -1920,6 +1947,10 @@ components:
                     type: number
                   price_per_second:
                     type: number
+                  reasoning:
+                    items:
+                      type: number
+                    type: array
                   thresholds:
                     items:
                       type: integer
@@ -2666,6 +2697,8 @@ components:
           type: boolean
         status:
           type: string
+        trace_uuid:
+          type: string
         tts_calls:
           type: integer
         usage:
@@ -3218,6 +3251,8 @@ components:
               type: boolean
             status:
               type: string
+            trace_uuid:
+              type: string
             tts_calls:
               type: integer
             usage:
@@ -3307,6 +3342,72 @@ components:
       required:
         - input_tokens
         - output_tokens
+      type: object
+    WebFetchRequest:
+      properties:
+        url:
+          type: string
+      required:
+        - url
+      type: object
+    WebFetchResponse:
+      properties:
+        content:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+      required:
+        - url
+        - title
+        - content
+      type: object
+    WebSearchRequest:
+      properties:
+        max_results:
+          type: integer
+        query:
+          type: string
+      required:
+        - query
+      type: object
+    WebSearchResponse:
+      properties:
+        results:
+          items:
+            properties:
+              published_at:
+                type: string
+              snippet:
+                type: string
+              title:
+                type: string
+              url:
+                type: string
+            required:
+              - title
+              - url
+              - snippet
+            type: object
+          type: array
+      required:
+        - results
+      type: object
+    WebSearchResult:
+      properties:
+        published_at:
+          type: string
+        snippet:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+      required:
+        - title
+        - url
+        - snippet
       type: object
   securitySchemes:
     BearerAuth:
@@ -3407,7 +3508,19 @@ paths:
     post:
       description: Fetch a URL and return its content as markdown.
       operationId: webFetch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebFetchRequest"
+        required: true
       responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebFetchResponse"
+          description: Successful response
         "400":
           content:
             application/json:
@@ -3429,7 +3542,19 @@ paths:
     post:
       description: Search the web and return results with title, URL, and snippet.
       operationId: webSearch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebSearchRequest"
+        required: true
       responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebSearchResponse"
+          description: Successful response
         "400":
           content:
             application/json:
