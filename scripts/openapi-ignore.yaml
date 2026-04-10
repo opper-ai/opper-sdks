@@ -1,0 +1,44 @@
+# Schemas and endpoints in the OpenAPI spec that the SDKs do not use.
+# The pull-openapi.sh diff script reads this file and filters out matching
+# changes so the output only shows what matters for SDK maintenance.
+#
+# Format:
+#   schemas   – list of schema names to ignore (exact match)
+#   endpoints – list of path prefixes to ignore
+
+schemas:
+  # Compat API schemas (Messages, Responses, Chat, Interactions) – removed from SDKs
+  - ChatChoice
+  - ChatMessage
+  - ChatRequest
+  - ChatRequestMessage
+  - ChatRequestTool
+  - ChatResponse
+  - ChatUsage
+  - InteractionsRequest
+  - InteractionsResponse
+  - InteractionsUsage
+  - MessagesMessage
+  - MessagesRequest
+  - MessagesResponse
+  - MessagesResponseBlock
+  - MessagesTool
+  - MessagesUsage
+  - ORRequest
+  - PendingResponseMeta
+  - ReasoningConfig
+  - ResponsesError
+  - ResponsesOutputContent
+  - ResponsesOutputItem
+  - ResponsesOutputTokensDetails
+  - ResponsesRequest
+  - ResponsesResponse
+  - ResponsesTool
+  - ResponsesUsage
+
+endpoints:
+  # Compat endpoints not exposed by the SDKs
+  - /v3/compat/v1/messages
+  - /v3/compat/responses
+  - /v3/compat/chat/completions
+  - /v3/compat/v1beta/interactions
