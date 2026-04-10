@@ -2,9 +2,9 @@ components:
   schemas:
     CallRequest:
       properties:
-        hints:
+        guard:
           properties:
-            input_guardrails:
+            input:
               items:
                 properties:
                   action:
@@ -31,13 +31,7 @@ components:
                   - type
                 type: object
               type: array
-            instructions:
-              type: string
-            max_tokens:
-              type: integer
-            model:
-              type: string
-            output_guardrails:
+            output:
               items:
                 properties:
                   action:
@@ -64,14 +58,6 @@ components:
                   - type
                 type: object
               type: array
-            prefer:
-              type: string
-            reasoning_effort:
-              type: string
-            stream:
-              type: boolean
-            temperature:
-              type: number
           type: object
         input:
           description: Any value
@@ -81,7 +67,40 @@ components:
         instructions:
           type: string
         model:
-          type: string
+          oneOf:
+            - description: Model identifier (e.g. "openai/gpt-4o")
+              type: string
+            - properties:
+                extra_headers:
+                  description: Extra HTTP headers to send with requests to this model
+                  type: object
+                name:
+                  description: Model identifier (e.g. "openai/gpt-4o")
+                  type: string
+                options:
+                  description: Per-model parameters (temperature, max_tokens, reasoning_effort, etc.)
+                  type: object
+              required:
+                - name
+              type: object
+            - description: Fallback chain — models tried in order on retriable errors
+              items:
+                oneOf:
+                  - type: string
+                  - properties:
+                      extra_headers:
+                        description: Extra HTTP headers to send with requests to this model
+                        type: object
+                      name:
+                        description: Model identifier (e.g. "openai/gpt-4o")
+                        type: string
+                      options:
+                        description: Per-model parameters (temperature, max_tokens, reasoning_effort, etc.)
+                        type: object
+                    required:
+                      - name
+                    type: object
+              type: array
         name:
           type: string
         output_schema:
@@ -89,6 +108,13 @@ components:
           type: object
         parent_span_id:
           type: string
+        route:
+          properties:
+            prefer:
+              type: string
+          type: object
+        stream:
+          type: boolean
         tools:
           items:
             properties:
@@ -426,10 +452,6 @@ components:
           type: string
         usage:
           properties:
-            cache_creation_tokens:
-              type: integer
-            cache_read_tokens:
-              type: integer
             completion_tokens:
               type: integer
             completion_tokens_details:
@@ -441,6 +463,13 @@ components:
               type: object
             prompt_tokens:
               type: integer
+            prompt_tokens_details:
+              properties:
+                cached_tokens:
+                  type: integer
+              required:
+                - cached_tokens
+              type: object
             server_tool_use:
               type: object
             total_tokens:
@@ -554,10 +583,6 @@ components:
           type: string
         usage:
           properties:
-            cache_creation_tokens:
-              type: integer
-            cache_read_tokens:
-              type: integer
             completion_tokens:
               type: integer
             completion_tokens_details:
@@ -569,6 +594,13 @@ components:
               type: object
             prompt_tokens:
               type: integer
+            prompt_tokens_details:
+              properties:
+                cached_tokens:
+                  type: integer
+              required:
+                - cached_tokens
+              type: object
             server_tool_use:
               type: object
             total_tokens:
@@ -639,10 +671,6 @@ components:
       type: object
     ChatUsage:
       properties:
-        cache_creation_tokens:
-          type: integer
-        cache_read_tokens:
-          type: integer
         completion_tokens:
           type: integer
         completion_tokens_details:
@@ -654,6 +682,13 @@ components:
           type: object
         prompt_tokens:
           type: integer
+        prompt_tokens_details:
+          properties:
+            cached_tokens:
+              type: integer
+          required:
+            - cached_tokens
+          type: object
         server_tool_use:
           type: object
         total_tokens:
@@ -898,6 +933,10 @@ components:
       properties:
         max_output_tokens:
           type: integer
+        response_mime_type:
+          type: string
+        response_schema:
+          type: object
         temperature:
           type: number
         thinking_level:
@@ -1055,77 +1094,6 @@ components:
       required:
         - type
       type: object
-    Hints:
-      properties:
-        input_guardrails:
-          items:
-            properties:
-              action:
-                type: string
-              applies_to:
-                type: string
-              check:
-                type: string
-              custom_patterns:
-                items:
-                  type: string
-                type: array
-              model:
-                type: string
-              presets:
-                items:
-                  type: string
-                type: array
-              replacement:
-                type: string
-              type:
-                type: string
-            required:
-              - type
-            type: object
-          type: array
-        instructions:
-          type: string
-        max_tokens:
-          type: integer
-        model:
-          type: string
-        output_guardrails:
-          items:
-            properties:
-              action:
-                type: string
-              applies_to:
-                type: string
-              check:
-                type: string
-              custom_patterns:
-                items:
-                  type: string
-                type: array
-              model:
-                type: string
-              presets:
-                items:
-                  type: string
-                type: array
-              replacement:
-                type: string
-              type:
-                type: string
-            required:
-              - type
-            type: object
-          type: array
-        prefer:
-          type: string
-        reasoning_effort:
-          type: string
-        stream:
-          type: boolean
-        temperature:
-          type: number
-      type: object
     InteractionsError:
       properties:
         code:
@@ -1182,6 +1150,10 @@ components:
           properties:
             max_output_tokens:
               type: integer
+            response_mime_type:
+              type: string
+            response_schema:
+              type: object
             temperature:
               type: number
             thinking_level:
@@ -1365,6 +1337,8 @@ components:
           type: array
         model:
           type: string
+        output_format:
+          type: object
         stop_sequences:
           items:
             type: string
@@ -2038,6 +2012,7 @@ components:
           type: string
       required:
         - type
+        - text
       type: object
     OROutputItem:
       properties:
@@ -2066,6 +2041,7 @@ components:
                 type: string
             required:
               - type
+              - text
             type: object
           type: array
         cost_usd:
@@ -2287,6 +2263,7 @@ components:
                       type: string
                   required:
                     - type
+                    - text
                   type: object
                 type: array
               cost_usd:
@@ -2749,6 +2726,7 @@ components:
           type: string
       required:
         - type
+        - text
       type: object
     ResponsesOutputItem:
       properties:
@@ -2769,6 +2747,7 @@ components:
                 type: string
             required:
               - type
+              - text
             type: object
           type: array
         id:
@@ -2922,6 +2901,7 @@ components:
                       type: string
                   required:
                     - type
+                    - text
                   type: object
                 type: array
               id:
@@ -3083,9 +3063,9 @@ components:
       type: object
     RunRequest:
       properties:
-        hints:
+        guard:
           properties:
-            input_guardrails:
+            input:
               items:
                 properties:
                   action:
@@ -3112,13 +3092,7 @@ components:
                   - type
                 type: object
               type: array
-            instructions:
-              type: string
-            max_tokens:
-              type: integer
-            model:
-              type: string
-            output_guardrails:
+            output:
               items:
                 properties:
                   action:
@@ -3145,14 +3119,6 @@ components:
                   - type
                 type: object
               type: array
-            prefer:
-              type: string
-            reasoning_effort:
-              type: string
-            stream:
-              type: boolean
-            temperature:
-              type: number
           type: object
         input:
           description: Any value
@@ -3162,7 +3128,40 @@ components:
         instructions:
           type: string
         model:
-          type: string
+          oneOf:
+            - description: Model identifier (e.g. "openai/gpt-4o")
+              type: string
+            - properties:
+                extra_headers:
+                  description: Extra HTTP headers to send with requests to this model
+                  type: object
+                name:
+                  description: Model identifier (e.g. "openai/gpt-4o")
+                  type: string
+                options:
+                  description: Per-model parameters (temperature, max_tokens, reasoning_effort, etc.)
+                  type: object
+              required:
+                - name
+              type: object
+            - description: Fallback chain — models tried in order on retriable errors
+              items:
+                oneOf:
+                  - type: string
+                  - properties:
+                      extra_headers:
+                        description: Extra HTTP headers to send with requests to this model
+                        type: object
+                      name:
+                        description: Model identifier (e.g. "openai/gpt-4o")
+                        type: string
+                      options:
+                        description: Per-model parameters (temperature, max_tokens, reasoning_effort, etc.)
+                        type: object
+                    required:
+                      - name
+                    type: object
+              type: array
         name:
           type: string
         output_schema:
@@ -3170,6 +3169,13 @@ components:
           type: object
         parent_span_id:
           type: string
+        route:
+          properties:
+            prefer:
+              type: string
+          type: object
+        stream:
+          type: boolean
         tools:
           items:
             properties:
