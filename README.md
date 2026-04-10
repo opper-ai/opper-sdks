@@ -41,4 +41,37 @@ const result = await opper.call("summarize", {
 console.log(result.data);
 ```
 
+## Agent SDK (TypeScript)
+
+Build AI agents with tool use, streaming, and multi-agent composition.
+
+```bash
+npm install opperai
+```
+
+```typescript
+import { z } from "zod";
+import { Agent, tool } from "opperai";
+
+const getWeather = tool({
+  name: "get_weather",
+  description: "Get the current weather for a city",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => `Sunny, 22°C in ${city}`,
+});
+
+const agent = new Agent({
+  name: "weather-assistant",
+  instructions: "You are a helpful weather assistant.",
+  tools: [getWeather],
+});
+
+const result = await agent.run("What's the weather in Paris?");
+console.log(result.output);
+```
+
+See the [agent examples](./typescript/examples/agents/) for streaming, hooks, MCP integration, and multi-agent patterns.
+
+---
+
 See the [Python SDK](./python) and [TypeScript SDK](./typescript) READMEs for full documentation.
