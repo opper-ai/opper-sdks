@@ -88,6 +88,22 @@ await opper.traced("my-pipeline", async () => {
 | 12 | [Knowledge base](./examples/getting-started/12-knowledge-base.ts) | Semantic search with knowledge bases |
 | 13 | [Web tools](./examples/getting-started/13-web-tools.ts) | Web search and URL fetch (beta) |
 
+### Agent Examples
+
+| # | Example | What it shows |
+|---|---|---|
+| 00 | [First agent](./examples/agents/00-your-first-agent.ts) | Minimal agent, no tools |
+| 01 | [Schema output](./examples/agents/01-agent-with-schema.ts) | Structured output with Zod |
+| 02 | [Tools](./examples/agents/02-agent-with-tools.ts) | Tool definition and execution |
+| 03 | [Streaming](./examples/agents/03-streaming.ts) | Stream events + final result |
+| 04 | [Hooks logging](./examples/agents/04-hooks-logging.ts) | Lifecycle hooks for observability |
+| 05 | [Hooks timing](./examples/agents/05-hooks-timing.ts) | Performance profiling |
+| 06 | [Streaming + hooks](./examples/agents/06-streaming-with-hooks.ts) | Combined streaming and hooks |
+| 07 | [Agent as tool](./examples/agents/07-agent-as-tool.ts) | Sub-agent composition |
+| 08 | [Multi-agent](./examples/agents/08-multi-agent.ts) | Multi-agent orchestration |
+| 09 | [MCP](./examples/agents/09-mcp-stdio.ts) | MCP tool provider integration |
+| 10 | [Conversation](./examples/agents/10-conversation.ts) | Multi-turn stateful conversation |
+
 Run a single example:
 
 ```bash
@@ -99,6 +115,89 @@ Run all examples:
 
 ```bash
 npm run examples
+```
+
+## Agent SDK
+
+Build AI agents with tool use, streaming, multi-agent composition, and MCP integration.
+
+```typescript
+import { z } from "zod";
+import { Agent, tool } from "opperai";
+
+const getWeather = tool({
+  name: "get_weather",
+  description: "Get the current weather for a city",
+  parameters: z.object({ city: z.string() }),
+  execute: async ({ city }) => `Sunny, 22°C in ${city}`,
+});
+
+const agent = new Agent({
+  name: "weather-assistant",
+  instructions: "You are a helpful weather assistant.",
+  tools: [getWeather],
+});
+
+// Run — get the final result
+const result = await agent.run("What's the weather in Paris?");
+console.log(result.output);
+console.log(result.meta.usage); // token usage across all iterations
+
+// Stream — observe events as the agent works
+const stream = agent.stream("What's the weather in Paris?");
+for await (const event of stream) {
+  if (event.type === "text_delta") process.stdout.write(event.text);
+  if (event.type === "tool_start") console.log(`\nCalling ${event.name}...`);
+}
+const streamResult = await stream.result();
+```
+
+### Structured Output
+
+```typescript
+const agent = new Agent({
+  name: "analyzer",
+  instructions: "Analyze the sentiment of the input.",
+  outputSchema: z.object({ label: z.string(), score: z.number() }),
+});
+
+const result = await agent.run("I love this product!");
+result.output.label; // string — inferred from Zod schema
+result.output.score; // number
+```
+
+### Multi-Agent Composition
+
+```typescript
+const researcher = new Agent({ name: "researcher", instructions: "...", tools: [webSearch] });
+const writer = new Agent({
+  name: "writer",
+  instructions: "Write clear reports using research.",
+  tools: [researcher.asTool("research", "Research a topic")],
+});
+
+const result = await writer.run("Write a report on AI agents");
+```
+
+### MCP Integration
+
+```typescript
+import { Agent, mcp } from "opperai";
+
+const agent = new Agent({
+  name: "file-assistant",
+  instructions: "Help users manage files.",
+  tools: [mcp({ name: "fs", transport: { type: "stdio", command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"] } })],
+});
+```
+
+### Conversation (Multi-Turn)
+
+```typescript
+const conversation = agent.conversation();
+const r1 = await conversation.send("My name is Alice");
+const r2 = await conversation.send("What is my name?");
+// r2.output → "Your name is Alice"
 ```
 
 ## Configuration
