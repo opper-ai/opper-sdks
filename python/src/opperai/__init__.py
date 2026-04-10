@@ -13,6 +13,8 @@ from .types import (
     ErrorDetail,
     InternalServerError,
     MediaResponse,
+    Model,
+    ModelConfig,
     NotFoundError,
     PendingOperation,
     RateLimitError,
@@ -39,6 +41,8 @@ __all__ = [
     # Response types
     "ArtifactStatus",
     "MediaResponse",
+    "Model",
+    "ModelConfig",
     "PendingOperation",
     "RequestOptions",
     "RunResponse",

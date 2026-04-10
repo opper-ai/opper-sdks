@@ -661,6 +661,8 @@ export type {
   ListTracesItem,
   ListTracesParams,
   ListTracesResponse,
+  Model,
+  ModelConfig,
   ModelInfo,
   PaginatedResponse,
   PendingOperation,
