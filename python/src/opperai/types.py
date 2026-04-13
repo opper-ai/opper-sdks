@@ -44,6 +44,24 @@ T = TypeVar("T")
 # SchemaLike: a JSON Schema dict or a type (Pydantic BaseModel, dataclass, TypedDict)
 SchemaLike = JsonSchema | type
 
+
+class ModelConfig(TypedDict, total=False):
+    """Extended model configuration with provider-specific options.
+
+    Example::
+
+        {"name": "anthropic/claude-sonnet-4-6", "options": {"max_tokens": 1000}}
+    """
+
+    name: str  # required conceptually, but total=False for TypedDict compat
+    options: dict[str, Any]
+    extra_headers: dict[str, str]
+
+
+# Model specification: a plain identifier string, a ModelConfig with
+# provider-specific options, or a list of either for fallback chains.
+Model = str | ModelConfig | list[str | ModelConfig]
+
 # ---------------------------------------------------------------------------
 # SDK Configuration
 # ---------------------------------------------------------------------------

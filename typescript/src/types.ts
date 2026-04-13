@@ -143,6 +143,41 @@ export class InternalServerError extends ApiError {
 /** A JSON Schema or a Standard Schema (Zod, Valibot, ArkType, etc.). */
 export type SchemaLike = JsonSchema | import("./schema.js").StandardSchemaV1;
 
+/**
+ * Extended model configuration with provider-specific options.
+ *
+ * @example
+ * ```typescript
+ * { name: "anthropic/claude-sonnet-4-6", options: { max_tokens: 1000 } }
+ * ```
+ */
+export interface ModelConfig {
+  /** Model identifier (e.g. `"openai/gpt-4o"`). */
+  readonly name: string;
+  /** Provider-specific parameters (temperature, max_tokens, reasoning_effort, etc.). */
+  readonly options?: Record<string, unknown>;
+  /** Extra HTTP headers to send with requests to this model. */
+  readonly extra_headers?: Record<string, string>;
+}
+
+/**
+ * Model specification: a model identifier string, a {@link ModelConfig} object
+ * with provider-specific options, or an array of either for fallback chains.
+ *
+ * @example
+ * ```typescript
+ * // Simple string
+ * model: "anthropic/claude-sonnet-4-6"
+ *
+ * // With options
+ * model: { name: "anthropic/claude-sonnet-4-6", options: { max_tokens: 500 } }
+ *
+ * // Fallback chain — models tried in order on retriable errors
+ * model: ["anthropic/claude-sonnet-4-6", { name: "openai/gpt-4o", options: { temperature: 0.7 } }]
+ * ```
+ */
+export type Model = string | ModelConfig | (string | ModelConfig)[];
+
 /** Tool definition for function execution. */
 export interface Tool {
   readonly name: string;
@@ -206,8 +241,8 @@ export interface RunRequest {
   readonly output_schema?: SchemaLike;
   /** The input data to send to the function. */
   readonly input: JsonValue;
-  /** Model to use, e.g. `"anthropic/claude-sonnet-4-6"` or `"gcp/gemini-3-flash-preview"`. */
-  readonly model?: string;
+  /** Model to use — a string, a {@link ModelConfig} with provider-specific options, or a fallback chain. */
+  readonly model?: Model;
   /** Sampling temperature (0–2). Lower = more deterministic. */
   readonly temperature?: number;
   /** Maximum tokens in the response. */
@@ -231,8 +266,8 @@ export interface SchemaRunRequest<TOutput = unknown> {
   readonly input: JsonValue;
   /** JSON Schema or Standard Schema describing the input shape. Defaults to text when omitted. */
   readonly input_schema?: SchemaLike;
-  /** Model to use, e.g. `"anthropic/claude-sonnet-4-6"` or `"gcp/gemini-3-flash-preview"`. */
-  readonly model?: string;
+  /** Model to use — a string, a {@link ModelConfig} with provider-specific options, or a fallback chain. */
+  readonly model?: Model;
   /** Sampling temperature (0–2). Lower = more deterministic. */
   readonly temperature?: number;
   /** Maximum tokens in the response. */

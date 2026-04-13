@@ -1,0 +1,4 @@
+*
+!.gitignore
+!pull-openapi.sh
+!openapi-ignore.yaml

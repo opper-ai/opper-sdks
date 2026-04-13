@@ -22,6 +22,7 @@ from .clients.traces import TracesClient
 from .clients.web_tools import WebToolsClient
 from .types import (
     MediaResponse,
+    Model,
     RunResponse,
     SpanHandle,
     StreamChunk,
@@ -216,7 +217,7 @@ class Opper:
         output_schema: type[T],
         input_schema: Any = ...,
         instructions: str | None = ...,
-        model: str | None = ...,
+        model: Model | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         parent_span_id: str | None = ...,
     ) -> RunResponse[T]: ...
@@ -229,7 +230,7 @@ class Opper:
         output_schema: Any = ...,
         input_schema: Any = ...,
         instructions: str | None = ...,
-        model: str | None = ...,
+        model: Model | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         parent_span_id: str | None = ...,
     ) -> RunResponse[Any]: ...
@@ -242,7 +243,7 @@ class Opper:
         input_schema: Any = None,
         output_schema: Any = None,
         instructions: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
         tools: list[dict[str, Any]] | None = None,
         parent_span_id: str | None = None,
     ) -> RunResponse[Any]:
@@ -268,7 +269,7 @@ class Opper:
         output_schema: type[T],
         input_schema: Any = ...,
         instructions: str | None = ...,
-        model: str | None = ...,
+        model: Model | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         parent_span_id: str | None = ...,
     ) -> RunResponse[T]: ...
@@ -281,7 +282,7 @@ class Opper:
         output_schema: Any = ...,
         input_schema: Any = ...,
         instructions: str | None = ...,
-        model: str | None = ...,
+        model: Model | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         parent_span_id: str | None = ...,
     ) -> RunResponse[Any]: ...
@@ -294,7 +295,7 @@ class Opper:
         input_schema: Any = None,
         output_schema: Any = None,
         instructions: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
         tools: list[dict[str, Any]] | None = None,
         parent_span_id: str | None = None,
     ) -> RunResponse[Any]:
@@ -319,7 +320,7 @@ class Opper:
         input_schema: Any = None,
         output_schema: Any = None,
         instructions: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
         tools: list[dict[str, Any]] | None = None,
         parent_span_id: str | None = None,
     ) -> Iterator[StreamChunk]:
@@ -342,7 +343,7 @@ class Opper:
         input_schema: Any = None,
         output_schema: Any = None,
         instructions: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
         tools: list[dict[str, Any]] | None = None,
         parent_span_id: str | None = None,
     ) -> AsyncIterator[StreamChunk]:
@@ -413,7 +414,7 @@ class Opper:
         *,
         prompt: str,
         reference_image: str | bytes | None = None,
-        model: str | None = None,
+        model: Model | None = None,
         size: str | None = None,
         quality: str | None = None,
         style: str | None = None,
@@ -436,7 +437,7 @@ class Opper:
         *,
         prompt: str,
         reference_image: str | bytes | None = None,
-        model: str | None = None,
+        model: Model | None = None,
         size: str | None = None,
         quality: str | None = None,
         style: str | None = None,
@@ -458,7 +459,7 @@ class Opper:
         name: str | None = None,
         *,
         prompt: str,
-        model: str | None = None,
+        model: Model | None = None,
         aspect_ratio: str | None = None,
         poll_interval: float = 5.0,
     ) -> MediaResponse:
@@ -477,7 +478,7 @@ class Opper:
         name: str | None = None,
         *,
         prompt: str,
-        model: str | None = None,
+        model: Model | None = None,
         aspect_ratio: str | None = None,
         poll_interval: float = 5.0,
     ) -> MediaResponse:
@@ -497,7 +498,7 @@ class Opper:
         *,
         text: str,
         voice: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
     ) -> MediaResponse:
         input_schema, input_data = _build_tts_request(text, voice)
         r = self.call(
@@ -515,7 +516,7 @@ class Opper:
         *,
         text: str,
         voice: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
     ) -> MediaResponse:
         input_schema, input_data = _build_tts_request(text, voice)
         r = await self.call_async(
@@ -534,7 +535,7 @@ class Opper:
         audio: str | bytes,
         language: str | None = None,
         prompt: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
     ) -> RunResponse:
         input_schema, input_data = _build_stt_request(audio, language, prompt)
         return self.call(
@@ -552,7 +553,7 @@ class Opper:
         audio: str | bytes,
         language: str | None = None,
         prompt: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
     ) -> RunResponse:
         input_schema, input_data = _build_stt_request(audio, language, prompt)
         return await self.call_async(
@@ -636,7 +637,7 @@ class Opper:
         input_schema: Any = None,
         output_schema: Any = None,
         instructions: str | None = None,
-        model: str | None = None,
+        model: Model | None = None,
         parent_span_id: str | None = None,
         tools: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:

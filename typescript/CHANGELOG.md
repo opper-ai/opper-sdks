@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-beta.7] - 2026-04-10
+
+### Added
+
+- `ModelConfig` and `Model` types — `model` field on `RunRequest` and `SchemaRunRequest` now accepts a string, a `ModelConfig` object with provider-specific `options`, or a fallback chain (array)
+
+### Fixed
+
+- `ORContentPart.text` is now required, matching the API spec
+
 ## [4.0.0-beta.6] - 2026-04-09
 
 ### Added
@@ -66,6 +76,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.7]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.7
+[4.0.0-beta.6]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.6
 [4.0.0-beta.5]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.5
 [4.0.0-beta.4]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.4
 [4.0.0-beta.3]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.3

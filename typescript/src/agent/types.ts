@@ -103,7 +103,7 @@ export interface ORMessageOutputItem {
 
 export interface ORContentPart {
   type: string;
-  text?: string;
+  text: string;
   annotations?: unknown[];
   refusal?: string;
 }

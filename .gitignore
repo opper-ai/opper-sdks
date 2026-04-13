@@ -9,7 +9,6 @@ dist/
 .agents/
 skills-lock.json
 docs/
-scripts/
 **/plans/
 
 # Generated example output
