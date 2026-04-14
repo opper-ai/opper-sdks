@@ -315,6 +315,58 @@ class BaseClient:
             async for chunk in _parse_sse_lines_async(response.aiter_lines()):
                 yield chunk
 
+    # --- Raw SSE Streaming (for OpenResponses) --------------------------------
+
+    def _stream_sse_raw(
+        self,
+        path: str,
+        body: Any = None,
+        options: RequestOptions | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """POST request returning an SSE stream. Yields raw parsed JSON dicts.
+
+        Unlike _stream_sse, this does not convert events to StreamChunk.
+        Used by OpenResponsesClient where the event type is embedded in
+        the JSON ``type`` field.
+        """
+        client = self._get_sync_client()
+        kwargs = self._merge_options(options)
+        headers = {**self._default_headers, "Accept": "text/event-stream", **(kwargs.get("headers") or {})}
+        timeout = kwargs.get("timeout", DEFAULT_TIMEOUT)
+
+        with client.stream(
+            "POST",
+            path,
+            content=json.dumps(body) if body is not None else None,
+            headers=headers,
+            timeout=timeout,
+        ) as response:
+            self._raise_for_status(response)
+            yield from _parse_sse_lines_raw(response.iter_lines())
+
+    async def _stream_sse_raw_async(
+        self,
+        path: str,
+        body: Any = None,
+        options: RequestOptions | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """POST request returning an SSE stream (async). Yields raw parsed JSON dicts."""
+        client = self._get_async_client()
+        kwargs = self._merge_options(options)
+        headers = {**self._default_headers, "Accept": "text/event-stream", **(kwargs.get("headers") or {})}
+        timeout = kwargs.get("timeout", DEFAULT_TIMEOUT)
+
+        async with client.stream(
+            "POST",
+            path,
+            content=json.dumps(body) if body is not None else None,
+            headers=headers,
+            timeout=timeout,
+        ) as response:
+            self._raise_for_status(response)
+            async for event in _parse_sse_lines_raw_async(response.aiter_lines()):
+                yield event
+
 
 # ---------------------------------------------------------------------------
 # SSE parsing helpers
@@ -417,3 +469,48 @@ async def _parse_sse_lines_async(lines: Any) -> AsyncIterator[StreamChunk]:
             except json.JSONDecodeError:
                 pass
             current_event = ""
+
+
+# ---------------------------------------------------------------------------
+# Raw SSE parsing (yields dicts, used by OpenResponses)
+# ---------------------------------------------------------------------------
+
+
+def _parse_sse_lines_raw(lines: Any) -> Iterator[dict[str, Any]]:
+    """Parse SSE lines, yielding raw JSON dicts.
+
+    The event type is embedded in the JSON ``type`` field.
+    ``event:`` lines are skipped (same as TypeScript OpenResponses client).
+    """
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith(":") or stripped.startswith("event:"):
+            continue
+        if stripped.startswith("data:"):
+            data_str = stripped[5:].strip()
+            if data_str == "[DONE]":
+                return
+            if not data_str:
+                continue
+            try:
+                yield json.loads(data_str)
+            except json.JSONDecodeError:
+                pass
+
+
+async def _parse_sse_lines_raw_async(lines: Any) -> AsyncIterator[dict[str, Any]]:
+    """Parse SSE lines (async), yielding raw JSON dicts."""
+    async for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith(":") or stripped.startswith("event:"):
+            continue
+        if stripped.startswith("data:"):
+            data_str = stripped[5:].strip()
+            if data_str == "[DONE]":
+                return
+            if not data_str:
+                continue
+            try:
+                yield json.loads(data_str)
+            except json.JSONDecodeError:
+                pass

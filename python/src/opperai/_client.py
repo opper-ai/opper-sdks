@@ -206,6 +206,31 @@ class Opper:
         self.artifacts = ArtifactsClient(self._client)
         self.beta = _BetaNamespace(self._client)
 
+    # --- Agent factory --------------------------------------------------------
+
+    def agent(self, **kwargs: Any) -> Any:
+        """Create an Agent pre-configured with this client's credentials.
+
+        Example::
+
+            opper = Opper()
+            agent = opper.agent(
+                name="my-agent",
+                instructions="Be helpful.",
+                tools=[...],
+            )
+
+            async with opper.trace_async("pipeline"):
+                result = await agent.run("Hello")  # Creates child span
+        """
+        from .agent import Agent
+
+        # Pass client credentials through so the agent doesn't re-read env
+        api_key = self._client._api_key
+        base_url = self._client._base_url
+        kwargs.setdefault("client", {"api_key": api_key, "base_url": base_url})
+        return Agent(**kwargs)
+
     # --- Core execution -------------------------------------------------------
 
     @overload

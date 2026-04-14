@@ -1,6 +1,34 @@
 """Opper SDK for Python."""
 
 from ._client import Opper
+from .agent import (
+    AbortError,
+    Agent,
+    AgentError,
+    AgentStream,
+    AgentStreamEvent,
+    AgentTool,
+    AggregatedUsage,
+    Conversation,
+    Hooks,
+    IterationEndEvent,
+    IterationStartEvent,
+    MaxIterationsError,
+    ReasoningDeltaEvent,
+    ResultEvent,
+    RetryPolicy,
+    RunMeta,
+    RunOptions,
+    RunResult,
+    StreamErrorEvent,
+    TextDeltaEvent,
+    ToolCallRecord,
+    ToolEndEvent,
+    ToolProvider,
+    ToolStartEvent,
+    merge_hooks,
+    tool,
+)
 from .types import (
     ApiError,
     ArtifactStatus,
@@ -30,6 +58,35 @@ from .types import (
 
 __all__ = [
     "Opper",
+    # Agent SDK
+    "Agent",
+    "AgentStream",
+    "Conversation",
+    "tool",
+    "AgentTool",
+    "Hooks",
+    "RetryPolicy",
+    "RunResult",
+    "RunMeta",
+    "RunOptions",
+    "AggregatedUsage",
+    "ToolCallRecord",
+    "ToolProvider",
+    "merge_hooks",
+    # Agent stream events
+    "AgentStreamEvent",
+    "IterationStartEvent",
+    "TextDeltaEvent",
+    "ReasoningDeltaEvent",
+    "ToolStartEvent",
+    "ToolEndEvent",
+    "IterationEndEvent",
+    "ResultEvent",
+    "StreamErrorEvent",
+    # Agent errors
+    "AgentError",
+    "MaxIterationsError",
+    "AbortError",
     # Errors
     "ApiError",
     "BadRequestError",

@@ -42,3 +42,8 @@ exclude = ["tests"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "mcp>=1.27.0",
+]
