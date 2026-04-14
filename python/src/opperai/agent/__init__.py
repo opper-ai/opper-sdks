@@ -329,13 +329,17 @@ class Agent:
         parent_ctx = get_trace_context()
 
         # Create parent span for the entire agent run
-        span = await self._spans_client.create_async(
-            name=self.trace_name,
-            start_time=datetime.now(timezone.utc).isoformat(),
-            input=input if isinstance(input, str) else json.dumps(input),
-            trace_id=parent_ctx.trace_id if parent_ctx else None,
-            parent_id=parent_ctx.span_id if parent_ctx else None,
-        )
+        try:
+            span = await self._spans_client.create_async(
+                name=self.trace_name,
+                start_time=datetime.now(timezone.utc).isoformat(),
+                input=input if isinstance(input, str) else json.dumps(input),
+                trace_id=parent_ctx.trace_id if parent_ctx else None,
+                parent_id=parent_ctx.span_id if parent_ctx else None,
+            )
+        except BaseException:
+            # Tracing must never break the agent — run without tracing
+            return await self._execute_run(input, kwargs)
 
         trace_context = TraceContext(span_id=span.id, trace_id=span.trace_id)
         set_trace_context(trace_context)
@@ -350,7 +354,7 @@ class Agent:
                     output=result.output if isinstance(result.output, str)
                     else json.dumps(result.output),
                 )
-            except Exception:
+            except BaseException:
                 pass
 
             return result
@@ -361,7 +365,7 @@ class Agent:
                     end_time=datetime.now(timezone.utc).isoformat(),
                     error=str(err),
                 )
-            except Exception:
+            except BaseException:
                 pass
             raise
         finally:
@@ -422,13 +426,19 @@ class Agent:
 
         parent_ctx = get_trace_context()
 
-        span = await self._spans_client.create_async(
-            name=self.trace_name,
-            start_time=datetime.now(timezone.utc).isoformat(),
-            input=input if isinstance(input, str) else json.dumps(input),
-            trace_id=parent_ctx.trace_id if parent_ctx else None,
-            parent_id=parent_ctx.span_id if parent_ctx else None,
-        )
+        try:
+            span = await self._spans_client.create_async(
+                name=self.trace_name,
+                start_time=datetime.now(timezone.utc).isoformat(),
+                input=input if isinstance(input, str) else json.dumps(input),
+                trace_id=parent_ctx.trace_id if parent_ctx else None,
+                parent_id=parent_ctx.span_id if parent_ctx else None,
+            )
+        except BaseException:
+            # Tracing must never break the agent — stream without tracing
+            async for event in self._execute_stream(input, kwargs):
+                yield event
+            return
 
         trace_context = TraceContext(span_id=span.id, trace_id=span.trace_id)
         set_trace_context(trace_context)
@@ -447,7 +457,7 @@ class Agent:
                     end_time=datetime.now(timezone.utc).isoformat(),
                     output=output if isinstance(output, str) else json.dumps(output),
                 )
-            except Exception:
+            except BaseException:
                 pass
         except BaseException as err:
             try:
@@ -456,7 +466,7 @@ class Agent:
                     end_time=datetime.now(timezone.utc).isoformat(),
                     error=str(err),
                 )
-            except Exception:
+            except BaseException:
                 pass
             raise
         finally:

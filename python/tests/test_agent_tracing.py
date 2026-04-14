@@ -350,6 +350,71 @@ class TestAgentParentSpan:
         assert create_kwargs["parent_id"] == "parent-span"
 
 
+    @pytest.mark.asyncio
+    async def test_span_update_cancelled_error_swallowed(self) -> None:
+        """CancelledError during span update must not crash the agent."""
+        import asyncio
+        from unittest.mock import patch
+
+        from opperai.agent import Agent
+        from opperai.agent._types import AggregatedUsage, RunMeta, RunResult
+
+        agent = Agent(
+            name="test-agent",
+            instructions="Be helpful.",
+            client={"api_key": "test-key"},
+            tracing=True,
+        )
+
+        mock_span = MagicMock()
+        mock_span.id = "agent-span-cancel"
+        mock_span.trace_id = "trace-cancel"
+        assert agent._spans_client is not None
+        agent._spans_client.create_async = AsyncMock(return_value=mock_span)
+        # Simulate CancelledError from MCP teardown racing with span update
+        agent._spans_client.update_async = AsyncMock(side_effect=asyncio.CancelledError())
+
+        mock_result = RunResult(
+            output="Done!",
+            meta=RunMeta(usage=AggregatedUsage(total_tokens=100), iterations=1),
+        )
+        with patch.object(agent, "_execute_run", new_callable=AsyncMock, return_value=mock_result):
+            result = await agent.run("Hi")
+
+        # Agent should return normally despite CancelledError in tracing
+        assert result.output == "Done!"
+
+    @pytest.mark.asyncio
+    async def test_span_create_failure_falls_through(self) -> None:
+        """If span creation fails, agent should run without tracing."""
+        from unittest.mock import patch
+
+        from opperai.agent import Agent
+        from opperai.agent._types import AggregatedUsage, RunMeta, RunResult
+
+        agent = Agent(
+            name="test-agent",
+            instructions="Be helpful.",
+            client={"api_key": "test-key"},
+            tracing=True,
+        )
+
+        assert agent._spans_client is not None
+        agent._spans_client.create_async = AsyncMock(side_effect=ConnectionError("network down"))
+        agent._spans_client.update_async = AsyncMock()
+
+        mock_result = RunResult(
+            output="Still works!",
+            meta=RunMeta(usage=AggregatedUsage(total_tokens=50), iterations=1),
+        )
+        with patch.object(agent, "_execute_run", new_callable=AsyncMock, return_value=mock_result):
+            result = await agent.run("Hi")
+
+        assert result.output == "Still works!"
+        # update_async should never be called since span creation failed
+        agent._spans_client.update_async.assert_not_called()
+
+
 class TestOpperAgentFactory:
     def test_opper_agent_creates_agent(self) -> None:
         """Opper.agent() should create an Agent with the client's credentials."""
