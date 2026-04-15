@@ -1,6 +1,6 @@
 [project]
 name = "opperai"
-version = "2.0.0b6"
+version = "2.0.0b7"
 description = "Python SDK for the Opper Task API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -42,3 +42,8 @@ exclude = ["tests"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "mcp>=1.27.0",
+]

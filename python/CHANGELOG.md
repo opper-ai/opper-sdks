@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0b7] - 2026-04-14
+
+### Added
+
+- **Agent SDK** — build AI agents with tool use, streaming, structured output, and observability
+- `Agent` class with `run()`, `stream()`, and `conversation()` for single-turn, streaming, and multi-turn interactions
+- `@tool` decorator to define agent tools from plain Python functions (sync and async)
+- `Hooks` for lifecycle events (agent start/end, iteration, tool calls, LLM calls, errors)
+- `RetryPolicy` with exponential backoff for transient errors
+- Structured output via Pydantic models, dataclasses, or TypedDicts
+- Multi-agent composition via `agent.as_tool()` — use one agent as a tool for another
+- MCP tool providers (`MCPStdioConfig`, `MCPSSEConfig`, `MCPStreamableHTTPConfig`) with lazy imports
+- Automatic tracing with parent spans per `run()`/`stream()` and child spans per tool call
+- `Opper.agent()` factory method for creating agents with inherited credentials
+- 12 examples under `examples/agents/` including an applied daily digest agent
+
 ## [2.0.0b6] - 2026-04-10
 
 ### Added
@@ -44,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[2.0.0b7]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b7
 [2.0.0b6]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b6
 [2.0.0b5]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b5
 [2.0.0b4]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b4

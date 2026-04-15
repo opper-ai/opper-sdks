@@ -63,6 +63,93 @@ with opper.trace("my-pipeline") as span:
     opper.call("step-1", input="hello")
 ```
 
+## Agent SDK
+
+Build AI agents with tool use, streaming, multi-agent composition, and MCP integration.
+
+```python
+from opperai import Agent, tool
+
+@tool
+def get_weather(city: str) -> str:
+    """Get the current weather for a city."""
+    return f"Sunny, 22°C in {city}"
+
+agent = Agent(
+    name="weather-assistant",
+    instructions="You are a helpful weather assistant.",
+    tools=[get_weather],
+)
+
+# Run — get the final result
+result = await agent.run("What's the weather in Paris?")
+print(result.output)
+print(result.meta.usage)  # token usage across all iterations
+
+# Stream — observe events as the agent works
+stream = agent.stream("What's the weather in Paris?")
+async for event in stream:
+    if event.type == "text_delta":
+        print(event.text, end="", flush=True)
+    if event.type == "tool_start":
+        print(f"\nCalling {event.name}...")
+result = await stream.result()
+```
+
+### Structured Output
+
+```python
+from pydantic import BaseModel
+
+class Sentiment(BaseModel):
+    label: str
+    score: float
+
+agent = Agent(
+    name="analyzer",
+    instructions="Analyze the sentiment of the input.",
+    output_schema=Sentiment,
+)
+
+result = await agent.run("I love this product!")
+result.output.label  # str — typed via Pydantic
+result.output.score  # float
+```
+
+### Multi-Agent Composition
+
+```python
+researcher = Agent(name="researcher", instructions="...", tools=[web_search])
+writer = Agent(
+    name="writer",
+    instructions="Write clear reports using research.",
+    tools=[researcher.as_tool(name="research", description="Research a topic")],
+)
+
+result = await writer.run("Write a report on AI agents")
+```
+
+### MCP Integration
+
+```python
+from opperai.agent.mcp import mcp, MCPStdioConfig
+
+agent = Agent(
+    name="file-assistant",
+    instructions="Help users manage files.",
+    tools=[mcp(MCPStdioConfig(name="fs", command="uvx", args=["mcp-server-filesystem", "/tmp"]))],
+)
+```
+
+### Conversation (Multi-Turn)
+
+```python
+conversation = agent.conversation()
+r1 = await conversation.send("My name is Alice")
+r2 = await conversation.send("What is my name?")
+# r2.output → "Your name is Alice"
+```
+
 ## Examples
 
 | # | Example | What it shows |

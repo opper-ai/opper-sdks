@@ -12,7 +12,8 @@ from opperai.types import ContentChunk, DoneChunk, RunResponse, SpanHandle
 
 
 class TestOpperInit:
-    def test_requires_api_key(self) -> None:
+    def test_requires_api_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("OPPER_API_KEY", raising=False)
         with pytest.raises(ValueError, match="Missing API key"):
             Opper()
 
