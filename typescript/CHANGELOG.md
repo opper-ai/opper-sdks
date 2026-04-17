@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Web tools (`opper.beta.web.fetch`, `opper.beta.web.search`) now call the stable paths `/v3/tools/web/{fetch,search}` (the `/v3/beta/*` paths still redirect server-side). The endpoints remain marked `x-beta: true` in the OpenAPI spec and are still exposed under `opper.beta.*`.
+
+### Added
+
+- `@beta` JSDoc convention on beta endpoints — class-level and method-level. IDE tooling surfaces the tag on hover.
+
 ## [4.0.0-beta.7] - 2026-04-10
 
 ### Added
