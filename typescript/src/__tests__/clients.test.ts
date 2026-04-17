@@ -233,7 +233,7 @@ describe("SystemClient", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe("WebToolsClient", () => {
-  it("fetch sends POST to /v3/beta/tools/web/fetch", async () => {
+  it("fetch sends POST to /v3/tools/web/fetch", async () => {
     const resp = { content: "# Title\nBody text", url: "https://example.com" };
     const fetchMock = mockFetch(resp);
     globalThis.fetch = fetchMock;
@@ -242,13 +242,13 @@ describe("WebToolsClient", () => {
     const result = await client.fetch({ url: "https://example.com" });
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.test.com/v3/beta/tools/web/fetch");
+    expect(url).toBe("https://api.test.com/v3/tools/web/fetch");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body).url).toBe("https://example.com");
     expect(result.content).toBe("# Title\nBody text");
   });
 
-  it("search sends POST to /v3/beta/tools/web/search", async () => {
+  it("search sends POST to /v3/tools/web/search", async () => {
     const resp = { results: [{ title: "Result", url: "https://example.com", snippet: "..." }] };
     const fetchMock = mockFetch(resp);
     globalThis.fetch = fetchMock;
@@ -257,7 +257,7 @@ describe("WebToolsClient", () => {
     const result = await client.search({ query: "test query" });
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.test.com/v3/beta/tools/web/search");
+    expect(url).toBe("https://api.test.com/v3/tools/web/search");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body).query).toBe("test query");
     expect(result.results).toHaveLength(1);

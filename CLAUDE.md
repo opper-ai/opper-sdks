@@ -40,6 +40,16 @@ Each SDK has a `docs_code_snippets/` directory containing minimal, per-endpoint 
 
 When SDK APIs change, update the corresponding snippet files here. The docs repo's `example-map.yaml` controls which snippets map to which endpoints.
 
+## Beta Endpoints
+
+When an OpenAPI operation is tagged `x-beta: true`, mark it as beta in both SDKs:
+
+- **Structural**: expose under the `beta.*` namespace (e.g. `opper.beta.web.search`). This is the primary signal to users.
+- **Python**: decorate the method with `@beta` from `opperai._beta`. Emits a one-time `BetaWarning` (subclass of `FutureWarning`) on first call and prefixes the docstring with `[BETA]`.
+- **TypeScript**: add a `@beta` JSDoc tag on the class and each method. IDE tooling surfaces it on hover; TSDoc-aware docs generators render it.
+
+When an endpoint graduates (spec drops `x-beta: true`), remove the `@beta` decorator/JSDoc and optionally promote it out of the `beta.*` namespace in a minor release with a deprecation alias.
+
 ## Version Bumps & Changelogs
 
 When bumping SDK versions, always update the corresponding changelog:

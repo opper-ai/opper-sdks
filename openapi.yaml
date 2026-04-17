@@ -997,6 +997,32 @@ components:
             end_time:
               format: date-time
               type: string
+            events:
+              items:
+                properties:
+                  created_at:
+                    format: date-time
+                    type: string
+                  data:
+                    type: object
+                  id:
+                    type: string
+                  kind:
+                    type: string
+                  source:
+                    type: string
+                  span_id:
+                    type: string
+                  span_uuid:
+                    type: string
+                required:
+                  - id
+                  - span_id
+                  - kind
+                  - source
+                  - data
+                type: object
+              type: array
             id:
               type: string
             name:
@@ -3061,6 +3087,379 @@ components:
         - schema_hash
         - is_current
       type: object
+    RoundtableModelResult:
+      properties:
+        cost:
+          type: number
+        data:
+          type: string
+        duration_ms:
+          type: integer
+        error:
+          type: string
+        index:
+          type: integer
+        model:
+          type: string
+        usage:
+          properties:
+            cache_creation_1h_tokens:
+              type: integer
+            cache_creation_tokens:
+              type: integer
+            cache_read_tokens:
+              type: integer
+            extra:
+              type: object
+            input_audio_tokens:
+              type: integer
+            input_tokens:
+              type: integer
+            output_audio_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            reasoning_tokens:
+              type: integer
+            web_search_requests:
+              type: integer
+          required:
+            - input_tokens
+            - output_tokens
+          type: object
+      required:
+        - index
+        - model
+        - data
+        - duration_ms
+      type: object
+    RoundtableModelSpec:
+      properties:
+        max_tokens:
+          description: Override max output tokens for this model
+          type: integer
+        name:
+          description: Model identifier (e.g. gpt-4o or anthropic/claude-sonnet-4-20250514)
+          type: string
+        reasoning:
+          description: "Reasoning effort: low/medium/high/max"
+          type: string
+        temperature:
+          description: Override temperature for this model (0.0-2.0)
+          type: number
+        top_p:
+          description: Override top_p for this model
+          type: number
+      required:
+        - name
+      type: object
+    RoundtableRequest:
+      properties:
+        choices:
+          description: Literal options for multiple_choice resolution
+          items:
+            type: string
+          type: array
+        input:
+          description: The question or prompt sent to all models
+          type: string
+        instructions:
+          description: System prompt shared across all model calls
+          type: string
+        max_retries:
+          description: Per-model retry count on transient errors (default 1 / max 3)
+          type: integer
+        models:
+          description: Models to query in parallel
+          items:
+            properties:
+              max_tokens:
+                description: Override max output tokens for this model
+                type: integer
+              name:
+                description: Model identifier (e.g. gpt-4o or anthropic/claude-sonnet-4-20250514)
+                type: string
+              reasoning:
+                description: "Reasoning effort: low/medium/high/max"
+                type: string
+              temperature:
+                description: Override temperature for this model (0.0-2.0)
+                type: number
+              top_p:
+                description: Override top_p for this model
+                type: number
+            required:
+              - name
+            type: object
+          type: array
+        output_schema:
+          description: JSON Schema for structured output — applied to all model calls and the consolidation call
+          type: object
+        resolution:
+          description: "Resolution mode: summary (default) / fast / multiple_choice"
+          type: string
+        stream:
+          description: Enable SSE streaming
+          type: boolean
+        summary_model:
+          description: Override the model used for consolidation in summary mode
+          type: string
+        timeout_ms:
+          description: Per-model timeout in milliseconds covering all retries (default 120000 / max 300000)
+          type: integer
+      required:
+        - input
+        - models
+      type: object
+    RoundtableResponse:
+      properties:
+        data:
+          type: string
+        id:
+          type: string
+        meta:
+          properties:
+            models_used:
+              items:
+                type: string
+              type: array
+            resolution:
+              type: string
+            summary_model:
+              type: string
+            summary_usage:
+              properties:
+                cache_creation_1h_tokens:
+                  type: integer
+                cache_creation_tokens:
+                  type: integer
+                cache_read_tokens:
+                  type: integer
+                extra:
+                  type: object
+                input_audio_tokens:
+                  type: integer
+                input_tokens:
+                  type: integer
+                output_audio_tokens:
+                  type: integer
+                output_tokens:
+                  type: integer
+                reasoning_tokens:
+                  type: integer
+                web_search_requests:
+                  type: integer
+              required:
+                - input_tokens
+                - output_tokens
+              type: object
+            total_cost:
+              type: number
+            total_duration_ms:
+              type: integer
+            trace_uuid:
+              type: string
+          required:
+            - resolution
+            - models_used
+            - total_cost
+            - total_duration_ms
+          type: object
+        model_results:
+          items:
+            properties:
+              cost:
+                type: number
+              data:
+                type: string
+              duration_ms:
+                type: integer
+              error:
+                type: string
+              index:
+                type: integer
+              model:
+                type: string
+              usage:
+                properties:
+                  cache_creation_1h_tokens:
+                    type: integer
+                  cache_creation_tokens:
+                    type: integer
+                  cache_read_tokens:
+                    type: integer
+                  extra:
+                    type: object
+                  input_audio_tokens:
+                    type: integer
+                  input_tokens:
+                    type: integer
+                  output_audio_tokens:
+                    type: integer
+                  output_tokens:
+                    type: integer
+                  reasoning_tokens:
+                    type: integer
+                  web_search_requests:
+                    type: integer
+                required:
+                  - input_tokens
+                  - output_tokens
+                type: object
+            required:
+              - index
+              - model
+              - data
+              - duration_ms
+            type: object
+          type: array
+      required:
+        - id
+        - data
+        - meta
+        - model_results
+      type: object
+    RoundtableResponseMeta:
+      properties:
+        models_used:
+          items:
+            type: string
+          type: array
+        resolution:
+          type: string
+        summary_model:
+          type: string
+        summary_usage:
+          properties:
+            cache_creation_1h_tokens:
+              type: integer
+            cache_creation_tokens:
+              type: integer
+            cache_read_tokens:
+              type: integer
+            extra:
+              type: object
+            input_audio_tokens:
+              type: integer
+            input_tokens:
+              type: integer
+            output_audio_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            reasoning_tokens:
+              type: integer
+            web_search_requests:
+              type: integer
+          required:
+            - input_tokens
+            - output_tokens
+          type: object
+        total_cost:
+          type: number
+        total_duration_ms:
+          type: integer
+        trace_uuid:
+          type: string
+      required:
+        - resolution
+        - models_used
+        - total_cost
+        - total_duration_ms
+      type: object
+    RoundtableStreamChunk:
+      properties:
+        cost:
+          type: number
+        data:
+          type: string
+        delta:
+          type: string
+        error:
+          type: string
+        meta:
+          properties:
+            models_used:
+              items:
+                type: string
+              type: array
+            resolution:
+              type: string
+            summary_model:
+              type: string
+            summary_usage:
+              properties:
+                cache_creation_1h_tokens:
+                  type: integer
+                cache_creation_tokens:
+                  type: integer
+                cache_read_tokens:
+                  type: integer
+                extra:
+                  type: object
+                input_audio_tokens:
+                  type: integer
+                input_tokens:
+                  type: integer
+                output_audio_tokens:
+                  type: integer
+                output_tokens:
+                  type: integer
+                reasoning_tokens:
+                  type: integer
+                web_search_requests:
+                  type: integer
+              required:
+                - input_tokens
+                - output_tokens
+              type: object
+            total_cost:
+              type: number
+            total_duration_ms:
+              type: integer
+            trace_uuid:
+              type: string
+          required:
+            - resolution
+            - models_used
+            - total_cost
+            - total_duration_ms
+          type: object
+        model:
+          type: string
+        model_index:
+          type: integer
+        type:
+          type: string
+        usage:
+          properties:
+            cache_creation_1h_tokens:
+              type: integer
+            cache_creation_tokens:
+              type: integer
+            cache_read_tokens:
+              type: integer
+            extra:
+              type: object
+            input_audio_tokens:
+              type: integer
+            input_tokens:
+              type: integer
+            output_audio_tokens:
+              type: integer
+            output_tokens:
+              type: integer
+            reasoning_tokens:
+              type: integer
+            web_search_requests:
+              type: integer
+          required:
+            - input_tokens
+            - output_tokens
+          type: object
+      required:
+        - type
+      type: object
     RunRequest:
       properties:
         guard:
@@ -3510,74 +3909,6 @@ paths:
       summary: Get artifact generation status
       tags:
         - Artifacts
-  /v3/beta/tools/web/fetch:
-    post:
-      description: Fetch a URL and return its content as markdown.
-      operationId: webFetch
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/WebFetchRequest"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WebFetchResponse"
-          description: Successful response
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-          description: Bad request
-        "401":
-          description: "Unauthorized - missing or invalid API key"
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-          description: Internal server error
-      summary: Web fetch
-      tags:
-        - Tools
-  /v3/beta/tools/web/search:
-    post:
-      description: Search the web and return results with title, URL, and snippet.
-      operationId: webSearch
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/WebSearchRequest"
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WebSearchResponse"
-          description: Successful response
-        "400":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-          description: Bad request
-        "401":
-          description: "Unauthorized - missing or invalid API key"
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-          description: Internal server error
-      summary: Web search
-      tags:
-        - Tools
   /v3/call:
     post:
       description: Execute a function by name (passed in the request body). If no cached script exists, one is generated automatically.
@@ -4888,6 +5219,45 @@ paths:
       summary: Realtime WebSocket
       tags:
         - Functions
+  /v3/roundtable:
+    post:
+      description: Send a query to multiple models in parallel and combine results using a configurable resolution strategy (summary, fast, multiple_choice).
+      operationId: createRoundtable
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoundtableRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoundtableResponse"
+            text/event-stream:
+              schema:
+                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
+                type: string
+          description: Successful response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: Roundtable ensemble call
+      tags:
+        - Roundtable
+      x-beta: true
   /v3/spans:
     post:
       description: Create a new trace span.
@@ -5021,6 +5391,138 @@ paths:
       summary: Update span
       tags:
         - Spans
+  /v3/spans/{id}/events:
+    get:
+      description: List events for a span.
+      operationId: listSpanEvents
+      parameters:
+        - description: Generation ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Filter by event kind (guardrail, feedback, evaluation)
+          in: query
+          name: kind
+          schema:
+            type: string
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: List span events
+      tags:
+        - Spans
+    post:
+      description: Record an event (guardrail, feedback, evaluation) on a span.
+      operationId: createSpanEvent
+      parameters:
+        - description: Generation ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: Create span event
+      tags:
+        - Spans
+  /v3/tools/web/fetch:
+    post:
+      description: Fetch a URL and return its content as markdown.
+      operationId: webFetch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebFetchRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebFetchResponse"
+          description: Successful response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: Web fetch
+      tags:
+        - Tools
+      x-beta: true
+  /v3/tools/web/search:
+    post:
+      description: Search the web and return results with title, URL, and snippet.
+      operationId: webSearch
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WebSearchRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebSearchResponse"
+          description: Successful response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: Web search
+      tags:
+        - Tools
+      x-beta: true
   /v3/traces:
     get:
       description: List traces with pagination.
@@ -5126,6 +5628,40 @@ paths:
       summary: Get trace
       tags:
         - Traces
+  /v3/traces/{id}/events:
+    get:
+      description: List all events across all spans in a trace.
+      operationId: listTraceEvents
+      parameters:
+        - description: Generation ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Filter by event kind (guardrail, feedback, evaluation)
+          in: query
+          name: kind
+          schema:
+            type: string
+      responses:
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: List trace events
+      tags:
+        - Traces
 security:
   - BearerAuth: []
 servers:
@@ -5150,3 +5686,7 @@ tags:
     name: Generations
   - description: System health and status
     name: System
+  - description: Multi-model ensemble endpoint — fan out a query to multiple LLMs and combine results
+    name: Roundtable
+  - description: Web search, fetch, and other utility tools
+    name: Tools
