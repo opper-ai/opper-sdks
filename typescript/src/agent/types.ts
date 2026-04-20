@@ -3,6 +3,7 @@
 // =============================================================================
 //
 // OpenResponses wire types (ORRequest, ORResponse, etc.) and agent-layer types
+import type { Model } from "../types";
 // (AgentConfig, AgentTool, RunResult, etc.)
 
 import type { StandardSchemaV1 } from "../schema.js";
@@ -61,7 +62,8 @@ export interface ORReasoning {
 /** Request body for POST /v3/compat/openresponses. */
 export interface ORRequest {
   input: string | ORInputItem[];
-  model?: string;
+  /** Model to use — a string, a `ModelConfig` with provider-specific options, or a fallback chain. */
+  model?: Model;
   instructions?: string;
   tools?: ORTool[];
   stream?: boolean;
@@ -343,7 +345,8 @@ export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | und
   name: string;
   instructions: string;
   tools?: (AgentTool | ToolProvider)[];
-  model?: string;
+  /** Model to use — a string, a `ModelConfig` with provider-specific options, or a fallback chain. */
+  model?: Model;
   outputSchema?: S;
   temperature?: number;
   maxTokens?: number;
@@ -454,7 +457,8 @@ export interface Hooks {
 
 /** Per-run option overrides. */
 export interface RunOptions {
-  model?: string;
+  /** Model to use — a string, a `ModelConfig` with provider-specific options, or a fallback chain. */
+  model?: Model;
   temperature?: number;
   maxTokens?: number;
   maxIterations?: number;

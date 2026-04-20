@@ -6,12 +6,12 @@ trace context via contextvars.
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 from typing import Any
 
 from .._context import get_trace_context
 from ..clients.spans import SpansClient
+from ._serialize import to_text
 from ._types import Hooks
 
 
@@ -33,7 +33,7 @@ def create_tool_tracing_hooks(spans_client: SpansClient) -> Hooks:
             span = await spans_client.create_async(
                 name=ctx["name"],
                 start_time=datetime.now(timezone.utc).isoformat(),
-                input=json.dumps(ctx.get("input")),
+                input=to_text(ctx.get("input")),
                 trace_id=trace_ctx.trace_id,
                 parent_id=trace_ctx.span_id,
             )
@@ -54,7 +54,7 @@ def create_tool_tracing_hooks(spans_client: SpansClient) -> Hooks:
             if ctx.get("error"):
                 update_kwargs["error"] = ctx["error"]
             if ctx.get("output") is not None:
-                update_kwargs["output"] = json.dumps(ctx["output"])
+                update_kwargs["output"] = to_text(ctx["output"])
             await spans_client.update_async(span_id, **update_kwargs)
         except Exception:
             # Tracing failures should never break the agent

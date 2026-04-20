@@ -6,6 +6,7 @@ import { OpenResponsesClient } from "../clients/openresponses.js";
 import { SpansClient } from "../clients/spans.js";
 import { getTraceContext, runWithTraceContext } from "../context.js";
 import { isStandardSchema, resolveSchema } from "../schema.js";
+import type { Model } from "../types.js";
 import { Conversation } from "./conversation.js";
 import { runLoop, streamLoop } from "./loop.js";
 import { AgentStream } from "./stream.js";
@@ -128,7 +129,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   readonly name: string;
   readonly instructions: string;
   readonly tools: AgentTool[];
-  readonly model?: string;
+  readonly model?: Model;
   readonly outputSchema?: S;
   readonly temperature?: number;
   readonly maxTokens?: number;
@@ -213,17 +214,27 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     }
 
     const parentCtx = getTraceContext();
+    const explicitParentId = options?.parentSpanId;
 
-    // Sub-agent called from a tool span — skip redundant agent span
-    if (parentCtx?.isToolSpan) {
+    // Sub-agent called from a tool span — skip redundant agent span,
+    // unless the caller explicitly requested a parent span (in which case
+    // their intent wins).
+    if (!explicitParentId && parentCtx?.isToolSpan) {
       return this.executeRun(input, options);
     }
 
+    // Explicit parentSpanId overrides ambient trace context entirely; the
+    // explicit parent may belong to a different trace, so mixing its ID with
+    // ambient.traceId would produce a mismatched pair. Server fills traceId.
     const span = await this.spansClient.create({
       name: this.traceName,
       start_time: new Date().toISOString(),
       input: typeof input === "string" ? input : JSON.stringify(input),
-      ...(parentCtx ? { trace_id: parentCtx.traceId, parent_id: parentCtx.spanId } : {}),
+      ...(explicitParentId
+        ? { parent_id: explicitParentId }
+        : parentCtx
+          ? { trace_id: parentCtx.traceId, parent_id: parentCtx.spanId }
+          : {}),
     });
 
     try {
@@ -324,20 +335,29 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     options?: RunOptions,
   ): AsyncGenerator<AgentStreamEvent, void, undefined> {
     const parentCtx = getTraceContext();
+    const explicitParentId = options?.parentSpanId;
 
     // Sub-agent called from a tool span — skip redundant agent span,
-    // but pass the parent context explicitly (ALS unreliable in generators)
-    if (parentCtx?.isToolSpan) {
+    // but pass the parent context explicitly (ALS unreliable in generators).
+    // An explicit parentSpanId opts out of this shortcut: the caller wants a
+    // span under the specified parent regardless of the ambient tool-span.
+    if (!explicitParentId && parentCtx?.isToolSpan) {
       yield* this.executeStream(input, options, parentCtx);
       return;
     }
 
+    // Explicit parentSpanId overrides ambient trace context entirely; see the
+    // matching comment in run() above.
     const spansClient = this.spansClient as SpansClient;
     const span = await spansClient.create({
       name: this.traceName,
       start_time: new Date().toISOString(),
       input: typeof input === "string" ? input : JSON.stringify(input),
-      ...(parentCtx ? { trace_id: parentCtx.traceId, parent_id: parentCtx.spanId } : {}),
+      ...(explicitParentId
+        ? { parent_id: explicitParentId }
+        : parentCtx
+          ? { trace_id: parentCtx.traceId, parent_id: parentCtx.spanId }
+          : {}),
     });
 
     // Pass trace context explicitly — ALS doesn't propagate reliably through

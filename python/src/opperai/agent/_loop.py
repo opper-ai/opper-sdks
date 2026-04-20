@@ -16,12 +16,14 @@ from typing import Any, Literal
 from ..types import (
     AuthenticationError,
     InternalServerError,
+    Model,
     RateLimitError,
     RequestOptions,
 )
 from ._errors import AbortError, AgentError, MaxIterationsError
 from ._hooks import dispatch_hook
 from ._reasoning import accumulate_reasoning, extract_reasoning
+from ._serialize import to_json_str
 from ._turn_awareness import get_warning_message, is_recovery_turn
 from ._types import (
     AgentStreamEvent,
@@ -55,7 +57,7 @@ class LoopConfig:
     trace_name: str
     instructions: str
     tools: list[AgentTool]
-    model: str | None = None
+    model: Model | None = None
     output_schema: dict[str, Any] | None = None
     temperature: float | None = None
     max_tokens: int | None = None
@@ -364,9 +366,9 @@ def _append_tool_results(
         })
     for record in tool_records:
         output = (
-            json.dumps({"error": record.error})
+            to_json_str({"error": record.error})
             if record.error
-            else json.dumps(record.output)
+            else to_json_str(record.output)
         )
         items.append({
             "type": "function_call_output",

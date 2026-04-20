@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-beta.9] - 2026-04-17
+
+### Fixed
+
+- `parentSpanId` option on `agent.run()` / `agent.stream()` is now honoured
+  (previously declared on `RunOptions` but never read). When provided
+  explicitly it takes precedence over the ambient trace context — the server
+  assigns `trace_id`, avoiding the mismatched pair that would result from
+  merging an explicit parent with ambient `traceId`.
+
+### Changed
+
+- `model` on `AgentConfig`, `RunOptions`, and the `ORRequest` wire type now
+  accepts the full `Model` type — a string, a `ModelConfig` object with
+  provider-specific `options`, or a fallback array — matching
+  `RunRequest.model` used by `opper.call`.
+
 ## [4.0.0-beta.8] - 2026-04-17
 
 ### Changed
@@ -86,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.9]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.9
 [4.0.0-beta.8]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.8
 [4.0.0-beta.7]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.7
 [4.0.0-beta.6]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.6

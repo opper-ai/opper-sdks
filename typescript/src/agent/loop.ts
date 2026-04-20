@@ -7,6 +7,7 @@ import { getTraceContext, runWithTraceContext } from "../context.js";
 import {
   AuthenticationError,
   InternalServerError,
+  type Model,
   RateLimitError,
   type RequestOptions,
 } from "../types.js";
@@ -44,7 +45,7 @@ interface LoopConfig {
   traceName: string;
   instructions: string;
   tools: AgentTool[];
-  model?: string;
+  model?: Model;
   outputSchema?: Record<string, unknown>;
   temperature?: number;
   maxTokens?: number;
