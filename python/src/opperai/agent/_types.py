@@ -9,6 +9,8 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, Union, runtime_checkable
 
+from ..types import Model
+
 # =============================================================================
 # OpenResponses Wire Types — Request
 # =============================================================================
@@ -215,7 +217,7 @@ class RunResult:
 class RunOptions:
     """Per-run overrides passed to agent.run() / agent.stream()."""
 
-    model: str | None = None
+    model: Model | None = None
     temperature: float | None = None
     max_tokens: int | None = None
     max_iterations: int | None = None

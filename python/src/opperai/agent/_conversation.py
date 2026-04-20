@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
+from ._serialize import to_json_str, to_text
 from ._stream import AgentStream
 from ._types import ResultEvent, RunResult
 
@@ -47,12 +47,12 @@ class Conversation:
                 "type": "function_call",
                 "call_id": tc.call_id,
                 "name": tc.name,
-                "arguments": json.dumps(tc.input) if tc.input is not None else "",
+                "arguments": to_json_str(tc.input) if tc.input is not None else "",
             })
             output = (
-                json.dumps({"error": tc.error})
+                to_json_str({"error": tc.error})
                 if tc.error
-                else json.dumps(tc.output)
+                else to_json_str(tc.output)
             )
             self._items.append({
                 "type": "function_call_output",
@@ -61,15 +61,10 @@ class Conversation:
             })
 
         # Append assistant output
-        output_text = (
-            result.output
-            if isinstance(result.output, str)
-            else json.dumps(result.output)
-        )
         self._items.append({
             "type": "message",
             "role": "assistant",
-            "content": output_text or "",
+            "content": to_text(result.output),
         })
 
         return result
@@ -101,12 +96,12 @@ class Conversation:
                     "type": "function_call",
                     "call_id": tc.call_id,
                     "name": tc.name,
-                    "arguments": json.dumps(tc.input) if tc.input is not None else "",
+                    "arguments": to_json_str(tc.input) if tc.input is not None else "",
                 })
                 output = (
-                    json.dumps({"error": tc.error})
+                    to_json_str({"error": tc.error})
                     if tc.error
-                    else json.dumps(tc.output)
+                    else to_json_str(tc.output)
                 )
                 self._items.append({
                     "type": "function_call_output",
@@ -114,15 +109,10 @@ class Conversation:
                     "output": output,
                 })
 
-            output_text = (
-                result.output
-                if isinstance(result.output, str)
-                else json.dumps(result.output)
-            )
             self._items.append({
                 "type": "message",
                 "role": "assistant",
-                "content": output_text or "",
+                "content": to_text(result.output),
             })
 
     def get_items(self) -> list[dict[str, Any]]:

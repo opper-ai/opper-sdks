@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-import json
 import os
 from collections.abc import AsyncGenerator, Callable
 from datetime import datetime, timezone
@@ -14,10 +13,12 @@ from .._context import TraceContext, get_trace_context, set_trace_context
 from .._schema import parse_output, resolve_schema
 from ..clients.openresponses import OpenResponsesClient
 from ..clients.spans import SpansClient
+from ..types import Model
 from ._conversation import Conversation
 from ._errors import AbortError, AgentError, MaxIterationsError
 from ._hooks import merge_hooks
 from ._loop import LoopConfig, stream_loop
+from ._serialize import to_json_str, to_text
 from ._stream import AgentStream
 from ._tracing import create_tool_tracing_hooks
 from ._types import (
@@ -257,7 +258,7 @@ class Agent:
         name: str,
         instructions: str,
         tools: list[AgentTool | ToolProvider] | None = None,
-        model: str | None = None,
+        model: Model | None = None,
         output_schema: Any = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
@@ -271,10 +272,16 @@ class Agent:
         retry: RetryPolicy | None = None,
         on_max_iterations: Literal["throw", "return_partial"] = "throw",
     ) -> None:
+        """Initialise an Agent.
+
+        ``model`` accepts a string, a ``ModelConfig`` dict with provider-specific
+        options, or a list of either as a fallback chain (e.g.
+        ``["anthropic/claude-haiku-4-5", "gcp/gemini-2.5-flash"]``).
+        """
         self.name: str = name
         self.instructions: str = instructions
         self._raw_tools: list[AgentTool | ToolProvider] = tools or []
-        self.model: str | None = model
+        self.model: Model | None = model
         self._output_schema_input: Any = output_schema
         self._output_schema_json: dict[str, Any] | None = None
         self.temperature: float | None = temperature
@@ -323,36 +330,37 @@ class Agent:
             result = await agent.run("What's the weather in Paris?")
             print(result.output)
         """
+        options = _kwargs_to_run_options(kwargs) if kwargs else None
+
         if not self.tracing or not self._spans_client:
-            return await self._execute_run(input, kwargs)
+            return await self._execute_run(input, options)
 
-        parent_ctx = get_trace_context()
+        ambient = get_trace_context()
+        parent_id, trace_id = _resolve_parent_ids(options, ambient)
 
-        # Create parent span for the entire agent run
         try:
             span = await self._spans_client.create_async(
                 name=self.trace_name,
                 start_time=datetime.now(timezone.utc).isoformat(),
-                input=input if isinstance(input, str) else json.dumps(input),
-                trace_id=parent_ctx.trace_id if parent_ctx else None,
-                parent_id=parent_ctx.span_id if parent_ctx else None,
+                input=to_text(input),
+                trace_id=trace_id,
+                parent_id=parent_id,
             )
         except BaseException:
             # Tracing must never break the agent — run without tracing
-            return await self._execute_run(input, kwargs)
+            return await self._execute_run(input, options)
 
         trace_context = TraceContext(span_id=span.id, trace_id=span.trace_id)
         set_trace_context(trace_context)
 
         try:
-            result = await self._execute_run(input, kwargs)
+            result = await self._execute_run(input, options)
 
             try:
                 await self._spans_client.update_async(
                     span.id,
                     end_time=datetime.now(timezone.utc).isoformat(),
-                    output=result.output if isinstance(result.output, str)
-                    else json.dumps(result.output),
+                    output=to_text(result.output),
                 )
             except BaseException:
                 pass
@@ -370,13 +378,12 @@ class Agent:
             raise
         finally:
             # Restore previous trace context
-            set_trace_context(parent_ctx)
+            set_trace_context(ambient)
 
     async def _execute_run(
-        self, input: str | list[Any], kwargs: dict[str, Any]
+        self, input: str | list[Any], options: RunOptions | None
     ) -> RunResult:
         """Internal: execute the run loop (no tracing wrapper)."""
-        options = _kwargs_to_run_options(kwargs) if kwargs else None
         resolved_tools, providers = await self._resolve_tools()
 
         try:
@@ -419,24 +426,27 @@ class Agent:
         self, input: str | list[Any], kwargs: dict[str, Any]
     ) -> Any:
         """Create the underlying async generator for streaming."""
+        options = _kwargs_to_run_options(kwargs) if kwargs else None
+
         if not self.tracing or not self._spans_client:
-            async for event in self._execute_stream(input, kwargs):
+            async for event in self._execute_stream(input, options):
                 yield event
             return
 
-        parent_ctx = get_trace_context()
+        ambient = get_trace_context()
+        parent_id, trace_id = _resolve_parent_ids(options, ambient)
 
         try:
             span = await self._spans_client.create_async(
                 name=self.trace_name,
                 start_time=datetime.now(timezone.utc).isoformat(),
-                input=input if isinstance(input, str) else json.dumps(input),
-                trace_id=parent_ctx.trace_id if parent_ctx else None,
-                parent_id=parent_ctx.span_id if parent_ctx else None,
+                input=to_text(input),
+                trace_id=trace_id,
+                parent_id=parent_id,
             )
         except BaseException:
             # Tracing must never break the agent — stream without tracing
-            async for event in self._execute_stream(input, kwargs):
+            async for event in self._execute_stream(input, options):
                 yield event
             return
 
@@ -445,7 +455,7 @@ class Agent:
 
         last_result: RunResult | None = None
         try:
-            async for event in self._execute_stream(input, kwargs):
+            async for event in self._execute_stream(input, options):
                 if isinstance(event, ResultEvent):
                     last_result = RunResult(output=event.output, meta=event.meta)
                 yield event
@@ -455,7 +465,7 @@ class Agent:
                 await self._spans_client.update_async(
                     span.id,
                     end_time=datetime.now(timezone.utc).isoformat(),
-                    output=output if isinstance(output, str) else json.dumps(output),
+                    output=to_text(output),
                 )
             except BaseException:
                 pass
@@ -470,13 +480,12 @@ class Agent:
                 pass
             raise
         finally:
-            set_trace_context(parent_ctx)
+            set_trace_context(ambient)
 
     async def _execute_stream(  # type: ignore[return]
-        self, input: str | list[Any], kwargs: dict[str, Any]
+        self, input: str | list[Any], options: RunOptions | None
     ) -> AsyncGenerator[AgentStreamEvent, None]:
         """Internal: execute the stream loop (no tracing wrapper)."""
-        options = _kwargs_to_run_options(kwargs) if kwargs else None
         resolved_tools, providers = await self._resolve_tools()
 
         try:
@@ -503,11 +512,14 @@ class Agent:
         """Wrap this agent as a tool for another agent."""
         parent = self
 
-        async def execute(params: Any) -> dict[str, Any]:
-            input_text = params.get("input", "") if isinstance(params, dict) else str(params)
+        async def execute(input: str = "", **_: Any) -> dict[str, Any]:
+            # ``_execute_tool`` unpacks dict tool arguments as keyword args
+            # (``tool.execute(**parsed)``), so we accept ``input=`` directly
+            # and ignore any extra keys the model happens to hallucinate.
+            input_text = input if isinstance(input, str) else str(input)
             result = await parent.run(input_text)
             return {
-                "output": result.output if isinstance(result.output, str) else json.dumps(result.output),
+                "output": to_json_str(result.output),
                 "usage": {
                     "input_tokens": result.meta.usage.input_tokens,
                     "output_tokens": result.meta.usage.output_tokens,
@@ -595,3 +607,22 @@ def _kwargs_to_run_options(kwargs: dict[str, Any]) -> RunOptions:
         reasoning_effort=kwargs.get("reasoning_effort"),
         parent_span_id=kwargs.get("parent_span_id"),
     )
+
+
+def _resolve_parent_ids(
+    options: RunOptions | None, ambient: TraceContext | None
+) -> tuple[str | None, str | None]:
+    """Return (parent_id, trace_id) for the agent's parent span.
+
+    An explicit ``parent_span_id`` on the run options fully overrides ambient
+    trace context (mirrors ``opper.call`` semantics at ``_client.py`` — an
+    explicit parent may belong to a different trace, so mixing its ID with
+    ``ambient.trace_id`` would produce a mismatched pair). When no explicit
+    value is given we fall back to the ambient span and trace.
+    """
+    explicit = options.parent_span_id if options else None
+    if explicit is not None:
+        return explicit, None
+    if ambient is not None:
+        return ambient.span_id, ambient.trace_id
+    return None, None

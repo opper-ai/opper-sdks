@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0b9] - 2026-04-20
+
+### Fixed
+
+- Agent tool results: tool outputs that are Pydantic models, dataclasses, or
+  other non-JSON-native values are now correctly serialised into the
+  `function_call_output.output` item the server replays on the next turn.
+  `json.dumps` previously raised `TypeError` on these, which
+  silently corrupted the agent loop state (the tool-result item never landed
+  and the next iteration saw an incomplete history).
+- Agent tracing: span `end_time` is now written when `output_schema` is a
+  Pydantic model. The previous failure was silently swallowed by a bare
+  `except BaseException`, so spans showed "N/A" duration in the trace UI.
+- `parent_span_id` kwarg on `agent.run()` / `agent.stream()` is now honoured.
+  When provided it takes precedence over the ambient trace context (matching
+  the `opper.call` semantics in `_client.py`), so an explicit parent on a
+  different trace can't inherit a mismatched `trace_id` from ambient.
+- `Conversation` history serialisation now handles Pydantic / dataclass
+  outputs via a shared `to_json_str` helper; assistant message `content`
+  goes through `to_text` so raw strings are not double-quoted.
+- `Agent.as_tool()` wrapper: the inner `execute` function now accepts
+  `input=` as a keyword argument. Tool dispatch unpacks arguments via
+  `execute(**parsed)`, so the previous positional `params` signature raised
+  `TypeError: execute() got an unexpected keyword argument 'input'`,
+  breaking every multi-agent composition.
+
+### Changed
+
+- `model` parameter on `Agent` and `RunOptions` now accepts the full `Model`
+  type — a string, a `ModelConfig` dict with provider-specific `options`, or
+  a list fallback chain — matching `opper.call()`.
+
 ## [2.0.0b8] - 2026-04-17
 
 ### Changed
@@ -70,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[2.0.0b9]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b9
 [2.0.0b8]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b8
 [2.0.0b7]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b7
 [2.0.0b6]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b6
