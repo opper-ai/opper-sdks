@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote
 
 from .._base_client import BaseClient
 from ..types import CreateSpanResponse, GetSpanResponse, RequestOptions, _from_dict
+
+
+def _to_iso(value: str | datetime | None) -> str | None:
+    if value is None or isinstance(value, str):
+        return value
+    # Treat naive datetimes as UTC so traces don't silently pick up local tz.
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
 
 
 class SpansClient:
@@ -25,8 +35,8 @@ class SpansClient:
         input: str | None = None,
         output: str | None = None,
         error: str | None = None,
-        start_time: str | None = None,
-        end_time: str | None = None,
+        start_time: str | datetime | None = None,
+        end_time: str | datetime | None = None,
         meta: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         tags: dict[str, Any] | None = None,
@@ -40,8 +50,8 @@ class SpansClient:
             ("input", input),
             ("output", output),
             ("error", error),
-            ("start_time", start_time),
-            ("end_time", end_time),
+            ("start_time", _to_iso(start_time)),
+            ("end_time", _to_iso(end_time)),
             ("meta", meta),
             ("metadata", metadata),
             ("tags", tags),
@@ -61,8 +71,8 @@ class SpansClient:
         input: str | None = None,
         output: str | None = None,
         error: str | None = None,
-        start_time: str | None = None,
-        end_time: str | None = None,
+        start_time: str | datetime | None = None,
+        end_time: str | datetime | None = None,
         meta: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         tags: dict[str, Any] | None = None,
@@ -76,8 +86,8 @@ class SpansClient:
             ("input", input),
             ("output", output),
             ("error", error),
-            ("start_time", start_time),
-            ("end_time", end_time),
+            ("start_time", _to_iso(start_time)),
+            ("end_time", _to_iso(end_time)),
             ("meta", meta),
             ("metadata", metadata),
             ("tags", tags),
@@ -93,7 +103,7 @@ class SpansClient:
         *,
         output: str | None = None,
         error: str | None = None,
-        end_time: str | None = None,
+        end_time: str | datetime | None = None,
         meta: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         tags: dict[str, Any] | None = None,
@@ -103,7 +113,7 @@ class SpansClient:
         for key, val in [
             ("output", output),
             ("error", error),
-            ("end_time", end_time),
+            ("end_time", _to_iso(end_time)),
             ("meta", meta),
             ("metadata", metadata),
             ("tags", tags),
@@ -118,7 +128,7 @@ class SpansClient:
         *,
         output: str | None = None,
         error: str | None = None,
-        end_time: str | None = None,
+        end_time: str | datetime | None = None,
         meta: dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         tags: dict[str, Any] | None = None,
@@ -128,7 +138,7 @@ class SpansClient:
         for key, val in [
             ("output", output),
             ("error", error),
-            ("end_time", end_time),
+            ("end_time", _to_iso(end_time)),
             ("meta", meta),
             ("metadata", metadata),
             ("tags", tags),

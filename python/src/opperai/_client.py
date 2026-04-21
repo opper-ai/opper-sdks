@@ -85,7 +85,7 @@ class _Trace:
         parent_ctx = get_trace_context()
         create_kwargs: dict[str, Any] = {
             "name": self._name,
-            "start_time": datetime.now(timezone.utc).isoformat(),
+            "start_time": datetime.now(timezone.utc),
         }
         if self._input is not None:
             create_kwargs["input"] = self._input
@@ -149,7 +149,7 @@ class _TraceAsync:
         parent_ctx = get_trace_context()
         create_kwargs: dict[str, Any] = {
             "name": self._name,
-            "start_time": datetime.now(timezone.utc).isoformat(),
+            "start_time": datetime.now(timezone.utc),
         }
         if self._input is not None:
             create_kwargs["input"] = self._input

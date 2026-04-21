@@ -416,8 +416,8 @@ export interface CreateSpanRequest {
   readonly input?: string;
   readonly output?: string;
   readonly error?: string;
-  readonly start_time?: string;
-  readonly end_time?: string;
+  readonly start_time?: string | Date;
+  readonly end_time?: string | Date;
   readonly meta?: Record<string, unknown>;
   readonly metadata?: Record<string, unknown>;
   readonly tags?: Record<string, unknown>;
@@ -436,7 +436,7 @@ export interface CreateSpanResponse {
 export interface UpdateSpanRequest {
   readonly output?: string;
   readonly error?: string;
-  readonly end_time?: string;
+  readonly end_time?: string | Date;
   readonly meta?: Record<string, unknown>;
   readonly metadata?: Record<string, unknown>;
   readonly tags?: Record<string, unknown>;

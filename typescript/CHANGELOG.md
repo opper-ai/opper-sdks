@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-beta.10] - 2026-04-20
+
+### Changed
+
+- `CreateSpanRequest.start_time` / `end_time` and `UpdateSpanRequest.end_time`
+  now accept `Date` in addition to `string`. `JSON.stringify` serialises `Date`
+  to an ISO-8601 string natively, so the wire format is unchanged — callers no
+  longer need to call `.toISOString()` manually.
+
 ## [4.0.0-beta.9] - 2026-04-20
 
 ### Fixed
@@ -103,6 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.10]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.10
 [4.0.0-beta.9]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.9
 [4.0.0-beta.8]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.8
 [4.0.0-beta.7]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.7
