@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from opperai._client import Opper
 from opperai.types import CreateSpanResponse, GetSpanResponse
 
@@ -52,6 +54,21 @@ class TestSpansUpdate:
         await opper.spans.update_async("s1", error="oops")
         body = opper._client._patch_async.call_args[0][1]
         assert body["error"] == "oops"
+
+    def test_update_accepts_datetime(self, opper: Opper) -> None:
+        opper._client._patch.return_value = None
+        ts = datetime(2024, 1, 1, 1, 0, 0, tzinfo=timezone.utc)
+        opper.spans.update("s1", end_time=ts)
+        body = opper._client._patch.call_args[0][1]
+        assert body["end_time"] == "2024-01-01T01:00:00+00:00"
+
+    def test_create_accepts_naive_datetime_as_utc(self, opper: Opper) -> None:
+        opper._client._post.return_value = {"data": {"id": "s9", "trace_id": "t9", "name": "n"}}
+        naive = datetime(2024, 1, 1, 0, 0, 0)
+        opper.spans.create(name="n", start_time=naive, end_time=naive)
+        body = opper._client._post.call_args[0][1]
+        assert body["start_time"] == "2024-01-01T00:00:00+00:00"
+        assert body["end_time"] == "2024-01-01T00:00:00+00:00"
 
 
 class TestSpansGet:

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0b10] - 2026-04-20
+
+### Changed
+
+- `spans.create` / `spans.update` (and the `_async` variants) now accept
+  `datetime` for `start_time` / `end_time` in addition to an ISO-8601 string.
+  Naive datetimes are assumed to be UTC and serialised via `.isoformat()` —
+  callers no longer need to stringify manually. The wire format is unchanged.
+
 ## [2.0.0b9] - 2026-04-20
 
 ### Fixed
@@ -102,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[2.0.0b10]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b10
 [2.0.0b9]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b9
 [2.0.0b8]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b8
 [2.0.0b7]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b7
