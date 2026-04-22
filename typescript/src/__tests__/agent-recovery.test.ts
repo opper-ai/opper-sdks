@@ -358,4 +358,57 @@ describe("Agent error recovery", () => {
       expect(callCount).toBe(2);
     });
   });
+
+  // -----------------------------------------------------------------------
+  // Fatal 4xx errors — surface immediately, do not recover across iterations
+  // -----------------------------------------------------------------------
+
+  describe("fatal 4xx handling", () => {
+    it("Agent.stream() surfaces 400 on the first iteration and does not retry", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(async () => {
+        callCount++;
+        return {
+          ok: false,
+          status: 400,
+          statusText: "Bad Request",
+          headers: new Headers({ "content-type": "application/json" }),
+          text: () => Promise.resolve('{"error":{"code":"model_not_found","message":"bad"}}'),
+          json: () =>
+            Promise.resolve({ error: { code: "model_not_found", message: "bad" } }),
+        };
+      });
+
+      const agent = makeAgent({ retry: FAST_RETRY });
+      await expect(async () => {
+        const stream = agent.stream("hello");
+        for await (const _ of stream) {
+          /* drain */
+        }
+        await stream.result();
+      }).rejects.toThrow(/400 Bad Request/);
+      // Exactly one fetch: no retry, no 25-iteration recovery.
+      expect(callCount).toBe(1);
+    });
+
+    it("404 Not Found is fatal and surfaces immediately", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(async () => {
+        callCount++;
+        return {
+          ok: false,
+          status: 404,
+          statusText: "Not Found",
+          headers: new Headers({ "content-type": "application/json" }),
+          text: () => Promise.resolve('{"error":{"code":"nope","message":"missing"}}'),
+          json: () =>
+            Promise.resolve({ error: { code: "nope", message: "missing" } }),
+        };
+      });
+
+      const agent = makeAgent({ retry: FAST_RETRY });
+      await expect(agent.run("hello")).rejects.toThrow(/404 Not Found/);
+      expect(callCount).toBe(1);
+    });
+  });
 });

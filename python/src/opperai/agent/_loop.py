@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from ..types import (
+    ApiError,
     AuthenticationError,
     InternalServerError,
     Model,
@@ -206,7 +207,17 @@ def _is_retryable(err: BaseException) -> bool:
 
 def _is_fatal(err: BaseException) -> bool:
     """Return True if the error should never be recovered."""
-    return isinstance(err, (AbortError, AuthenticationError))
+    if isinstance(err, (AbortError, AuthenticationError)):
+        return True
+    # 4xx client errors (except 408 Request Timeout and 429 Too Many Requests,
+    # which are transient) won't be fixed by retries or by injecting the error
+    # as in-context "recovery" feedback — the same request fails every
+    # iteration. Surface immediately so the caller sees the real message.
+    if isinstance(err, ApiError):
+        status = err.status
+        if 400 <= status < 500 and status not in (408, 429):
+            return True
+    return False
 
 
 async def _with_retry(
@@ -669,6 +680,16 @@ async def stream_loop(
 
             if stream_recovered:
                 continue
+
+            # Every successful iteration must end with a final response frame
+            # (response.completed / response.failed / response.incomplete). If
+            # the stream closed without one we have no usage, no output, and
+            # no way to make forward progress — raise so the caller sees the
+            # failure instead of a silent empty RunResult.
+            if response is None:
+                raise AgentError(
+                    "Server closed the response stream without a completion event",
+                )
 
             # Hook: on_llm_response
             if response:

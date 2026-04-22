@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-beta.11] - 2026-04-22
+
+### Fixed
+
+- Agent surfaces a clear error when the response stream closes without a
+  completion event, instead of returning a silent empty result.
+- `4xx` API errors (except `408` and `429`) are now treated as fatal by the
+  agent loop — they surface immediately on the first iteration instead of
+  being converted to in-context recovery turns until max-iterations.
+
 ## [4.0.0-beta.10] - 2026-04-20
 
 ### Changed
@@ -112,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.11]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.11
 [4.0.0-beta.10]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.10
 [4.0.0-beta.9]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.9
 [4.0.0-beta.8]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.8
