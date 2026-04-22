@@ -5,6 +5,7 @@
 import type { OpenResponsesClient } from "../clients/openresponses.js";
 import { getTraceContext, runWithTraceContext } from "../context.js";
 import {
+  ApiError,
   AuthenticationError,
   InternalServerError,
   type Model,
@@ -134,6 +135,14 @@ function isRetryable(err: unknown): boolean {
 function isFatal(err: unknown): boolean {
   if (err instanceof AbortError) return true;
   if (err instanceof AuthenticationError) return true;
+  // 4xx client errors (except 408 Request Timeout and 429 Too Many Requests,
+  // which are transient) won't be fixed by retries or by injecting the error
+  // as in-context "recovery" feedback — the same request fails every
+  // iteration. Surface immediately so the caller sees the real message.
+  if (err instanceof ApiError) {
+    const s = err.status;
+    if (s >= 400 && s < 500 && s !== 408 && s !== 429) return true;
+  }
   return false;
 }
 
@@ -936,6 +945,15 @@ export async function* streamLoop(
       }
 
       if (streamRecovered) continue;
+
+      // Every successful iteration must end with a final response frame
+      // (response.completed / response.failed / response.incomplete). If
+      // the stream closed without one we have no usage, no output, and no
+      // way to make forward progress — raise so the caller sees the failure
+      // instead of a silent empty RunResult.
+      if (response === undefined) {
+        throw new AgentError("Server closed the response stream without a completion event");
+      }
 
       if (response) {
         await dispatchHook(hooks, "onLLMResponse", { agent: config.name, iteration, response });

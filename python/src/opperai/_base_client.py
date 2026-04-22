@@ -85,13 +85,24 @@ class BaseClient:
     # --- Error handling -------------------------------------------------------
 
     @staticmethod
+    def _extract_error_body(response: httpx.Response) -> Any:
+        # Body access on a streaming response without prior read/aread raises
+        # httpx.ResponseNotRead. Guard both attempts so a broken error response
+        # can't escalate into an httpx-shaped exception hiding the real status.
+        try:
+            return response.json()
+        except Exception:
+            pass
+        try:
+            return response.text or None
+        except Exception:
+            return None
+
+    @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:
         if response.is_success:
             return
-        try:
-            body = response.json()
-        except Exception:
-            body = response.text or None
+        body = BaseClient._extract_error_body(response)
         st = response.reason_phrase or ""
         status = response.status_code
         if status == 400:
@@ -289,6 +300,11 @@ class BaseClient:
             headers=headers,
             timeout=timeout,
         ) as response:
+            if not response.is_success:
+                try:
+                    response.read()
+                except Exception:
+                    pass
             self._raise_for_status(response)
             yield from _parse_sse_lines(response.iter_lines())
 
@@ -311,6 +327,11 @@ class BaseClient:
             headers=headers,
             timeout=timeout,
         ) as response:
+            if not response.is_success:
+                try:
+                    await response.aread()
+                except Exception:
+                    pass
             self._raise_for_status(response)
             async for chunk in _parse_sse_lines_async(response.aiter_lines()):
                 yield chunk
@@ -341,6 +362,11 @@ class BaseClient:
             headers=headers,
             timeout=timeout,
         ) as response:
+            if not response.is_success:
+                try:
+                    response.read()
+                except Exception:
+                    pass
             self._raise_for_status(response)
             yield from _parse_sse_lines_raw(response.iter_lines())
 
@@ -363,6 +389,11 @@ class BaseClient:
             headers=headers,
             timeout=timeout,
         ) as response:
+            if not response.is_success:
+                try:
+                    await response.aread()
+                except Exception:
+                    pass
             self._raise_for_status(response)
             async for event in _parse_sse_lines_raw_async(response.aiter_lines()):
                 yield event

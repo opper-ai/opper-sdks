@@ -892,3 +892,46 @@ describe("Agent.stream()", () => {
     expect(recoveryItem).toBeDefined();
   });
 });
+
+describe("Agent — empty-stream guard", () => {
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("raises AgentError when the stream closes without a response.completed/failed/incomplete event", async () => {
+    // Simulate a broken upstream: HTTP 200 with an SSE body that contains
+    // neither a response.completed nor response.failed event. The previous
+    // implementation silently returned output=undefined; the guard must
+    // surface this as an error so callers can see the failure.
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      const stream = new ReadableStream({
+        pull(controller) {
+          controller.close();
+        },
+      });
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers({ "content-type": "text/event-stream" }),
+        body: stream,
+      } as unknown as Response;
+    });
+
+    const agent = makeAgent();
+    await expect(async () => {
+      const stream = agent.stream("hello");
+      for await (const _ of stream) {
+        /* drain */
+      }
+      await stream.result();
+    }).rejects.toThrow(AgentError);
+  });
+});

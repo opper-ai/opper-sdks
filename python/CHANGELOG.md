@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0b11] - 2026-04-22
+
+### Fixed
+
+- Agent surfaces a clear error when the response stream closes without a
+  completion event, instead of returning a silent empty result.
+- HTTP error responses on streaming endpoints now raise the correct typed
+  error (`BadRequestError`, `NotFoundError`, etc.) with the server's message,
+  instead of leaking an `httpx.ResponseNotRead` exception.
+- `4xx` API errors (except `408` and `429`) are now treated as fatal by the
+  agent loop — they surface immediately on the first iteration instead of
+  being converted to in-context recovery turns until max-iterations.
+
 ## [2.0.0b10] - 2026-04-20
 
 ### Changed
@@ -111,6 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[2.0.0b11]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b11
 [2.0.0b10]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b10
 [2.0.0b9]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b9
 [2.0.0b8]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b8

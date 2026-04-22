@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import os
 from collections.abc import AsyncGenerator, Callable
@@ -20,7 +21,11 @@ from ._hooks import merge_hooks
 from ._loop import LoopConfig, stream_loop
 from ._serialize import to_json_str, to_text
 from ._stream import AgentStream
-from ._tracing import create_tool_tracing_hooks
+from ._tracing import (
+    flush_pending_span_updates,
+    schedule_span_update,
+    wrap_tool_with_tracing,
+)
 from ._types import (
     AgentStreamEvent,
     AgentTool,
@@ -280,7 +285,7 @@ class Agent:
         """
         self.name: str = name
         self.instructions: str = instructions
-        self._raw_tools: list[AgentTool | ToolProvider] = tools or []
+        raw_tools: list[AgentTool | ToolProvider] = tools or []
         self.model: Model | None = model
         self._output_schema_input: Any = output_schema
         self._output_schema_json: dict[str, Any] | None = None
@@ -304,12 +309,23 @@ class Agent:
         base_client = BaseClient(api_key=api_key, base_url=base_url)
         self._or_client = OpenResponsesClient(base_client)
 
-        # Tracing: create tool-level spans when tracing is enabled and an API key is present
+        # Tracing: wrap each tool so its execute runs inside a child span.
+        # Span PATCH calls are queued on ``_pending_span_updates`` and flushed
+        # at the end of each run/stream — keeps span latency off the hot path
+        # while still guaranteeing updates land before the caller sees the result.
+        # ToolProvider-supplied tools are wrapped lazily in ``_resolve_tools``
+        # after the provider is set up.
         self._spans_client: SpansClient | None = None
+        self._pending_span_updates: list[asyncio.Task[None]] = []
         if tracing and api_key:
             self._spans_client = SpansClient(base_client)
-            tracing_hooks = create_tool_tracing_hooks(self._spans_client)
-            self.hooks = merge_hooks(hooks, tracing_hooks)
+            raw_tools = [
+                wrap_tool_with_tracing(t, self._spans_client, self._defer_span_update)
+                if isinstance(t, AgentTool)
+                else t
+                for t in raw_tools
+            ]
+        self._raw_tools = raw_tools
 
         # Resolve output schema
         if output_schema is not None:
@@ -336,6 +352,13 @@ class Agent:
             return await self._execute_run(input, options)
 
         ambient = get_trace_context()
+        explicit_parent_id = options.parent_span_id if options else None
+
+        # Sub-agent called from a tool span — skip redundant agent root span,
+        # unless the caller explicitly requested a parent (their intent wins).
+        if explicit_parent_id is None and ambient is not None and ambient.is_tool_span:
+            return await self._execute_run(input, options)
+
         parent_id, trace_id = _resolve_parent_ids(options, ambient)
 
         try:
@@ -355,30 +378,24 @@ class Agent:
 
         try:
             result = await self._execute_run(input, options)
-
-            try:
-                await self._spans_client.update_async(
-                    span.id,
-                    end_time=datetime.now(timezone.utc).isoformat(),
-                    output=to_text(result.output),
-                )
-            except BaseException:
-                pass
-
+            self._defer_span_update(
+                span.id,
+                end_time=datetime.now(timezone.utc).isoformat(),
+                output=to_text(result.output),
+            )
             return result
         except BaseException as err:
-            try:
-                await self._spans_client.update_async(
-                    span.id,
-                    end_time=datetime.now(timezone.utc).isoformat(),
-                    error=str(err),
-                )
-            except BaseException:
-                pass
+            self._defer_span_update(
+                span.id,
+                end_time=datetime.now(timezone.utc).isoformat(),
+                error=str(err),
+            )
             raise
         finally:
-            # Restore previous trace context
+            # Restore previous trace context, then flush queued span updates
+            # so they land before the caller observes the run as complete.
             set_trace_context(ambient)
+            await self._flush_pending_span_updates()
 
     async def _execute_run(
         self, input: str | list[Any], options: RunOptions | None
@@ -434,6 +451,15 @@ class Agent:
             return
 
         ambient = get_trace_context()
+        explicit_parent_id = options.parent_span_id if options else None
+
+        # Sub-agent streamed from a tool span — skip redundant agent root span,
+        # unless the caller explicitly requested a parent (their intent wins).
+        if explicit_parent_id is None and ambient is not None and ambient.is_tool_span:
+            async for event in self._execute_stream(input, options):
+                yield event
+            return
+
         parent_id, trace_id = _resolve_parent_ids(options, ambient)
 
         try:
@@ -460,27 +486,22 @@ class Agent:
                     last_result = RunResult(output=event.output, meta=event.meta)
                 yield event
 
-            try:
-                output = last_result.output if last_result else None
-                await self._spans_client.update_async(
-                    span.id,
-                    end_time=datetime.now(timezone.utc).isoformat(),
-                    output=to_text(output),
-                )
-            except BaseException:
-                pass
+            output = last_result.output if last_result else None
+            self._defer_span_update(
+                span.id,
+                end_time=datetime.now(timezone.utc).isoformat(),
+                output=to_text(output),
+            )
         except BaseException as err:
-            try:
-                await self._spans_client.update_async(
-                    span.id,
-                    end_time=datetime.now(timezone.utc).isoformat(),
-                    error=str(err),
-                )
-            except BaseException:
-                pass
+            self._defer_span_update(
+                span.id,
+                end_time=datetime.now(timezone.utc).isoformat(),
+                error=str(err),
+            )
             raise
         finally:
             set_trace_context(ambient)
+            await self._flush_pending_span_updates()
 
     async def _execute_stream(  # type: ignore[return]
         self, input: str | list[Any], options: RunOptions | None
@@ -556,19 +577,40 @@ class Agent:
     # --- Internal helpers -----------------------------------------------------
 
     async def _resolve_tools(self) -> tuple[list[AgentTool], list[Any]]:
-        """Resolve tool providers and return (all_tools, providers)."""
+        """Resolve tool providers and return (all_tools, providers).
+
+        Static tools were already wrapped with tracing in ``__init__``.
+        Provider-supplied tools are wrapped here, after ``setup()`` returns.
+        """
         resolved: list[AgentTool] = []
         providers: list[Any] = []
 
         for t in self._raw_tools:
             if is_tool_provider(t):
                 providers.append(t)
-                tools = await t.setup()  # type: ignore[union-attr]
-                resolved.extend(tools)
+                provider_tools = await t.setup()  # type: ignore[union-attr]
+                if self.tracing and self._spans_client is not None:
+                    provider_tools = [
+                        wrap_tool_with_tracing(
+                            pt, self._spans_client, self._defer_span_update
+                        )
+                        for pt in provider_tools
+                    ]
+                resolved.extend(provider_tools)
             else:
                 resolved.append(t)  # type: ignore[arg-type]
 
         return resolved, providers
+
+    def _defer_span_update(self, span_id: str, **payload: Any) -> None:
+        """Queue a span update to flush at end of run."""
+        if self._spans_client is None:
+            return
+        schedule_span_update(self._pending_span_updates, self._spans_client, span_id, **payload)
+
+    async def _flush_pending_span_updates(self) -> None:
+        """Await all queued span updates; never raises."""
+        await flush_pending_span_updates(self._pending_span_updates)
 
     def _build_loop_config(self, resolved_tools: list[AgentTool]) -> LoopConfig:
         """Build the internal LoopConfig from agent settings."""

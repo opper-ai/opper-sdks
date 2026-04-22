@@ -1,6 +1,6 @@
 {
   "name": "opperai",
-  "version": "4.0.0-beta.10",
+  "version": "4.0.0-beta.11",
   "description": "Opper TypeScript SDK — execute functions, stream results, and build AI agents.",
   "repository": {
     "type": "git",

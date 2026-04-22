@@ -12,6 +12,7 @@ class TraceContext:
 
     span_id: str
     trace_id: str
+    is_tool_span: bool = False
 
 
 _trace_context: ContextVar[TraceContext | None] = ContextVar("_opper_trace_context", default=None)
