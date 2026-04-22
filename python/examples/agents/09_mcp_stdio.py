@@ -1,6 +1,12 @@
 # MCP stdio — connect to an MCP server and use its tools
-# Requires the `mcp` package: pip install mcp
-# This example uses the filesystem MCP server via uvx.
+#
+# Requires:
+#   - the `mcp` Python package (already a dependency of opperai)
+#   - npx (ships with Node.js) — used to run the official filesystem MCP server
+#
+# The official filesystem MCP server is published to npm as
+# @modelcontextprotocol/server-filesystem, so we launch it with npx (mirroring
+# the TypeScript example).
 
 import asyncio
 
@@ -19,8 +25,8 @@ async def main() -> None:
             mcp(
                 MCPStdioConfig(
                     name="filesystem",
-                    command="uvx",
-                    args=["mcp-server-filesystem", "/tmp"],
+                    command="npx",
+                    args=["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
                 )
             ),
         ],
