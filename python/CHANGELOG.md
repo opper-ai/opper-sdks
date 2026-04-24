@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** The 2.0 line is a single unified `opperai` package that
+  replaces both `opperai` 1.x and `opper-agents` 0.x. See
+  [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
+  and side-by-side old → new examples.
+
 ## [2.0.0b11] - 2026-04-22
 
 ### Fixed
