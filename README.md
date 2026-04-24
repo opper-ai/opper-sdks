@@ -7,6 +7,13 @@ Official SDKs for the [Opper](https://opper.ai) API.
 | Python | [`opperai`](https://pypi.org/project/opperai/) | [`python/`](./python) |
 | TypeScript | [`opperai`](https://www.npmjs.com/package/opperai) | [`typescript/`](./typescript) |
 
+> **Upgrading from the old SDKs?** The 2.0 / 4.0 releases unify the old
+> `opperai` + `opper-agents` (Python) and `opperai` + `@opperai/agents`
+> (TypeScript) into single packages. See
+> [`python/MIGRATION.md`](./python/MIGRATION.md) and
+> [`typescript/MIGRATION.md`](./typescript/MIGRATION.md) for breaking changes
+> and side-by-side examples.
+
 ## Quick Start
 
 ### Python
