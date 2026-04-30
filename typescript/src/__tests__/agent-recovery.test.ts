@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Agent, AgentError, type RetryPolicy } from "../agent/index.js";
 import type { ORResponse, ORStreamEvent } from "../agent/types.js";
 import { InternalServerError, RateLimitError, AuthenticationError } from "../types.js";
+import { mockSSEResponseFromOR } from "./_helpers/sse.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -81,12 +82,7 @@ describe("Agent error recovery", () => {
         if (callCount === 1) {
           return { ok: false, status: 500, statusText: "Internal Server Error", headers: new Headers(), text: () => Promise.resolve("error"), json: () => Promise.resolve({ error: { code: "server_error", message: "down" } }) };
         }
-        return {
-          ok: true, status: 200, statusText: "OK",
-          headers: new Headers({ "content-length": "100" }),
-          json: () => Promise.resolve(textResponse("recovered")),
-          text: () => Promise.resolve(JSON.stringify(textResponse("recovered"))),
-        };
+        return mockSSEResponseFromOR(textResponse("recovered"));
       });
 
       const agent = makeAgent({ retry: FAST_RETRY });
@@ -103,12 +99,7 @@ describe("Agent error recovery", () => {
         if (callCount <= 2) {
           return { ok: false, status: 429, statusText: "Too Many Requests", headers: new Headers(), text: () => Promise.resolve("rate limited"), json: () => Promise.resolve({ error: { code: "rate_limit", message: "slow down" } }) };
         }
-        return {
-          ok: true, status: 200, statusText: "OK",
-          headers: new Headers({ "content-length": "100" }),
-          json: () => Promise.resolve(textResponse("ok after rate limit")),
-          text: () => Promise.resolve(JSON.stringify(textResponse("ok after rate limit"))),
-        };
+        return mockSSEResponseFromOR(textResponse("ok after rate limit"));
       });
 
       const agent = makeAgent({ retry: FAST_RETRY });
@@ -141,12 +132,7 @@ describe("Agent error recovery", () => {
         }
         // 4th call succeeds (next iteration after error injection)
         requests.push(JSON.parse(init.body as string));
-        return {
-          ok: true, status: 200, statusText: "OK",
-          headers: new Headers({ "content-length": "100" }),
-          json: () => Promise.resolve(textResponse("recovered after injection")),
-          text: () => Promise.resolve(JSON.stringify(textResponse("recovered after injection"))),
-        };
+        return mockSSEResponseFromOR(textResponse("recovered after injection"));
       });
 
       const agent = makeAgent({ retry: FAST_RETRY, maxIterations: 3 });
@@ -173,12 +159,7 @@ describe("Agent error recovery", () => {
       globalThis.fetch = vi.fn().mockImplementation(async () => {
         callCount++;
         const resp = callCount === 1 ? errorResponse("model overloaded") : textResponse("ok now");
-        return {
-          ok: true, status: 200, statusText: "OK",
-          headers: new Headers({ "content-length": "100" }),
-          json: () => Promise.resolve(resp),
-          text: () => Promise.resolve(JSON.stringify(resp)),
-        };
+        return mockSSEResponseFromOR(resp);
       });
 
       const agent = makeAgent({ retry: FAST_RETRY, maxIterations: 3 });
@@ -188,12 +169,7 @@ describe("Agent error recovery", () => {
     });
 
     it("throws response.error without retry config", async () => {
-      globalThis.fetch = vi.fn().mockImplementation(async () => ({
-        ok: true, status: 200, statusText: "OK",
-        headers: new Headers({ "content-length": "100" }),
-        json: () => Promise.resolve(errorResponse("boom")),
-        text: () => Promise.resolve(JSON.stringify(errorResponse("boom"))),
-      }));
+      globalThis.fetch = vi.fn().mockImplementation(async () => mockSSEResponseFromOR(errorResponse("boom")));
 
       const agent = makeAgent(); // no retry
       await expect(agent.run("hello")).rejects.toThrow(AgentError);
@@ -225,12 +201,7 @@ describe("Agent error recovery", () => {
         usage: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
       };
 
-      globalThis.fetch = vi.fn().mockImplementation(async () => ({
-        ok: true, status: 200, statusText: "OK",
-        headers: new Headers({ "content-length": "100" }),
-        json: () => Promise.resolve(toolCallResp),
-        text: () => Promise.resolve(JSON.stringify(toolCallResp)),
-      }));
+      globalThis.fetch = vi.fn().mockImplementation(async () => mockSSEResponseFromOR(toolCallResp));
 
       const noop = { name: "noop", execute: async () => "done" };
       const agent = makeAgent({
@@ -266,12 +237,7 @@ describe("Agent error recovery", () => {
         usage: { input_tokens: 100, output_tokens: 50, total_tokens: 150 },
       };
 
-      globalThis.fetch = vi.fn().mockImplementation(async () => ({
-        ok: true, status: 200, statusText: "OK",
-        headers: new Headers({ "content-length": "100" }),
-        json: () => Promise.resolve(toolCallResp),
-        text: () => Promise.resolve(JSON.stringify(toolCallResp)),
-      }));
+      globalThis.fetch = vi.fn().mockImplementation(async () => mockSSEResponseFromOR(toolCallResp));
 
       const noop = { name: "noop", execute: async () => "done" };
       const agent = makeAgent({ tools: [noop], maxIterations: 1 });
@@ -291,12 +257,7 @@ describe("Agent error recovery", () => {
         if (callCount <= 2) {
           return { ok: false, status: 500, statusText: "Internal Server Error", headers: new Headers(), text: () => Promise.resolve("down"), json: () => Promise.resolve({ error: { code: "server_error", message: "down" } }) };
         }
-        return {
-          ok: true, status: 200, statusText: "OK",
-          headers: new Headers({ "content-length": "100" }),
-          json: () => Promise.resolve(textResponse("ok")),
-          text: () => Promise.resolve(JSON.stringify(textResponse("ok"))),
-        };
+        return mockSSEResponseFromOR(textResponse("ok"));
       });
 
       const errorEvents: Array<{ willRetry: boolean; error: Error }> = [];

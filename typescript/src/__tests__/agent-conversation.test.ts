@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Agent, Conversation, tool } from "../agent/index.js";
 import type { ORResponse } from "../agent/types.js";
+import { mockSSEResponseFromOR } from "./_helpers/sse.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -55,14 +56,7 @@ function mockFetchSequence(responses: ORResponse[]) {
   let callIndex = 0;
   return vi.fn().mockImplementation(async () => {
     const resp = responses[callIndex++] ?? responses[responses.length - 1];
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: new Headers({ "content-length": "100" }),
-      json: () => Promise.resolve(resp),
-      text: () => Promise.resolve(JSON.stringify(resp)),
-    };
+    return mockSSEResponseFromOR(resp);
   });
 }
 

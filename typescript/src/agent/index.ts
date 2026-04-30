@@ -8,7 +8,8 @@ import { getTraceContext, runWithTraceContext } from "../context.js";
 import { isStandardSchema, resolveSchema } from "../schema.js";
 import type { Model } from "../types.js";
 import { Conversation } from "./conversation.js";
-import { runLoop, streamLoop } from "./loop.js";
+import { AgentError } from "./errors.js";
+import { streamLoop } from "./loop.js";
 import { AgentStream } from "./stream.js";
 import type {
   AgentConfig,
@@ -274,7 +275,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     }
   }
 
-  /** Internal: execute the run loop without tracing wrapper. */
+  /** Internal: drain the streaming loop into a RunResult (no tracing wrapper). */
   private async executeRun(
     input: string | ORInputItem[],
     options?: RunOptions,
@@ -285,7 +286,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
       const outputSchema = await this.resolveOutputSchema();
       const allTools = [...this.tools, ...providerTools];
 
-      return (await runLoop(
+      const stream = streamLoop(
         this.client,
         {
           name: this.name,
@@ -306,7 +307,22 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
         },
         input,
         options,
-      )) as RunResult<InferAgentOutput<S>>;
+      );
+
+      let result: RunResult<InferAgentOutput<S>> | undefined;
+      for await (const event of stream) {
+        if (event.type === "result") {
+          result = {
+            output: event.output as InferAgentOutput<S>,
+            meta: event.meta,
+          };
+        }
+      }
+
+      if (!result) {
+        throw new AgentError("Agent loop ended without producing a result");
+      }
+      return result;
     } finally {
       await this.deactivateProviders();
     }

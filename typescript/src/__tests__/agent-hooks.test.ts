@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Agent, tool } from "../agent/index.js";
 import type { Hooks, ORResponse } from "../agent/types.js";
+import { mockSSEResponseFromOR } from "./_helpers/sse.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -55,14 +56,7 @@ function mockFetchSequence(responses: ORResponse[]) {
   let callIndex = 0;
   return vi.fn().mockImplementation(async () => {
     const resp = responses[callIndex++] ?? responses[responses.length - 1];
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: new Headers({ "content-length": "100" }),
-      json: () => Promise.resolve(resp),
-      text: () => Promise.resolve(JSON.stringify(resp)),
-    };
+    return mockSSEResponseFromOR(resp);
   });
 }
 
@@ -145,14 +139,17 @@ describe("Agent hooks — run()", () => {
     const agent = makeAgent({ tools: [greetTool], hooks: trackingHooks(log) });
     await agent.run("Greet the world");
 
+    // Eager tool execution: tools fire as soon as function_call_arguments.done
+    // arrives in the stream, which is before response.completed (and therefore
+    // before onLLMResponse).
     expect(log).toEqual([
       "agentStart:test-agent",
-      // iteration 1: tool call
+      // iteration 1: tool call (eager — tool runs mid-stream)
       "iterStart:1",
       "llmCall:1",
-      "llmResp:1",
       "toolStart:greet",
       "toolEnd:greet",
+      "llmResp:1",
       "iterEnd:1",
       // iteration 2: final response
       "iterStart:2",
