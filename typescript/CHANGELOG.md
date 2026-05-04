@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
   and side-by-side old → new examples.
 
+## [4.0.0-beta.12] - 2026-04-30
+
+### Changed
+
+- `Agent.run()` now drains the streaming loop internally — one agent loop instead of two — matching the Python SDK; tools execute eagerly during the stream so `onToolStart` / `onToolEnd` fire before `onLLMResponse`, and `OpenResponsesClient.createStream` errors now map to typed subclasses (`AuthenticationError`, `RateLimitError`, etc.) like `create`.
+
 ## [4.0.0-beta.11] - 2026-04-22
 
 ### Fixed
@@ -131,6 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.12]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.12
 [4.0.0-beta.11]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.11
 [4.0.0-beta.10]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.10
 [4.0.0-beta.9]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.9

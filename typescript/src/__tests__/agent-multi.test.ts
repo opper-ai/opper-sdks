@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Agent, tool } from "../agent/index.js";
 import type { ORResponse } from "../agent/types.js";
+import { mockSSEResponseFromOR } from "./_helpers/sse.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -55,14 +56,7 @@ function mockFetchSequence(responses: ORResponse[]) {
   let callIndex = 0;
   return vi.fn().mockImplementation(async () => {
     const resp = responses[callIndex++] ?? responses[responses.length - 1];
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: new Headers({ "content-length": "100" }),
-      json: () => Promise.resolve(resp),
-      text: () => Promise.resolve(JSON.stringify(resp)),
-    };
+    return mockSSEResponseFromOR(resp);
   });
 }
 
@@ -189,26 +183,13 @@ describe("Agent.asTool() — multi-agent composition", () => {
     globalThis.fetch = vi
       .fn()
       // Parent's first call → decides to use sub-agent
-      .mockImplementationOnce(async () => ({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: new Headers({ "content-length": "100" }),
-        json: () =>
-          Promise.resolve(
-            toolCallResponse([
-              { call_id: "p1", name: "ask_child", arguments: '{"input":"test"}' },
-            ]),
-          ),
-        text: () =>
-          Promise.resolve(
-            JSON.stringify(
-              toolCallResponse([
-                { call_id: "p1", name: "ask_child", arguments: '{"input":"test"}' },
-              ]),
-            ),
-          ),
-      }))
+      .mockImplementationOnce(async () =>
+        mockSSEResponseFromOR(
+          toolCallResponse([
+            { call_id: "p1", name: "ask_child", arguments: '{"input":"test"}' },
+          ]),
+        ),
+      )
       // Sub-agent's call → server error
       .mockImplementationOnce(async () => ({
         ok: false,
@@ -219,14 +200,9 @@ describe("Agent.asTool() — multi-agent composition", () => {
         text: () => Promise.resolve('{"error":{"message":"Server error"}}'),
       }))
       // Parent's second call → handles the error
-      .mockImplementationOnce(async () => ({
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: new Headers({ "content-length": "100" }),
-        json: () => Promise.resolve(textResponse("The sub-agent encountered an error.")),
-        text: () => Promise.resolve(JSON.stringify(textResponse("The sub-agent encountered an error."))),
-      }));
+      .mockImplementationOnce(async () =>
+        mockSSEResponseFromOR(textResponse("The sub-agent encountered an error.")),
+      );
 
     const child = makeAgent({ name: "child" });
     const parent = makeAgent({

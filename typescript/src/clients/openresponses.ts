@@ -4,7 +4,7 @@
 
 import type { ORRequest, ORResponse, ORStreamEvent } from "../agent/types.js";
 import { BaseClient } from "../client-base.js";
-import { ApiError, type RequestOptions } from "../types.js";
+import type { RequestOptions } from "../types.js";
 
 const ENDPOINT = "/v3/compat/openresponses";
 
@@ -39,34 +39,18 @@ export class OpenResponsesClient extends BaseClient {
     request: ORRequest,
     options?: RequestOptions,
   ): AsyncGenerator<ORStreamEvent, void, undefined> {
-    const url = `${this.baseUrl}${ENDPOINT}`;
-
-    const headers = {
-      ...this.defaultHeaders,
-      Accept: "text/event-stream",
-      ...options?.headers,
-    };
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ ...request, stream: true }),
-      signal: options?.signal,
-    });
-
-    if (!response.ok) {
-      let errorBody: unknown;
-      try {
-        errorBody = await response.json();
-      } catch {
-        try {
-          errorBody = await response.text();
-        } catch {
-          errorBody = undefined;
-        }
-      }
-      throw new ApiError(response.status, response.statusText, errorBody);
-    }
+    // Use fetchRaw for unified error mapping (4xx/5xx → typed subclasses).
+    const response = await this.fetchRaw(
+      `${this.baseUrl}${ENDPOINT}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ ...request, stream: true }),
+      },
+      {
+        ...options,
+        headers: { ...options?.headers, Accept: "text/event-stream" },
+      },
+    );
 
     if (!response.body) {
       return;

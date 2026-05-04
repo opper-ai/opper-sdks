@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Agent } from "../index.js";
 import type { ORResponse } from "../agent/types.js";
+import { mockSSEResponseFromOR } from "./_helpers/sse.js";
 
 interface FetchCall {
   url: string;
@@ -70,14 +71,7 @@ function createMockFetch(orResponses: ORResponse[], traceId = "trace-server"): R
     }
     if (url.includes("/v3/compat/openresponses")) {
       const resp = orResponses[orCallIndex++] ?? orResponses[orResponses.length - 1];
-      return {
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        headers: new Headers({ "content-length": "100" }),
-        json: async () => resp,
-        text: async () => JSON.stringify(resp),
-      };
+      return mockSSEResponseFromOR(resp);
     }
     throw new Error(`Unexpected fetch to ${url}`);
   });

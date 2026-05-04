@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Agent, tool, MaxIterationsError, AbortError, AgentError } from "../agent/index.js";
 import type { ORResponse, ORRequest } from "../agent/types.js";
+import { mockSSEResponseFromOR } from "./_helpers/sse.js";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -51,19 +52,12 @@ function toolCallResponse(
   });
 }
 
-/** Track fetch calls and return canned responses in sequence. */
+/** Track fetch calls and return canned responses in sequence as SSE streams. */
 function mockFetchSequence(responses: ORResponse[]) {
   let callIndex = 0;
   return vi.fn().mockImplementation(async () => {
     const resp = responses[callIndex++] ?? responses[responses.length - 1];
-    return {
-      ok: true,
-      status: 200,
-      statusText: "OK",
-      headers: new Headers({ "content-length": "100" }),
-      json: () => Promise.resolve(resp),
-      text: () => Promise.resolve(JSON.stringify(resp)),
-    };
+    return mockSSEResponseFromOR(resp);
   });
 }
 
@@ -129,7 +123,7 @@ describe("Agent.run()", () => {
     expect(body.temperature).toBe(0.7);
     expect(body.max_output_tokens).toBe(4096);
     expect(body.reasoning).toEqual({ effort: "medium" });
-    expect(body.stream).toBe(false);
+    expect(body.stream).toBe(true);
   });
 
   it("sends tools in request when agent has tools", async () => {
