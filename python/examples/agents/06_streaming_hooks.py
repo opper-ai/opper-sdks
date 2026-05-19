@@ -39,6 +39,7 @@ async def main() -> None:
         instructions="You share interesting facts. Be concise.",
         tools=[get_fact],
         hooks=hooks,
+        model="gemini/gemini-2.5-flash",
     )
 
     print("--- Streaming with hooks ---")

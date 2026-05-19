@@ -212,6 +212,7 @@ class ResponseMeta:
     models_used: list[str] | None = None
     model_warnings: list[str] | None = None
     guards: list[Any] | None = None
+    tool_calls: list[dict[str, Any]] | None = None
     message: str | None = None
     status: str | None = None
     pending_operations: list[PendingOperation] | None = None
@@ -566,6 +567,9 @@ class ModelInfo:
     quality: str = ""
     cost: float = 0.0
     context_window: int = 0
+    max_output_tokens: int | None = None
+    family: str | None = None
+    thinking: bool | None = None
     params: dict[str, Any] = field(default_factory=dict)
     pricing: dict[str, Any] = field(default_factory=dict)
     region: str = ""

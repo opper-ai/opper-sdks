@@ -52,6 +52,7 @@ interface LoopConfig {
   maxTokens?: number;
   maxIterations: number;
   reasoningEffort?: "low" | "medium" | "high";
+  reasoningSummary?: string;
   parallelToolExecution: boolean;
   hooks?: Hooks;
   /** Explicit trace context — used when ALS propagation isn't reliable (e.g. streaming). */
@@ -252,6 +253,15 @@ function buildRequest(
   orTools: ORTool[],
   options?: RunOptions,
 ): ORRequest {
+  const reasoningEffort = options?.reasoningEffort ?? config.reasoningEffort;
+  const reasoningSummary = options?.reasoningSummary ?? config.reasoningSummary;
+  const reasoning =
+    reasoningEffort || reasoningSummary
+      ? {
+          ...(reasoningEffort ? { effort: reasoningEffort } : {}),
+          ...(reasoningSummary ? { summary: reasoningSummary } : {}),
+        }
+      : undefined;
   return {
     input: items,
     instructions: config.instructions,
@@ -263,9 +273,7 @@ function buildRequest(
     ...((options?.maxTokens ?? config.maxTokens)
       ? { max_output_tokens: options?.maxTokens ?? config.maxTokens }
       : {}),
-    ...((options?.reasoningEffort ?? config.reasoningEffort)
-      ? { reasoning: { effort: options?.reasoningEffort ?? config.reasoningEffort } }
-      : {}),
+    ...(reasoning ? { reasoning } : {}),
     ...(config.outputSchema
       ? { text: { format: { type: "json_schema", name: "output", schema: config.outputSchema } } }
       : {}),

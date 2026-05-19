@@ -22,6 +22,7 @@ async def main() -> None:
             "Return a title, key points, and overall sentiment (positive/negative/neutral)."
         ),
         output_schema=Summary,
+        model="gemini/gemini-2.5-flash",
     )
 
     result = await agent.run(

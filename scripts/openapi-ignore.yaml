@@ -8,16 +8,24 @@
 
 schemas:
   # Compat API schemas (Messages, Responses, Chat, Interactions) – removed from SDKs
+  - AnthropicCompatModel
+  - AnthropicCompatModelsListResponse
   - ChatChoice
   - ChatMessage
   - ChatRequest
   - ChatRequestMessage
   - ChatRequestTool
   - ChatResponse
+  - ChatStreamChunk
+  - ChatStreamDelta
   - ChatUsage
   - InteractionsRequest
   - InteractionsResponse
   - InteractionsUsage
+  - InteractionsUsageMetadata
+  - InteractionsOutput
+  - InteractionsTool
+  - GenerationConfig
   - MessagesMessage
   - MessagesRequest
   - MessagesResponse
@@ -25,6 +33,20 @@ schemas:
   - MessagesTool
   - MessagesUsage
   - ORRequest
+  - ORStreamEventCompleted
+  - ORStreamEventContentPartAdded
+  - ORStreamEventContentPartDone
+  - ORStreamEventError
+  - ORStreamEventFunctionCallArgumentsDelta
+  - ORStreamEventFunctionCallArgumentsDone
+  - ORStreamEventOutputItemAdded
+  - ORStreamEventOutputItemDone
+  - ORStreamEventOutputTextDelta
+  - ORStreamEventOutputTextDone
+  - ORStreamEventReasoningSummaryDelta
+  - ORStreamEventReasoningSummaryDone
+  - ORStreamEventResponseCreated
+  - ORStreamEventResponseInProgress
   - PendingResponseMeta
   - ReasoningConfig
   - ResponsesError
@@ -35,10 +57,30 @@ schemas:
   - ResponsesResponse
   - ResponsesTool
   - ResponsesUsage
+  # Beta endpoints not yet exposed by the SDKs
+  - Benchmark
+  - BenchmarkEvaluations
+  - ModelListItem
+  - ModelResolveRequest
+  - ModelResolveResponse
+  - RealtimeSessionRequest
+  - RealtimeSessionResponse
+  - Route
+  - RouteDataHandling
+  - RouteGDPR
+  - RouteLogging
+  - RouteTraining
+  - RouteZDR
 
 endpoints:
   # Compat endpoints not exposed by the SDKs
   - /v3/compat/v1/messages
+  - /v3/compat/v1/models
   - /v3/compat/responses
   - /v3/compat/chat/completions
   - /v3/compat/v1beta/interactions
+  # Beta endpoints not yet exposed by the SDKs.
+  # Note: prefix matching — keep specific so e.g. "/v3/realtime" doesn't
+  # silently swallow "/v3/realtime/{name}", which IS exposed.
+  - /v3/realtime-sessions
+  - /v3/tools/models/resolve

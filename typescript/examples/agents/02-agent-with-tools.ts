@@ -44,6 +44,7 @@ const agent = new Agent({
   instructions:
     "You are a helpful shopping assistant. Use the available tools to look up products and check availability. Be concise.",
   tools: [lookupProduct, checkAvailability],
+  model: "gemini/gemini-2.5-flash",
 });
 
 const result = await agent.run(

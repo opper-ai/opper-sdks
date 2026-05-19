@@ -29,6 +29,7 @@ async def main() -> None:
         name="note-assistant",
         instructions="You are a helpful note-taking assistant. Be concise.",
         tools=[save_note, list_notes],
+        model="gemini/gemini-2.5-flash",
     )
 
     # --- Pattern 1: Multi-turn with .send() ---

@@ -14,6 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
   and side-by-side old → new examples.
 
+## [2.0.0b12] - 2026-05-19
+
+### Added
+
+- `reasoning_effort` and `reasoning_summary` kwargs on `opper.call()`,
+  `opper.call_async()`, `opper.stream()`, and `opper.stream_async()`.
+  `reasoning_effort` is typed as `Literal["low", "medium", "high"]`;
+  `reasoning_summary` enables thought summary streaming (e.g. `"auto"`).
+  Both fields are also accepted on `Agent` and `RunOptions`.
+- `ResponseMeta.tool_calls` — per-call tool invocation records surfaced by
+  the server on the response metadata.
+- `ModelInfo.family`, `ModelInfo.max_output_tokens`, `ModelInfo.thinking`
+  to match the v3 model catalogue schema.
+
 ## [2.0.0b11] - 2026-04-22
 
 ### Fixed
@@ -133,6 +147,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[2.0.0b12]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b12
 [2.0.0b11]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b11
 [2.0.0b10]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b10
 [2.0.0b9]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b9

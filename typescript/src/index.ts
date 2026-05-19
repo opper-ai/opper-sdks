@@ -526,6 +526,7 @@ export class Opper {
     if (request.temperature != null) wire.temperature = request.temperature;
     if (request.max_tokens != null) wire.max_tokens = request.max_tokens;
     if (request.reasoning_effort) wire.reasoning_effort = request.reasoning_effort;
+    if (request.reasoning_summary) wire.reasoning_summary = request.reasoning_summary;
     if (request.instructions) wire.instructions = request.instructions;
     // Explicit parent_span_id takes priority, then ALS context
     if (request.parent_span_id) {

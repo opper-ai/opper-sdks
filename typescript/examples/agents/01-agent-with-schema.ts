@@ -12,6 +12,7 @@ const agent = new Agent({
   name: "summarizer",
   instructions: "You summarize text and extract structured information.",
   outputSchema: SummarySchema,
+  model: "gemini/gemini-2.5-flash",
 });
 
 const text = `

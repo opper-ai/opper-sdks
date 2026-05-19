@@ -15,6 +15,7 @@ async def main() -> None:
             "and concisely. Include key facts like population, area, or notable "
             "features when relevant."
         ),
+        model="gemini/gemini-2.5-flash",
     )
 
     # A coordinator agent that delegates geography questions to the specialist
@@ -31,6 +32,7 @@ async def main() -> None:
                 description="Ask a geography expert a question. Pass the full question as input.",
             ),
         ],
+        model="gemini/gemini-2.5-flash",
     )
 
     result = await coordinator.run("What are the three largest countries by area?")

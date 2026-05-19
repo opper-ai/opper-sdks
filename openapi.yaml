@@ -1,5 +1,125 @@
 components:
   schemas:
+    AnthropicCompatModel:
+      properties:
+        created_at:
+          type: string
+        display_name:
+          type: string
+        id:
+          type: string
+        type:
+          type: string
+      required:
+        - type
+        - id
+        - display_name
+        - created_at
+      type: object
+    AnthropicCompatModelsListResponse:
+      properties:
+        data:
+          items:
+            properties:
+              created_at:
+                type: string
+              display_name:
+                type: string
+              id:
+                type: string
+              type:
+                type: string
+            required:
+              - type
+              - id
+              - display_name
+              - created_at
+            type: object
+          type: array
+        first_id:
+          type: string
+        has_more:
+          type: boolean
+        last_id:
+          type: string
+      required:
+        - data
+        - has_more
+        - first_id
+        - last_id
+      type: object
+    Benchmark:
+      properties:
+        aa_slug:
+          type: string
+        as_of:
+          type: string
+        coding_index:
+          type: number
+        evaluations:
+          properties:
+            aime:
+              type: number
+            aime_25:
+              type: number
+            gpqa:
+              type: number
+            hle:
+              type: number
+            ifbench:
+              type: number
+            lcr:
+              type: number
+            livecodebench:
+              type: number
+            math_500:
+              type: number
+            mmlu_pro:
+              type: number
+            scicode:
+              type: number
+            tau2:
+              type: number
+            terminalbench_hard:
+              type: number
+          type: object
+        intelligence_index:
+          type: number
+        math_index:
+          type: number
+        source:
+          type: string
+      required:
+        - source
+        - as_of
+      type: object
+    BenchmarkEvaluations:
+      properties:
+        aime:
+          type: number
+        aime_25:
+          type: number
+        gpqa:
+          type: number
+        hle:
+          type: number
+        ifbench:
+          type: number
+        lcr:
+          type: number
+        livecodebench:
+          type: number
+        math_500:
+          type: number
+        mmlu_pro:
+          type: number
+        scicode:
+          type: number
+        tau2:
+          type: number
+        terminalbench_hard:
+          type: number
+      type: object
     CallRequest:
       properties:
         guard:
@@ -17,18 +137,52 @@ components:
                     items:
                       type: string
                     type: array
+                  engine:
+                    type: string
+                  kind:
+                    type: string
                   model:
                     type: string
+                  name:
+                    type: string
+                  patterns:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        regex:
+                          type: string
+                      required:
+                        - regex
+                      type: object
+                    type: array
                   presets:
                     items:
                       type: string
                     type: array
+                  prompt:
+                    type: string
                   replacement:
+                    type: string
+                  rule_id:
+                    type: string
+                  rule_name:
+                    type: string
+                  scope:
+                    properties:
+                      functions:
+                        items:
+                          type: string
+                        type: array
+                      kind:
+                        type: string
+                    required:
+                      - kind
+                    type: object
+                  scope_type:
                     type: string
                   type:
                     type: string
-                required:
-                  - type
                 type: object
               type: array
             output:
@@ -44,18 +198,52 @@ components:
                     items:
                       type: string
                     type: array
+                  engine:
+                    type: string
+                  kind:
+                    type: string
                   model:
                     type: string
+                  name:
+                    type: string
+                  patterns:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        regex:
+                          type: string
+                      required:
+                        - regex
+                      type: object
+                    type: array
                   presets:
                     items:
                       type: string
                     type: array
+                  prompt:
+                    type: string
                   replacement:
+                    type: string
+                  rule_id:
+                    type: string
+                  rule_name:
+                    type: string
+                  scope:
+                    properties:
+                      functions:
+                        items:
+                          type: string
+                        type: array
+                      kind:
+                        type: string
+                    required:
+                      - kind
+                    type: object
+                  scope_type:
                     type: string
                   type:
                     type: string
-                required:
-                  - type
                 type: object
               type: array
           type: object
@@ -108,6 +296,12 @@ components:
           type: object
         parent_span_id:
           type: string
+        reasoning_effort:
+          description: Reasoning effort for reasoning-capable models. One of "low"
+          type: string
+        reasoning_summary:
+          description: Opt into thought summary streaming. "auto"
+          type: string
         route:
           properties:
             prefer:
@@ -143,6 +337,8 @@ components:
         message:
           properties:
             content:
+              type: string
+            reasoning_content:
               type: string
             role:
               type: string
@@ -194,6 +390,8 @@ components:
       properties:
         content:
           type: string
+        reasoning_content:
+          type: string
         role:
           type: string
         tool_calls:
@@ -227,6 +425,22 @@ components:
       type: object
     ChatRequest:
       properties:
+        custom_model_credentials:
+          properties:
+            api_key:
+              type: string
+            base_url:
+              type: string
+            extra:
+              type: object
+            identifier:
+              type: string
+            url:
+              type: string
+          required:
+            - identifier
+            - api_key
+          type: object
         max_completion_tokens:
           type: integer
         max_tokens:
@@ -403,6 +617,8 @@ components:
                 properties:
                   content:
                     type: string
+                  reasoning_content:
+                    type: string
                   role:
                     type: string
                   tool_calls:
@@ -446,6 +662,39 @@ components:
           type: integer
         id:
           type: string
+        meta:
+          properties:
+            guards:
+              items:
+                properties:
+                  code:
+                    type: string
+                  findings:
+                    items:
+                      description: Any value
+                    type: array
+                  flagged:
+                    type: boolean
+                  phase:
+                    type: string
+                  rule_id:
+                    type: string
+                  rule_name:
+                    type: string
+                  scope_type:
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    type: string
+                required:
+                  - type
+                  - flagged
+                type: object
+              type: array
+            trace_uuid:
+              type: string
+          type: object
         model:
           type: string
         object:
@@ -465,10 +714,12 @@ components:
               type: integer
             prompt_tokens_details:
               properties:
+                cache_creation_1h_tokens:
+                  type: integer
+                cache_creation_tokens:
+                  type: integer
                 cached_tokens:
                   type: integer
-              required:
-                - cached_tokens
               type: object
             server_tool_use:
               type: object
@@ -492,6 +743,8 @@ components:
         delta:
           properties:
             content:
+              type: string
+            reasoning_content:
               type: string
             role:
               type: string
@@ -536,6 +789,8 @@ components:
                 properties:
                   content:
                     type: string
+                  reasoning_content:
+                    type: string
                   role:
                     type: string
                   tool_calls:
@@ -577,10 +832,45 @@ components:
           type: integer
         id:
           type: string
+        meta:
+          properties:
+            guards:
+              items:
+                properties:
+                  code:
+                    type: string
+                  findings:
+                    items:
+                      description: Any value
+                    type: array
+                  flagged:
+                    type: boolean
+                  phase:
+                    type: string
+                  rule_id:
+                    type: string
+                  rule_name:
+                    type: string
+                  scope_type:
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    type: string
+                required:
+                  - type
+                  - flagged
+                type: object
+              type: array
+            trace_uuid:
+              type: string
+          type: object
         model:
           type: string
         object:
           type: string
+        time_to_first_token_ms:
+          type: integer
         usage:
           properties:
             completion_tokens:
@@ -596,10 +886,12 @@ components:
               type: integer
             prompt_tokens_details:
               properties:
+                cache_creation_1h_tokens:
+                  type: integer
+                cache_creation_tokens:
+                  type: integer
                 cached_tokens:
                   type: integer
-              required:
-                - cached_tokens
               type: object
             server_tool_use:
               type: object
@@ -620,6 +912,8 @@ components:
     ChatStreamDelta:
       properties:
         content:
+          type: string
+        reasoning_content:
           type: string
         role:
           type: string
@@ -684,10 +978,12 @@ components:
           type: integer
         prompt_tokens_details:
           properties:
+            cache_creation_1h_tokens:
+              type: integer
+            cache_creation_tokens:
+              type: integer
             cached_tokens:
               type: integer
-          required:
-            - cached_tokens
           type: object
         server_tool_use:
           type: object
@@ -857,6 +1153,8 @@ components:
             - code
             - message
           type: object
+        meta:
+          type: object
       required:
         - error
       type: object
@@ -937,10 +1235,29 @@ components:
           type: string
         response_schema:
           type: object
+        seed:
+          type: integer
+        stop_sequences:
+          items:
+            type: string
+          type: array
         temperature:
           type: number
+        thinking_config:
+          properties:
+            include_thoughts:
+              type: boolean
+            thinking_budget:
+              type: integer
+            thinking_level:
+              type: string
+          type: object
         thinking_level:
           type: string
+        thinking_summaries:
+          type: string
+        tool_choice:
+          description: Any value
         top_k:
           type: integer
         top_p:
@@ -950,6 +1267,35 @@ components:
       properties:
         data:
           properties:
+            data:
+              properties:
+                function:
+                  properties:
+                    id:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                    - id
+                    - name
+                  type: object
+                generation_id:
+                  type: string
+                instructions:
+                  type: string
+                model:
+                  type: string
+                observations:
+                  type: string
+                score:
+                  type: integer
+                scorer_context:
+                  type: object
+                tags:
+                  type: object
+                total_tokens:
+                  type: integer
+              type: object
             end_time:
               format: date-time
               type: string
@@ -963,12 +1309,34 @@ components:
               type: object
             metadata:
               type: object
+            metrics:
+              items:
+                properties:
+                  comment:
+                    type: string
+                  created_at:
+                    type: string
+                  dimension:
+                    type: string
+                  id:
+                    type: string
+                  value:
+                    type: number
+                required:
+                  - id
+                  - dimension
+                  - value
+                  - created_at
+                type: object
+              type: array
             name:
               type: string
             output:
               description: Any value
             parent_id:
               type: string
+            score:
+              type: integer
             start_time:
               format: date-time
               type: string
@@ -1025,13 +1393,46 @@ components:
               type: array
             id:
               type: string
+            input:
+              type: string
             name:
+              type: string
+            output:
               type: string
             span_count:
               type: integer
             spans:
               items:
                 properties:
+                  data:
+                    properties:
+                      function:
+                        properties:
+                          id:
+                            type: string
+                          name:
+                            type: string
+                        required:
+                          - id
+                          - name
+                        type: object
+                      generation_id:
+                        type: string
+                      instructions:
+                        type: string
+                      model:
+                        type: string
+                      observations:
+                        type: string
+                      score:
+                        type: integer
+                      scorer_context:
+                        type: object
+                      tags:
+                        type: object
+                      total_tokens:
+                        type: integer
+                    type: object
                   end_time:
                     format: date-time
                     type: string
@@ -1045,12 +1446,34 @@ components:
                     type: object
                   metadata:
                     type: object
+                  metrics:
+                    items:
+                      properties:
+                        comment:
+                          type: string
+                        created_at:
+                          type: string
+                        dimension:
+                          type: string
+                        id:
+                          type: string
+                        value:
+                          type: number
+                      required:
+                        - id
+                        - dimension
+                        - value
+                        - created_at
+                      type: object
+                    type: array
                   name:
                     type: string
                   output:
                     description: Any value
                   parent_id:
                     type: string
+                  score:
+                    type: integer
                   start_time:
                     format: date-time
                     type: string
@@ -1073,6 +1496,8 @@ components:
               type: string
             status:
               type: string
+            total_tokens:
+              type: integer
           required:
             - id
             - span_count
@@ -1083,12 +1508,24 @@ components:
       type: object
     GuardInfo:
       properties:
+        code:
+          type: string
         findings:
           items:
             description: Any value
           type: array
         flagged:
           type: boolean
+        phase:
+          type: string
+        rule_id:
+          type: string
+        rule_name:
+          type: string
+        scope_type:
+          type: string
+        status:
+          type: string
         type:
           type: string
       required:
@@ -1107,18 +1544,52 @@ components:
           items:
             type: string
           type: array
+        engine:
+          type: string
+        kind:
+          type: string
         model:
           type: string
+        name:
+          type: string
+        patterns:
+          items:
+            properties:
+              name:
+                type: string
+              regex:
+                type: string
+            required:
+              - regex
+            type: object
+          type: array
         presets:
           items:
             type: string
           type: array
+        prompt:
+          type: string
         replacement:
+          type: string
+        rule_id:
+          type: string
+        rule_name:
+          type: string
+        scope:
+          properties:
+            functions:
+              items:
+                type: string
+              type: array
+            kind:
+              type: string
+          required:
+            - kind
+          type: object
+        scope_type:
           type: string
         type:
           type: string
-      required:
-        - type
       type: object
     InteractionsError:
       properties:
@@ -1159,6 +1630,8 @@ components:
           type: string
         thought:
           type: string
+        thoughtSignature:
+          type: string
         type:
           type: string
       required:
@@ -1172,6 +1645,22 @@ components:
           type: boolean
         contents:
           description: Any value
+        custom_model_credentials:
+          properties:
+            api_key:
+              type: string
+            base_url:
+              type: string
+            extra:
+              type: object
+            identifier:
+              type: string
+            url:
+              type: string
+          required:
+            - identifier
+            - api_key
+          type: object
         generation_config:
           properties:
             max_output_tokens:
@@ -1180,10 +1669,29 @@ components:
               type: string
             response_schema:
               type: object
+            seed:
+              type: integer
+            stop_sequences:
+              items:
+                type: string
+              type: array
             temperature:
               type: number
+            thinking_config:
+              properties:
+                include_thoughts:
+                  type: boolean
+                thinking_budget:
+                  type: integer
+                thinking_level:
+                  type: string
+              type: object
             thinking_level:
               type: string
+            thinking_summaries:
+              type: string
+            tool_choice:
+              description: Any value
             top_k:
               type: integer
             top_p:
@@ -1197,15 +1705,45 @@ components:
           type: string
         response_format:
           type: object
+        response_mime_type:
+          type: string
+        safety_settings:
+          items:
+            properties:
+              category:
+                type: string
+              threshold:
+                type: string
+            type: object
+          type: array
         store:
           type: boolean
         stream:
           type: boolean
         system_instruction:
-          type: string
+          properties:
+            Text:
+              type: string
+          required:
+            - Text
+          type: object
+        tool_config:
+          properties:
+            function_calling_config:
+              properties:
+                allowed_function_names:
+                  items:
+                    type: string
+                  type: array
+                mode:
+                  type: string
+              type: object
+          type: object
         tools:
           items:
             properties:
+              description:
+                type: string
               function_declarations:
                 items:
                   properties:
@@ -1219,6 +1757,10 @@ components:
                     - name
                   type: object
                 type: array
+              name:
+                type: string
+              parameters:
+                type: object
               type:
                 type: string
             type: object
@@ -1266,6 +1808,8 @@ components:
                 type: string
               thought:
                 type: string
+              thoughtSignature:
+                type: string
               type:
                 type: string
             required:
@@ -1276,12 +1820,22 @@ components:
           type: string
         status:
           type: string
-        usage:
+        usageMetadata:
           properties:
-            total_tokens:
+            cachedContentTokenCount:
+              type: integer
+            candidatesTokenCount:
+              type: integer
+            promptTokenCount:
+              type: integer
+            thoughtsTokenCount:
+              type: integer
+            totalTokenCount:
               type: integer
           required:
-            - total_tokens
+            - promptTokenCount
+            - candidatesTokenCount
+            - totalTokenCount
           type: object
       required:
         - id
@@ -1290,6 +1844,8 @@ components:
       type: object
     InteractionsTool:
       properties:
+        description:
+          type: string
         function_declarations:
           items:
             properties:
@@ -1303,15 +1859,29 @@ components:
               - name
             type: object
           type: array
+        name:
+          type: string
+        parameters:
+          type: object
         type:
           type: string
       type: object
-    InteractionsUsage:
+    InteractionsUsageMetadata:
       properties:
-        total_tokens:
+        cachedContentTokenCount:
+          type: integer
+        candidatesTokenCount:
+          type: integer
+        promptTokenCount:
+          type: integer
+        thoughtsTokenCount:
+          type: integer
+        totalTokenCount:
           type: integer
       required:
-        - total_tokens
+        - promptTokenCount
+        - candidatesTokenCount
+        - totalTokenCount
       type: object
     ListTracesItem:
       properties:
@@ -1382,6 +1952,8 @@ components:
         tools:
           items:
             properties:
+              cache_control:
+                type: object
               description:
                 type: string
               input_schema:
@@ -1464,6 +2036,8 @@ components:
       type: object
     MessagesTool:
       properties:
+        cache_control:
+          type: object
         description:
           type: string
         input_schema:
@@ -1511,10 +2085,14 @@ components:
           type: string
         description:
           type: string
+        family:
+          type: string
         featured:
           type: boolean
         id:
           type: string
+        max_output_tokens:
+          type: integer
         model_id:
           type: string
         name:
@@ -1560,14 +2138,36 @@ components:
                 default:
                   type: string
               type: object
+            max_tokens:
+              type: boolean
             realtime:
               properties:
                 default_voice:
                   type: string
                 input_audio_format:
                   type: string
+                input_sample_rate:
+                  type: integer
                 output_audio_format:
                   type: string
+                output_sample_rate:
+                  type: integer
+                reasoning:
+                  properties:
+                    default:
+                      type: string
+                    max_budget:
+                      type: integer
+                    mode:
+                      type: string
+                    supported:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                    - supported
+                    - default
+                  type: object
                 sample_rate:
                   type: integer
                 supports_tools:
@@ -1583,6 +2183,8 @@ components:
               properties:
                 default:
                   type: string
+                max_budget:
+                  type: integer
                 mode:
                   type: string
                 supported:
@@ -1658,6 +2260,22 @@ components:
           type: object
         pricing:
           properties:
+            audio_cached_input:
+              items:
+                type: number
+              type: array
+            audio_input:
+              items:
+                type: number
+              type: array
+            audio_input_per_minute:
+              type: number
+            audio_output:
+              items:
+                type: number
+              type: array
+            audio_output_per_minute:
+              type: number
             cache_creation:
               items:
                 type: number
@@ -1667,6 +2285,14 @@ components:
                 type: number
               type: array
             cached_input:
+              items:
+                type: number
+              type: array
+            image_cached_input:
+              items:
+                type: number
+              type: array
+            image_input:
               items:
                 type: number
               type: array
@@ -1680,6 +2306,10 @@ components:
               items:
                 type: number
               type: array
+            input_transcription_per_minute:
+              additionalProperties:
+                type: number
+              type: object
             output:
               items:
                 type: number
@@ -1702,6 +2332,8 @@ components:
               items:
                 type: integer
               type: array
+            web_fetch_price_per_request:
+              type: number
             web_search_price_per_request:
               type: number
           required:
@@ -1723,6 +2355,8 @@ components:
           type: string
         successor:
           type: string
+        thinking:
+          type: boolean
         type:
           type: string
       required:
@@ -1739,6 +2373,817 @@ components:
         - context_window
         - description
       type: object
+    ModelListItem:
+      properties:
+        aliases:
+          items:
+            type: string
+          type: array
+        api_type:
+          type: string
+        benchmarks:
+          properties:
+            aa_slug:
+              type: string
+            as_of:
+              type: string
+            coding_index:
+              type: number
+            evaluations:
+              properties:
+                aime:
+                  type: number
+                aime_25:
+                  type: number
+                gpqa:
+                  type: number
+                hle:
+                  type: number
+                ifbench:
+                  type: number
+                lcr:
+                  type: number
+                livecodebench:
+                  type: number
+                math_500:
+                  type: number
+                mmlu_pro:
+                  type: number
+                scicode:
+                  type: number
+                tau2:
+                  type: number
+                terminalbench_hard:
+                  type: number
+              type: object
+            intelligence_index:
+              type: number
+            math_index:
+              type: number
+            source:
+              type: string
+          required:
+            - source
+            - as_of
+          type: object
+        capabilities:
+          items:
+            type: string
+          type: array
+        context_window:
+          type: integer
+        cost:
+          type: number
+        country:
+          type: string
+        description:
+          type: string
+        family:
+          type: string
+        featured:
+          type: boolean
+        id:
+          type: string
+        maker:
+          type: string
+        max_output_tokens:
+          type: integer
+        model_id:
+          type: string
+        name:
+          type: string
+        params:
+          properties:
+            default_max_tokens:
+              type: integer
+            embedding:
+              properties:
+                dimensions:
+                  type: integer
+                max_input_tokens:
+                  type: integer
+                supports_dimensions:
+                  type: boolean
+              required:
+                - dimensions
+              type: object
+            image:
+              properties:
+                default:
+                  type: string
+                qualities:
+                  items:
+                    type: string
+                  type: array
+                sizes:
+                  items:
+                    type: string
+                  type: array
+                styles:
+                  items:
+                    type: string
+                  type: array
+              type: object
+            image_edit:
+              properties:
+                aspect_ratios:
+                  items:
+                    type: string
+                  type: array
+                default:
+                  type: string
+              type: object
+            max_tokens:
+              type: boolean
+            realtime:
+              properties:
+                default_voice:
+                  type: string
+                input_audio_format:
+                  type: string
+                input_sample_rate:
+                  type: integer
+                output_audio_format:
+                  type: string
+                output_sample_rate:
+                  type: integer
+                reasoning:
+                  properties:
+                    default:
+                      type: string
+                    max_budget:
+                      type: integer
+                    mode:
+                      type: string
+                    supported:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                    - supported
+                    - default
+                  type: object
+                sample_rate:
+                  type: integer
+                supports_tools:
+                  type: boolean
+                supports_vad:
+                  type: boolean
+                voices:
+                  items:
+                    type: string
+                  type: array
+              type: object
+            reasoning:
+              properties:
+                default:
+                  type: string
+                max_budget:
+                  type: integer
+                mode:
+                  type: string
+                supported:
+                  items:
+                    type: string
+                  type: array
+              required:
+                - supported
+                - default
+              type: object
+            stt:
+              properties:
+                default_language:
+                  type: string
+                formats:
+                  items:
+                    type: string
+                  type: array
+                languages:
+                  items:
+                    type: string
+                  type: array
+              type: object
+            temperature:
+              properties:
+                default:
+                  type: number
+                max:
+                  type: number
+                min:
+                  type: number
+              required:
+                - min
+                - max
+                - default
+              type: object
+            tts:
+              properties:
+                default_voice:
+                  type: string
+                max_length:
+                  type: integer
+                voices:
+                  items:
+                    type: string
+                  type: array
+              type: object
+            video:
+              properties:
+                aspect_ratios:
+                  items:
+                    type: string
+                  type: array
+                max_duration:
+                  type: integer
+                max_fps:
+                  type: integer
+                max_frames:
+                  type: integer
+                resolutions:
+                  items:
+                    type: string
+                  type: array
+                speed_modes:
+                  items:
+                    type: string
+                  type: array
+                supports_seed:
+                  type: boolean
+              type: object
+          required:
+            - default_max_tokens
+          type: object
+        pricing:
+          properties:
+            audio_cached_input:
+              items:
+                type: number
+              type: array
+            audio_input:
+              items:
+                type: number
+              type: array
+            audio_input_per_minute:
+              type: number
+            audio_output:
+              items:
+                type: number
+              type: array
+            audio_output_per_minute:
+              type: number
+            cache_creation:
+              items:
+                type: number
+              type: array
+            cache_creation_1h:
+              items:
+                type: number
+              type: array
+            cached_input:
+              items:
+                type: number
+              type: array
+            image_cached_input:
+              items:
+                type: number
+              type: array
+            image_input:
+              items:
+                type: number
+              type: array
+            image_prices:
+              additionalProperties:
+                additionalProperties:
+                  type: number
+                type: object
+              type: object
+            input:
+              items:
+                type: number
+              type: array
+            input_transcription_per_minute:
+              additionalProperties:
+                type: number
+              type: object
+            output:
+              items:
+                type: number
+              type: array
+            price_per_generation:
+              type: number
+            price_per_m_chars:
+              type: number
+            price_per_minute:
+              type: number
+            price_per_page:
+              type: number
+            price_per_second:
+              type: number
+            reasoning:
+              items:
+                type: number
+              type: array
+            thresholds:
+              items:
+                type: integer
+              type: array
+            web_fetch_price_per_request:
+              type: number
+            web_search_price_per_request:
+              type: number
+          required:
+            - input
+            - output
+          type: object
+        provider:
+          type: string
+        provider_display_name:
+          type: string
+        quality:
+          type: string
+        region:
+          type: string
+        retired_at:
+          format: date-time
+          type: string
+        route:
+          properties:
+            caveats:
+              items:
+                type: string
+              type: array
+            data_handling:
+              properties:
+                logging:
+                  properties:
+                    default:
+                      type: string
+                    human_review:
+                      type: string
+                    retention_days:
+                      type: integer
+                  required:
+                    - default
+                    - retention_days
+                    - human_review
+                  type: object
+                residency_enforced:
+                  type: boolean
+                third_party_access:
+                  type: boolean
+                training:
+                  properties:
+                    default:
+                      type: string
+                  required:
+                    - default
+                  type: object
+                zdr:
+                  properties:
+                    activation_steps:
+                      items:
+                        type: string
+                      type: array
+                    status:
+                      type: string
+                  required:
+                    - status
+                  type: object
+              required:
+                - training
+                - logging
+                - zdr
+                - third_party_access
+                - residency_enforced
+              type: object
+            gdpr:
+              properties:
+                dpa_available:
+                  type: boolean
+                notes:
+                  type: string
+                residency:
+                  type: string
+                transfer_mechanism:
+                  type: string
+              required:
+                - dpa_available
+                - residency
+              type: object
+            id:
+              type: string
+            last_verified_at:
+              type: string
+            provider:
+              type: string
+            provider_display_name:
+              type: string
+            region:
+              type: string
+            region_detail:
+              type: string
+            sources:
+              items:
+                type: string
+              type: array
+            underlying_maker:
+              type: string
+          required:
+            - id
+            - provider
+            - provider_display_name
+            - region
+            - data_handling
+            - gdpr
+          type: object
+        speed:
+          type: string
+        successor:
+          type: string
+        thinking:
+          type: boolean
+        type:
+          type: string
+      required:
+        - id
+        - type
+        - provider
+        - provider_display_name
+        - name
+        - model_id
+        - capabilities
+        - speed
+        - cost
+        - quality
+        - context_window
+        - description
+      type: object
+    ModelResolveRequest:
+      properties:
+        messages:
+          items:
+            properties:
+              cache_control:
+                type: object
+              content:
+                description: Any value
+              name:
+                type: string
+              role:
+                type: string
+              tool_call_id:
+                type: string
+              tool_calls:
+                items:
+                  properties:
+                    arguments:
+                      type: object
+                    id:
+                      type: string
+                    name:
+                      type: string
+                    thought_signature:
+                      type: string
+                  required:
+                    - id
+                    - name
+                    - arguments
+                  type: object
+                type: array
+            required:
+              - role
+              - content
+            type: object
+          type: array
+        overrides:
+          additionalProperties:
+            type: string
+          type: object
+      required:
+        - messages
+      type: object
+    ModelResolveResponse:
+      properties:
+        category:
+          type: string
+        model:
+          properties:
+            aliases:
+              items:
+                type: string
+              type: array
+            api_type:
+              type: string
+            capabilities:
+              items:
+                type: string
+              type: array
+            context_window:
+              type: integer
+            cost:
+              type: number
+            country:
+              type: string
+            description:
+              type: string
+            family:
+              type: string
+            featured:
+              type: boolean
+            id:
+              type: string
+            max_output_tokens:
+              type: integer
+            model_id:
+              type: string
+            name:
+              type: string
+            params:
+              properties:
+                default_max_tokens:
+                  type: integer
+                embedding:
+                  properties:
+                    dimensions:
+                      type: integer
+                    max_input_tokens:
+                      type: integer
+                    supports_dimensions:
+                      type: boolean
+                  required:
+                    - dimensions
+                  type: object
+                image:
+                  properties:
+                    default:
+                      type: string
+                    qualities:
+                      items:
+                        type: string
+                      type: array
+                    sizes:
+                      items:
+                        type: string
+                      type: array
+                    styles:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                image_edit:
+                  properties:
+                    aspect_ratios:
+                      items:
+                        type: string
+                      type: array
+                    default:
+                      type: string
+                  type: object
+                max_tokens:
+                  type: boolean
+                realtime:
+                  properties:
+                    default_voice:
+                      type: string
+                    input_audio_format:
+                      type: string
+                    input_sample_rate:
+                      type: integer
+                    output_audio_format:
+                      type: string
+                    output_sample_rate:
+                      type: integer
+                    reasoning:
+                      properties:
+                        default:
+                          type: string
+                        max_budget:
+                          type: integer
+                        mode:
+                          type: string
+                        supported:
+                          items:
+                            type: string
+                          type: array
+                      required:
+                        - supported
+                        - default
+                      type: object
+                    sample_rate:
+                      type: integer
+                    supports_tools:
+                      type: boolean
+                    supports_vad:
+                      type: boolean
+                    voices:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                reasoning:
+                  properties:
+                    default:
+                      type: string
+                    max_budget:
+                      type: integer
+                    mode:
+                      type: string
+                    supported:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                    - supported
+                    - default
+                  type: object
+                stt:
+                  properties:
+                    default_language:
+                      type: string
+                    formats:
+                      items:
+                        type: string
+                      type: array
+                    languages:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                temperature:
+                  properties:
+                    default:
+                      type: number
+                    max:
+                      type: number
+                    min:
+                      type: number
+                  required:
+                    - min
+                    - max
+                    - default
+                  type: object
+                tts:
+                  properties:
+                    default_voice:
+                      type: string
+                    max_length:
+                      type: integer
+                    voices:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                video:
+                  properties:
+                    aspect_ratios:
+                      items:
+                        type: string
+                      type: array
+                    max_duration:
+                      type: integer
+                    max_fps:
+                      type: integer
+                    max_frames:
+                      type: integer
+                    resolutions:
+                      items:
+                        type: string
+                      type: array
+                    speed_modes:
+                      items:
+                        type: string
+                      type: array
+                    supports_seed:
+                      type: boolean
+                  type: object
+              required:
+                - default_max_tokens
+              type: object
+            pricing:
+              properties:
+                audio_cached_input:
+                  items:
+                    type: number
+                  type: array
+                audio_input:
+                  items:
+                    type: number
+                  type: array
+                audio_input_per_minute:
+                  type: number
+                audio_output:
+                  items:
+                    type: number
+                  type: array
+                audio_output_per_minute:
+                  type: number
+                cache_creation:
+                  items:
+                    type: number
+                  type: array
+                cache_creation_1h:
+                  items:
+                    type: number
+                  type: array
+                cached_input:
+                  items:
+                    type: number
+                  type: array
+                image_cached_input:
+                  items:
+                    type: number
+                  type: array
+                image_input:
+                  items:
+                    type: number
+                  type: array
+                image_prices:
+                  additionalProperties:
+                    additionalProperties:
+                      type: number
+                    type: object
+                  type: object
+                input:
+                  items:
+                    type: number
+                  type: array
+                input_transcription_per_minute:
+                  additionalProperties:
+                    type: number
+                  type: object
+                output:
+                  items:
+                    type: number
+                  type: array
+                price_per_generation:
+                  type: number
+                price_per_m_chars:
+                  type: number
+                price_per_minute:
+                  type: number
+                price_per_page:
+                  type: number
+                price_per_second:
+                  type: number
+                reasoning:
+                  items:
+                    type: number
+                  type: array
+                thresholds:
+                  items:
+                    type: integer
+                  type: array
+                web_fetch_price_per_request:
+                  type: number
+                web_search_price_per_request:
+                  type: number
+              required:
+                - input
+                - output
+              type: object
+            provider:
+              type: string
+            provider_display_name:
+              type: string
+            quality:
+              type: string
+            region:
+              type: string
+            retired_at:
+              format: date-time
+              type: string
+            speed:
+              type: string
+            successor:
+              type: string
+            thinking:
+              type: boolean
+            type:
+              type: string
+          required:
+            - id
+            - type
+            - provider
+            - provider_display_name
+            - name
+            - model_id
+            - capabilities
+            - speed
+            - cost
+            - quality
+            - context_window
+            - description
+          type: object
+        model_id:
+          type: string
+        reasoning:
+          type: string
+      required:
+        - model
+        - model_id
+        - category
+        - reasoning
+      type: object
     ModelsResponse:
       properties:
         limit:
@@ -1752,6 +3197,51 @@ components:
                 type: array
               api_type:
                 type: string
+              benchmarks:
+                properties:
+                  aa_slug:
+                    type: string
+                  as_of:
+                    type: string
+                  coding_index:
+                    type: number
+                  evaluations:
+                    properties:
+                      aime:
+                        type: number
+                      aime_25:
+                        type: number
+                      gpqa:
+                        type: number
+                      hle:
+                        type: number
+                      ifbench:
+                        type: number
+                      lcr:
+                        type: number
+                      livecodebench:
+                        type: number
+                      math_500:
+                        type: number
+                      mmlu_pro:
+                        type: number
+                      scicode:
+                        type: number
+                      tau2:
+                        type: number
+                      terminalbench_hard:
+                        type: number
+                    type: object
+                  intelligence_index:
+                    type: number
+                  math_index:
+                    type: number
+                  source:
+                    type: string
+                required:
+                  - source
+                  - as_of
+                type: object
               capabilities:
                 items:
                   type: string
@@ -1764,10 +3254,16 @@ components:
                 type: string
               description:
                 type: string
+              family:
+                type: string
               featured:
                 type: boolean
               id:
                 type: string
+              maker:
+                type: string
+              max_output_tokens:
+                type: integer
               model_id:
                 type: string
               name:
@@ -1813,14 +3309,36 @@ components:
                       default:
                         type: string
                     type: object
+                  max_tokens:
+                    type: boolean
                   realtime:
                     properties:
                       default_voice:
                         type: string
                       input_audio_format:
                         type: string
+                      input_sample_rate:
+                        type: integer
                       output_audio_format:
                         type: string
+                      output_sample_rate:
+                        type: integer
+                      reasoning:
+                        properties:
+                          default:
+                            type: string
+                          max_budget:
+                            type: integer
+                          mode:
+                            type: string
+                          supported:
+                            items:
+                              type: string
+                            type: array
+                        required:
+                          - supported
+                          - default
+                        type: object
                       sample_rate:
                         type: integer
                       supports_tools:
@@ -1836,6 +3354,8 @@ components:
                     properties:
                       default:
                         type: string
+                      max_budget:
+                        type: integer
                       mode:
                         type: string
                       supported:
@@ -1911,6 +3431,22 @@ components:
                 type: object
               pricing:
                 properties:
+                  audio_cached_input:
+                    items:
+                      type: number
+                    type: array
+                  audio_input:
+                    items:
+                      type: number
+                    type: array
+                  audio_input_per_minute:
+                    type: number
+                  audio_output:
+                    items:
+                      type: number
+                    type: array
+                  audio_output_per_minute:
+                    type: number
                   cache_creation:
                     items:
                       type: number
@@ -1920,6 +3456,14 @@ components:
                       type: number
                     type: array
                   cached_input:
+                    items:
+                      type: number
+                    type: array
+                  image_cached_input:
+                    items:
+                      type: number
+                    type: array
+                  image_input:
                     items:
                       type: number
                     type: array
@@ -1933,6 +3477,10 @@ components:
                     items:
                       type: number
                     type: array
+                  input_transcription_per_minute:
+                    additionalProperties:
+                      type: number
+                    type: object
                   output:
                     items:
                       type: number
@@ -1955,6 +3503,8 @@ components:
                     items:
                       type: integer
                     type: array
+                  web_fetch_price_per_request:
+                    type: number
                   web_search_price_per_request:
                     type: number
                 required:
@@ -1972,10 +3522,102 @@ components:
               retired_at:
                 format: date-time
                 type: string
+              route:
+                properties:
+                  caveats:
+                    items:
+                      type: string
+                    type: array
+                  data_handling:
+                    properties:
+                      logging:
+                        properties:
+                          default:
+                            type: string
+                          human_review:
+                            type: string
+                          retention_days:
+                            type: integer
+                        required:
+                          - default
+                          - retention_days
+                          - human_review
+                        type: object
+                      residency_enforced:
+                        type: boolean
+                      third_party_access:
+                        type: boolean
+                      training:
+                        properties:
+                          default:
+                            type: string
+                        required:
+                          - default
+                        type: object
+                      zdr:
+                        properties:
+                          activation_steps:
+                            items:
+                              type: string
+                            type: array
+                          status:
+                            type: string
+                        required:
+                          - status
+                        type: object
+                    required:
+                      - training
+                      - logging
+                      - zdr
+                      - third_party_access
+                      - residency_enforced
+                    type: object
+                  gdpr:
+                    properties:
+                      dpa_available:
+                        type: boolean
+                      notes:
+                        type: string
+                      residency:
+                        type: string
+                      transfer_mechanism:
+                        type: string
+                    required:
+                      - dpa_available
+                      - residency
+                    type: object
+                  id:
+                    type: string
+                  last_verified_at:
+                    type: string
+                  provider:
+                    type: string
+                  provider_display_name:
+                    type: string
+                  region:
+                    type: string
+                  region_detail:
+                    type: string
+                  sources:
+                    items:
+                      type: string
+                    type: array
+                  underlying_maker:
+                    type: string
+                required:
+                  - id
+                  - provider
+                  - provider_display_name
+                  - region
+                  - data_handling
+                  - gdpr
+                type: object
               speed:
                 type: string
               successor:
                 type: string
+              thinking:
+                type: boolean
               type:
                 type: string
             required:
@@ -2340,8 +3982,12 @@ components:
               - type
             type: object
           type: array
+        parallel_tool_calls:
+          type: boolean
         presence_penalty:
           type: number
+        previous_response_id:
+          type: string
         reasoning:
           properties:
             effort:
@@ -2394,6 +4040,9 @@ components:
           type: string
         usage:
           properties:
+            cost:
+              description: "Opper extension: execution cost in USD. Present on streaming response.completed events; non-stream surfaces the same value via the X-Opper-Cost header."
+              type: number
             input_tokens:
               type: integer
             input_tokens_details:
@@ -2430,6 +4079,1125 @@ components:
         - error
         - incomplete_details
         - tool_choice
+      type: object
+    ORStreamEventCompleted:
+      properties:
+        response:
+          properties:
+            completed_at:
+              type: integer
+            created_at:
+              type: integer
+            error:
+              properties:
+                code:
+                  type: string
+                message:
+                  type: string
+                param:
+                  type: string
+                type:
+                  type: string
+              required:
+                - message
+                - type
+              type: object
+            frequency_penalty:
+              type: number
+            id:
+              type: string
+            incomplete_details:
+              description: Any value
+            instructions:
+              type: string
+            max_output_tokens:
+              type: integer
+            metadata:
+              type: object
+            model:
+              type: string
+            object:
+              type: string
+            output:
+              items:
+                properties:
+                  action:
+                    type: string
+                  arguments:
+                    type: string
+                  cache_creation_tokens:
+                    type: integer
+                  cache_read_tokens:
+                    type: integer
+                  call_id:
+                    type: string
+                  content:
+                    items:
+                      properties:
+                        annotations:
+                          items:
+                            description: Any value
+                          type: array
+                        refusal:
+                          type: string
+                        text:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                        - type
+                        - text
+                      type: object
+                    type: array
+                  cost_usd:
+                    type: number
+                  encrypted_content:
+                    type: string
+                  execution_ms:
+                    type: integer
+                  findings:
+                    items:
+                      description: Any value
+                    type: array
+                  flagged:
+                    type: boolean
+                  guard_type:
+                    type: string
+                  id:
+                    type: string
+                  model_warnings:
+                    items:
+                      type: string
+                    type: array
+                  models_used:
+                    items:
+                      type: string
+                    type: array
+                  name:
+                    type: string
+                  role:
+                    type: string
+                  status:
+                    type: string
+                  summary:
+                    items:
+                      properties:
+                        text:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                        - type
+                        - text
+                      type: object
+                    type: array
+                  type:
+                    type: string
+                required:
+                  - type
+                type: object
+              type: array
+            parallel_tool_calls:
+              type: boolean
+            presence_penalty:
+              type: number
+            previous_response_id:
+              type: string
+            reasoning:
+              properties:
+                effort:
+                  type: string
+                summary:
+                  type: string
+              type: object
+            service_tier:
+              type: string
+            status:
+              type: string
+            temperature:
+              type: number
+            text:
+              properties:
+                format:
+                  properties:
+                    name:
+                      type: string
+                    schema:
+                      type: object
+                    type:
+                      type: string
+                  required:
+                    - type
+                  type: object
+              type: object
+            tool_choice:
+              description: Any value
+            tools:
+              items:
+                properties:
+                  description:
+                    type: string
+                  name:
+                    type: string
+                  parameters:
+                    type: object
+                  strict:
+                    type: boolean
+                  type:
+                    type: string
+                required:
+                  - type
+                type: object
+              type: array
+            top_p:
+              type: number
+            truncation:
+              type: string
+            usage:
+              properties:
+                cost:
+                  description: "Opper extension: execution cost in USD. Present on streaming response.completed events; non-stream surfaces the same value via the X-Opper-Cost header."
+                  type: number
+                input_tokens:
+                  type: integer
+                input_tokens_details:
+                  properties:
+                    cached_tokens:
+                      type: integer
+                  required:
+                    - cached_tokens
+                  type: object
+                output_tokens:
+                  type: integer
+                output_tokens_details:
+                  properties:
+                    reasoning_tokens:
+                      type: integer
+                  required:
+                    - reasoning_tokens
+                  type: object
+                total_tokens:
+                  type: integer
+              required:
+                - input_tokens
+                - output_tokens
+                - total_tokens
+              type: object
+          required:
+            - id
+            - object
+            - created_at
+            - completed_at
+            - status
+            - model
+            - output
+            - error
+            - incomplete_details
+            - tool_choice
+          type: object
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.completed
+          type: string
+      required:
+        - type
+        - sequence_number
+        - response
+      title: response.completed
+      type: object
+    ORStreamEventContentPartAdded:
+      properties:
+        content_index:
+          type: integer
+        item_id:
+          type: string
+        output_index:
+          type: integer
+        part:
+          properties:
+            annotations:
+              items:
+                description: Any value
+              type: array
+            refusal:
+              type: string
+            text:
+              type: string
+            type:
+              type: string
+          required:
+            - type
+            - text
+          type: object
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.content_part.added
+          type: string
+      required:
+        - type
+        - sequence_number
+        - item_id
+        - output_index
+        - content_index
+        - part
+      title: response.content_part.added
+      type: object
+    ORStreamEventContentPartDone:
+      properties:
+        content_index:
+          type: integer
+        item_id:
+          type: string
+        output_index:
+          type: integer
+        part:
+          properties:
+            annotations:
+              items:
+                description: Any value
+              type: array
+            refusal:
+              type: string
+            text:
+              type: string
+            type:
+              type: string
+          required:
+            - type
+            - text
+          type: object
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.content_part.done
+          type: string
+      required:
+        - type
+        - sequence_number
+        - item_id
+        - output_index
+        - content_index
+        - part
+      title: response.content_part.done
+      type: object
+    ORStreamEventError:
+      properties:
+        error:
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            param:
+              type: string
+            type:
+              type: string
+          required:
+            - message
+            - type
+          type: object
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - error
+          type: string
+      required:
+        - type
+        - sequence_number
+        - error
+      title: error
+      type: object
+    ORStreamEventFunctionCallArgumentsDelta:
+      properties:
+        delta:
+          type: string
+        item_id:
+          type: string
+        output_index:
+          type: integer
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.function_call_arguments.delta
+          type: string
+      required:
+        - type
+        - sequence_number
+        - item_id
+        - output_index
+        - delta
+      title: response.function_call_arguments.delta
+      type: object
+    ORStreamEventFunctionCallArgumentsDone:
+      properties:
+        arguments:
+          type: string
+        item_id:
+          type: string
+        output_index:
+          type: integer
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.function_call_arguments.done
+          type: string
+      required:
+        - type
+        - sequence_number
+        - item_id
+        - output_index
+        - arguments
+      title: response.function_call_arguments.done
+      type: object
+    ORStreamEventOutputItemAdded:
+      properties:
+        item:
+          properties:
+            action:
+              type: string
+            arguments:
+              type: string
+            cache_creation_tokens:
+              type: integer
+            cache_read_tokens:
+              type: integer
+            call_id:
+              type: string
+            content:
+              items:
+                properties:
+                  annotations:
+                    items:
+                      description: Any value
+                    type: array
+                  refusal:
+                    type: string
+                  text:
+                    type: string
+                  type:
+                    type: string
+                required:
+                  - type
+                  - text
+                type: object
+              type: array
+            cost_usd:
+              type: number
+            encrypted_content:
+              type: string
+            execution_ms:
+              type: integer
+            findings:
+              items:
+                description: Any value
+              type: array
+            flagged:
+              type: boolean
+            guard_type:
+              type: string
+            id:
+              type: string
+            model_warnings:
+              items:
+                type: string
+              type: array
+            models_used:
+              items:
+                type: string
+              type: array
+            name:
+              type: string
+            role:
+              type: string
+            status:
+              type: string
+            summary:
+              items:
+                properties:
+                  text:
+                    type: string
+                  type:
+                    type: string
+                required:
+                  - type
+                  - text
+                type: object
+              type: array
+            type:
+              type: string
+          required:
+            - type
+          type: object
+        output_index:
+          type: integer
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.output_item.added
+          type: string
+      required:
+        - type
+        - sequence_number
+        - output_index
+        - item
+      title: response.output_item.added
+      type: object
+    ORStreamEventOutputItemDone:
+      properties:
+        item:
+          properties:
+            action:
+              type: string
+            arguments:
+              type: string
+            cache_creation_tokens:
+              type: integer
+            cache_read_tokens:
+              type: integer
+            call_id:
+              type: string
+            content:
+              items:
+                properties:
+                  annotations:
+                    items:
+                      description: Any value
+                    type: array
+                  refusal:
+                    type: string
+                  text:
+                    type: string
+                  type:
+                    type: string
+                required:
+                  - type
+                  - text
+                type: object
+              type: array
+            cost_usd:
+              type: number
+            encrypted_content:
+              type: string
+            execution_ms:
+              type: integer
+            findings:
+              items:
+                description: Any value
+              type: array
+            flagged:
+              type: boolean
+            guard_type:
+              type: string
+            id:
+              type: string
+            model_warnings:
+              items:
+                type: string
+              type: array
+            models_used:
+              items:
+                type: string
+              type: array
+            name:
+              type: string
+            role:
+              type: string
+            status:
+              type: string
+            summary:
+              items:
+                properties:
+                  text:
+                    type: string
+                  type:
+                    type: string
+                required:
+                  - type
+                  - text
+                type: object
+              type: array
+            type:
+              type: string
+          required:
+            - type
+          type: object
+        output_index:
+          type: integer
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.output_item.done
+          type: string
+      required:
+        - type
+        - sequence_number
+        - output_index
+        - item
+      title: response.output_item.done
+      type: object
+    ORStreamEventOutputTextDelta:
+      properties:
+        content_index:
+          type: integer
+        delta:
+          type: string
+        item_id:
+          type: string
+        output_index:
+          type: integer
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.output_text.delta
+          type: string
+      required:
+        - type
+        - sequence_number
+        - item_id
+        - output_index
+        - content_index
+        - delta
+      title: response.output_text.delta
+      type: object
+    ORStreamEventOutputTextDone:
+      properties:
+        content_index:
+          type: integer
+        item_id:
+          type: string
+        output_index:
+          type: integer
+        sequence_number:
+          type: integer
+        text:
+          type: string
+        type:
+          enum:
+            - response.output_text.done
+          type: string
+      required:
+        - type
+        - sequence_number
+        - item_id
+        - output_index
+        - content_index
+        - text
+      title: response.output_text.done
+      type: object
+    ORStreamEventReasoningSummaryDelta:
+      properties:
+        delta:
+          type: string
+        item_id:
+          type: string
+        output_index:
+          type: integer
+        sequence_number:
+          type: integer
+        summary_index:
+          type: integer
+        type:
+          enum:
+            - response.reasoning_summary_text.delta
+          type: string
+      required:
+        - type
+        - sequence_number
+        - item_id
+        - output_index
+        - summary_index
+        - delta
+      title: response.reasoning_summary_text.delta
+      type: object
+    ORStreamEventReasoningSummaryDone:
+      properties:
+        item_id:
+          type: string
+        output_index:
+          type: integer
+        sequence_number:
+          type: integer
+        summary_index:
+          type: integer
+        text:
+          type: string
+        type:
+          enum:
+            - response.reasoning_summary_text.done
+          type: string
+      required:
+        - type
+        - sequence_number
+        - item_id
+        - output_index
+        - summary_index
+        - text
+      title: response.reasoning_summary_text.done
+      type: object
+    ORStreamEventResponseCreated:
+      properties:
+        response:
+          properties:
+            completed_at:
+              type: integer
+            created_at:
+              type: integer
+            error:
+              properties:
+                code:
+                  type: string
+                message:
+                  type: string
+                param:
+                  type: string
+                type:
+                  type: string
+              required:
+                - message
+                - type
+              type: object
+            frequency_penalty:
+              type: number
+            id:
+              type: string
+            incomplete_details:
+              description: Any value
+            instructions:
+              type: string
+            max_output_tokens:
+              type: integer
+            metadata:
+              type: object
+            model:
+              type: string
+            object:
+              type: string
+            output:
+              items:
+                properties:
+                  action:
+                    type: string
+                  arguments:
+                    type: string
+                  cache_creation_tokens:
+                    type: integer
+                  cache_read_tokens:
+                    type: integer
+                  call_id:
+                    type: string
+                  content:
+                    items:
+                      properties:
+                        annotations:
+                          items:
+                            description: Any value
+                          type: array
+                        refusal:
+                          type: string
+                        text:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                        - type
+                        - text
+                      type: object
+                    type: array
+                  cost_usd:
+                    type: number
+                  encrypted_content:
+                    type: string
+                  execution_ms:
+                    type: integer
+                  findings:
+                    items:
+                      description: Any value
+                    type: array
+                  flagged:
+                    type: boolean
+                  guard_type:
+                    type: string
+                  id:
+                    type: string
+                  model_warnings:
+                    items:
+                      type: string
+                    type: array
+                  models_used:
+                    items:
+                      type: string
+                    type: array
+                  name:
+                    type: string
+                  role:
+                    type: string
+                  status:
+                    type: string
+                  summary:
+                    items:
+                      properties:
+                        text:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                        - type
+                        - text
+                      type: object
+                    type: array
+                  type:
+                    type: string
+                required:
+                  - type
+                type: object
+              type: array
+            parallel_tool_calls:
+              type: boolean
+            presence_penalty:
+              type: number
+            previous_response_id:
+              type: string
+            reasoning:
+              properties:
+                effort:
+                  type: string
+                summary:
+                  type: string
+              type: object
+            service_tier:
+              type: string
+            status:
+              type: string
+            temperature:
+              type: number
+            text:
+              properties:
+                format:
+                  properties:
+                    name:
+                      type: string
+                    schema:
+                      type: object
+                    type:
+                      type: string
+                  required:
+                    - type
+                  type: object
+              type: object
+            tool_choice:
+              description: Any value
+            tools:
+              items:
+                properties:
+                  description:
+                    type: string
+                  name:
+                    type: string
+                  parameters:
+                    type: object
+                  strict:
+                    type: boolean
+                  type:
+                    type: string
+                required:
+                  - type
+                type: object
+              type: array
+            top_p:
+              type: number
+            truncation:
+              type: string
+            usage:
+              properties:
+                cost:
+                  description: "Opper extension: execution cost in USD. Present on streaming response.completed events; non-stream surfaces the same value via the X-Opper-Cost header."
+                  type: number
+                input_tokens:
+                  type: integer
+                input_tokens_details:
+                  properties:
+                    cached_tokens:
+                      type: integer
+                  required:
+                    - cached_tokens
+                  type: object
+                output_tokens:
+                  type: integer
+                output_tokens_details:
+                  properties:
+                    reasoning_tokens:
+                      type: integer
+                  required:
+                    - reasoning_tokens
+                  type: object
+                total_tokens:
+                  type: integer
+              required:
+                - input_tokens
+                - output_tokens
+                - total_tokens
+              type: object
+          required:
+            - id
+            - object
+            - created_at
+            - completed_at
+            - status
+            - model
+            - output
+            - error
+            - incomplete_details
+            - tool_choice
+          type: object
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.created
+          type: string
+      required:
+        - type
+        - sequence_number
+        - response
+      title: response.created
+      type: object
+    ORStreamEventResponseInProgress:
+      properties:
+        response:
+          properties:
+            completed_at:
+              type: integer
+            created_at:
+              type: integer
+            error:
+              properties:
+                code:
+                  type: string
+                message:
+                  type: string
+                param:
+                  type: string
+                type:
+                  type: string
+              required:
+                - message
+                - type
+              type: object
+            frequency_penalty:
+              type: number
+            id:
+              type: string
+            incomplete_details:
+              description: Any value
+            instructions:
+              type: string
+            max_output_tokens:
+              type: integer
+            metadata:
+              type: object
+            model:
+              type: string
+            object:
+              type: string
+            output:
+              items:
+                properties:
+                  action:
+                    type: string
+                  arguments:
+                    type: string
+                  cache_creation_tokens:
+                    type: integer
+                  cache_read_tokens:
+                    type: integer
+                  call_id:
+                    type: string
+                  content:
+                    items:
+                      properties:
+                        annotations:
+                          items:
+                            description: Any value
+                          type: array
+                        refusal:
+                          type: string
+                        text:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                        - type
+                        - text
+                      type: object
+                    type: array
+                  cost_usd:
+                    type: number
+                  encrypted_content:
+                    type: string
+                  execution_ms:
+                    type: integer
+                  findings:
+                    items:
+                      description: Any value
+                    type: array
+                  flagged:
+                    type: boolean
+                  guard_type:
+                    type: string
+                  id:
+                    type: string
+                  model_warnings:
+                    items:
+                      type: string
+                    type: array
+                  models_used:
+                    items:
+                      type: string
+                    type: array
+                  name:
+                    type: string
+                  role:
+                    type: string
+                  status:
+                    type: string
+                  summary:
+                    items:
+                      properties:
+                        text:
+                          type: string
+                        type:
+                          type: string
+                      required:
+                        - type
+                        - text
+                      type: object
+                    type: array
+                  type:
+                    type: string
+                required:
+                  - type
+                type: object
+              type: array
+            parallel_tool_calls:
+              type: boolean
+            presence_penalty:
+              type: number
+            previous_response_id:
+              type: string
+            reasoning:
+              properties:
+                effort:
+                  type: string
+                summary:
+                  type: string
+              type: object
+            service_tier:
+              type: string
+            status:
+              type: string
+            temperature:
+              type: number
+            text:
+              properties:
+                format:
+                  properties:
+                    name:
+                      type: string
+                    schema:
+                      type: object
+                    type:
+                      type: string
+                  required:
+                    - type
+                  type: object
+              type: object
+            tool_choice:
+              description: Any value
+            tools:
+              items:
+                properties:
+                  description:
+                    type: string
+                  name:
+                    type: string
+                  parameters:
+                    type: object
+                  strict:
+                    type: boolean
+                  type:
+                    type: string
+                required:
+                  - type
+                type: object
+              type: array
+            top_p:
+              type: number
+            truncation:
+              type: string
+            usage:
+              properties:
+                cost:
+                  description: "Opper extension: execution cost in USD. Present on streaming response.completed events; non-stream surfaces the same value via the X-Opper-Cost header."
+                  type: number
+                input_tokens:
+                  type: integer
+                input_tokens_details:
+                  properties:
+                    cached_tokens:
+                      type: integer
+                  required:
+                    - cached_tokens
+                  type: object
+                output_tokens:
+                  type: integer
+                output_tokens_details:
+                  properties:
+                    reasoning_tokens:
+                      type: integer
+                  required:
+                    - reasoning_tokens
+                  type: object
+                total_tokens:
+                  type: integer
+              required:
+                - input_tokens
+                - output_tokens
+                - total_tokens
+              type: object
+          required:
+            - id
+            - object
+            - created_at
+            - completed_at
+            - status
+            - model
+            - output
+            - error
+            - incomplete_details
+            - tool_choice
+          type: object
+        sequence_number:
+          type: integer
+        type:
+          enum:
+            - response.in_progress
+          type: string
+      required:
+        - type
+        - sequence_number
+        - response
+      title: response.in_progress
       type: object
     ORSummaryText:
       properties:
@@ -2483,6 +5251,9 @@ components:
       type: object
     ORUsage:
       properties:
+        cost:
+          description: "Opper extension: execution cost in USD. Present on streaming response.completed events; non-stream surfaces the same value via the X-Opper-Cost header."
+          type: number
         input_tokens:
           type: integer
         input_tokens_details:
@@ -2634,6 +5405,81 @@ components:
         - script
         - cached
       type: object
+    RealtimeSessionRequest:
+      properties:
+        config:
+          properties:
+            input_audio_format:
+              type: string
+            input_transcription:
+              type: boolean
+            input_transcription_model:
+              type: string
+            instructions:
+              type: string
+            modalities:
+              items:
+                type: string
+              type: array
+            model:
+              type: string
+            output_audio_format:
+              type: string
+            output_transcription:
+              type: boolean
+            reasoning_effort:
+              type: string
+            temperature:
+              type: number
+            tools:
+              items:
+                properties:
+                  description:
+                    type: string
+                  name:
+                    type: string
+                  parameters:
+                    type: object
+                required:
+                  - name
+                type: object
+              type: array
+            turn_detection:
+              properties:
+                prefix_padding_ms:
+                  type: integer
+                silence_duration_ms:
+                  type: integer
+                threshold:
+                  type: number
+                type:
+                  type: string
+              required:
+                - type
+              type: object
+            voice:
+              type: string
+          type: object
+        locked_fields:
+          items:
+            type: string
+          type: array
+        ttl_seconds:
+          type: integer
+      type: object
+    RealtimeSessionResponse:
+      properties:
+        client_secret:
+          type: string
+        expires_at:
+          format: date-time
+          type: string
+        ws_url:
+          type: string
+      required:
+        - client_secret
+        - expires_at
+      type: object
     ReasoningConfig:
       properties:
         effort:
@@ -2654,12 +5500,24 @@ components:
         guards:
           items:
             properties:
+              code:
+                type: string
               findings:
                 items:
                   description: Any value
                 type: array
               flagged:
                 type: boolean
+              phase:
+                type: string
+              rule_id:
+                type: string
+              rule_name:
+                type: string
+              scope_type:
+                type: string
+              status:
+                type: string
               type:
                 type: string
             required:
@@ -2700,6 +5558,10 @@ components:
           type: boolean
         status:
           type: string
+        tool_calls:
+          items:
+            type: object
+          type: array
         trace_uuid:
           type: string
         tts_calls:
@@ -2776,6 +5638,8 @@ components:
               - text
             type: object
           type: array
+        encrypted_content:
+          type: string
         id:
           type: string
         name:
@@ -2784,6 +5648,18 @@ components:
           type: string
         status:
           type: string
+        summary:
+          items:
+            properties:
+              text:
+                type: string
+              type:
+                type: string
+            required:
+              - type
+              - text
+            type: object
+          type: array
         type:
           type: string
       required:
@@ -2791,6 +5667,12 @@ components:
       type: object
     ResponsesRequest:
       properties:
+        frequency_penalty:
+          type: number
+        include:
+          items:
+            type: string
+          type: array
         input:
           properties:
             Items:
@@ -2816,6 +5698,10 @@ components:
           type: object
         model:
           type: string
+        parallel_tool_calls:
+          type: boolean
+        presence_penalty:
+          type: number
         previous_response_id:
           type: string
         reasoning:
@@ -2825,6 +5711,8 @@ components:
             summary:
               type: string
           type: object
+        service_tier:
+          type: string
         store:
           type: boolean
         stream:
@@ -2874,11 +5762,15 @@ components:
           type: array
         top_p:
           type: number
+        truncation:
+          type: string
         user:
           type: string
       type: object
     ResponsesResponse:
       properties:
+        completed_at:
+          type: integer
         cost:
           type: number
         created_at:
@@ -2893,6 +5785,8 @@ components:
             - code
             - message
           type: object
+        frequency_penalty:
+          type: number
         id:
           type: string
         incomplete_details:
@@ -2930,6 +5824,8 @@ components:
                     - text
                   type: object
                 type: array
+              encrypted_content:
+                type: string
               id:
                 type: string
               name:
@@ -2938,6 +5834,18 @@ components:
                 type: string
               status:
                 type: string
+              summary:
+                items:
+                  properties:
+                    text:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                    - type
+                    - text
+                  type: object
+                type: array
               type:
                 type: string
             required:
@@ -2946,6 +5854,10 @@ components:
           type: array
         output_text:
           type: string
+        parallel_tool_calls:
+          type: boolean
+        presence_penalty:
+          type: number
         previous_response_id:
           type: string
         reasoning:
@@ -2955,10 +5867,26 @@ components:
             summary:
               type: string
           type: object
+        service_tier:
+          type: string
         status:
           type: string
         temperature:
           type: number
+        text:
+          properties:
+            format:
+              properties:
+                name:
+                  type: string
+                schema:
+                  type: object
+                type:
+                  type: string
+              required:
+                - type
+              type: object
+          type: object
         tool_choice:
           description: Any value
         tools:
@@ -2988,8 +5916,12 @@ components:
           type: array
         top_p:
           type: number
+        truncation:
+          type: string
         usage:
           properties:
+            cost:
+              type: number
             input_tokens:
               type: integer
             input_tokens_details:
@@ -3049,6 +5981,8 @@ components:
       type: object
     ResponsesUsage:
       properties:
+        cost:
+          type: number
         input_tokens:
           type: integer
         input_tokens_details:
@@ -3090,18 +6024,31 @@ components:
     RoundtableModelResult:
       properties:
         cost:
+          description: USD cost for this model call summed across retries.
           type: number
         data:
+          description: Raw model output. When output_schema is supplied this is a JSON string that validated against the schema.
           type: string
         duration_ms:
+          description: Wall-clock time for this model call in milliseconds including retries.
           type: integer
         error:
+          description: Provider or transport error message. Empty on success.
           type: string
         index:
+          description: Position of this model in the request's models array (0-based).
           type: integer
         model:
+          description: Name of the model that produced this result.
           type: string
+        schema_error:
+          description: Why the output failed schema validation. Empty when schema_valid is true or absent.
+          type: string
+        schema_valid:
+          description: Whether the model's output validated against the request's output_schema. Absent when no output_schema was supplied.
+          type: boolean
         usage:
+          description: Token counts aggregated across all retry attempts.
           properties:
             cache_creation_1h_tokens:
               type: integer
@@ -3121,6 +6068,8 @@ components:
               type: integer
             reasoning_tokens:
               type: integer
+            web_fetch_requests:
+              type: integer
             web_search_requests:
               type: integer
           required:
@@ -3136,7 +6085,7 @@ components:
     RoundtableModelSpec:
       properties:
         max_tokens:
-          description: Override max output tokens for this model
+          description: Override max output tokens for this model. Falls back to the model's configured default or 8192 when unspecified.
           type: integer
         name:
           description: Model identifier (e.g. gpt-4o or anthropic/claude-sonnet-4-20250514)
@@ -3174,7 +6123,7 @@ components:
           items:
             properties:
               max_tokens:
-                description: Override max output tokens for this model
+                description: Override max output tokens for this model. Falls back to the model's configured default or 8192 when unspecified.
                 type: integer
               name:
                 description: Model identifier (e.g. gpt-4o or anthropic/claude-sonnet-4-20250514)
@@ -3214,20 +6163,27 @@ components:
     RoundtableResponse:
       properties:
         data:
+          description: Final consolidated output. Null in fast mode (no consolidation runs).
           type: string
         id:
+          description: Stable identifier for this roundtable call.
           type: string
         meta:
+          description: Aggregated call metadata.
           properties:
             models_used:
+              description: Names of the models queried in parallel.
               items:
                 type: string
               type: array
             resolution:
+              description: Resolution mode that produced this response (summary / fast / multiple_choice).
               type: string
             summary_model:
+              description: Model used for the consolidation call. Only set in summary mode.
               type: string
             summary_usage:
+              description: Token counts for the consolidation call aggregated across retries.
               properties:
                 cache_creation_1h_tokens:
                   type: integer
@@ -3247,6 +6203,8 @@ components:
                   type: integer
                 reasoning_tokens:
                   type: integer
+                web_fetch_requests:
+                  type: integer
                 web_search_requests:
                   type: integer
               required:
@@ -3254,10 +6212,13 @@ components:
                 - output_tokens
               type: object
             total_cost:
+              description: USD cost summed across all fan-out models and the consolidation call.
               type: number
             total_duration_ms:
+              description: End-to-end request duration in milliseconds.
               type: integer
             trace_uuid:
+              description: UUID of the trace span for this roundtable call.
               type: string
           required:
             - resolution
@@ -3266,21 +6227,35 @@ components:
             - total_duration_ms
           type: object
         model_results:
+          description: Per-model fan-out results in the order they appeared in the request.
           items:
             properties:
               cost:
+                description: USD cost for this model call summed across retries.
                 type: number
               data:
+                description: Raw model output. When output_schema is supplied this is a JSON string that validated against the schema.
                 type: string
               duration_ms:
+                description: Wall-clock time for this model call in milliseconds including retries.
                 type: integer
               error:
+                description: Provider or transport error message. Empty on success.
                 type: string
               index:
+                description: Position of this model in the request's models array (0-based).
                 type: integer
               model:
+                description: Name of the model that produced this result.
                 type: string
+              schema_error:
+                description: Why the output failed schema validation. Empty when schema_valid is true or absent.
+                type: string
+              schema_valid:
+                description: Whether the model's output validated against the request's output_schema. Absent when no output_schema was supplied.
+                type: boolean
               usage:
+                description: Token counts aggregated across all retry attempts.
                 properties:
                   cache_creation_1h_tokens:
                     type: integer
@@ -3299,6 +6274,8 @@ components:
                   output_tokens:
                     type: integer
                   reasoning_tokens:
+                    type: integer
+                  web_fetch_requests:
                     type: integer
                   web_search_requests:
                     type: integer
@@ -3322,14 +6299,18 @@ components:
     RoundtableResponseMeta:
       properties:
         models_used:
+          description: Names of the models queried in parallel.
           items:
             type: string
           type: array
         resolution:
+          description: Resolution mode that produced this response (summary / fast / multiple_choice).
           type: string
         summary_model:
+          description: Model used for the consolidation call. Only set in summary mode.
           type: string
         summary_usage:
+          description: Token counts for the consolidation call aggregated across retries.
           properties:
             cache_creation_1h_tokens:
               type: integer
@@ -3349,6 +6330,8 @@ components:
               type: integer
             reasoning_tokens:
               type: integer
+            web_fetch_requests:
+              type: integer
             web_search_requests:
               type: integer
           required:
@@ -3356,10 +6339,13 @@ components:
             - output_tokens
           type: object
         total_cost:
+          description: USD cost summed across all fan-out models and the consolidation call.
           type: number
         total_duration_ms:
+          description: End-to-end request duration in milliseconds.
           type: integer
         trace_uuid:
+          description: UUID of the trace span for this roundtable call.
           type: string
       required:
         - resolution
@@ -3370,24 +6356,33 @@ components:
     RoundtableStreamChunk:
       properties:
         cost:
+          description: USD cost for the model that just completed (on model_done / resolution_done).
           type: number
         data:
+          description: Full accumulated content on model_done and resolution_done events.
           type: string
         delta:
+          description: Incremental text payload on model_delta and resolution_delta events.
           type: string
         error:
+          description: Error message for this event.
           type: string
         meta:
+          description: Aggregated response meta. Only set on the final done event.
           properties:
             models_used:
+              description: Names of the models queried in parallel.
               items:
                 type: string
               type: array
             resolution:
+              description: Resolution mode that produced this response (summary / fast / multiple_choice).
               type: string
             summary_model:
+              description: Model used for the consolidation call. Only set in summary mode.
               type: string
             summary_usage:
+              description: Token counts for the consolidation call aggregated across retries.
               properties:
                 cache_creation_1h_tokens:
                   type: integer
@@ -3407,6 +6402,8 @@ components:
                   type: integer
                 reasoning_tokens:
                   type: integer
+                web_fetch_requests:
+                  type: integer
                 web_search_requests:
                   type: integer
               required:
@@ -3414,10 +6411,13 @@ components:
                 - output_tokens
               type: object
             total_cost:
+              description: USD cost summed across all fan-out models and the consolidation call.
               type: number
             total_duration_ms:
+              description: End-to-end request duration in milliseconds.
               type: integer
             trace_uuid:
+              description: UUID of the trace span for this roundtable call.
               type: string
           required:
             - resolution
@@ -3426,12 +6426,22 @@ components:
             - total_duration_ms
           type: object
         model:
+          description: Model name. Set on model_start / model_done and resolution_start.
           type: string
         model_index:
+          description: Index of the fan-out model this event refers to. Present on model_* events.
           type: integer
+        schema_error:
+          description: Validation failure detail when schema_valid is false.
+          type: string
+        schema_valid:
+          description: output_schema validation result on model_done and resolution_done. Absent when no output_schema was supplied.
+          type: boolean
         type:
+          description: "Event type: model_start / model_delta / model_done / resolution_start / resolution_delta / resolution_done / done."
           type: string
         usage:
+          description: Token counts for the model that just completed (on model_done / resolution_done).
           properties:
             cache_creation_1h_tokens:
               type: integer
@@ -3451,6 +6461,8 @@ components:
               type: integer
             reasoning_tokens:
               type: integer
+            web_fetch_requests:
+              type: integer
             web_search_requests:
               type: integer
           required:
@@ -3459,6 +6471,185 @@ components:
           type: object
       required:
         - type
+      type: object
+    Route:
+      properties:
+        caveats:
+          items:
+            type: string
+          type: array
+        data_handling:
+          properties:
+            logging:
+              properties:
+                default:
+                  type: string
+                human_review:
+                  type: string
+                retention_days:
+                  type: integer
+              required:
+                - default
+                - retention_days
+                - human_review
+              type: object
+            residency_enforced:
+              type: boolean
+            third_party_access:
+              type: boolean
+            training:
+              properties:
+                default:
+                  type: string
+              required:
+                - default
+              type: object
+            zdr:
+              properties:
+                activation_steps:
+                  items:
+                    type: string
+                  type: array
+                status:
+                  type: string
+              required:
+                - status
+              type: object
+          required:
+            - training
+            - logging
+            - zdr
+            - third_party_access
+            - residency_enforced
+          type: object
+        gdpr:
+          properties:
+            dpa_available:
+              type: boolean
+            notes:
+              type: string
+            residency:
+              type: string
+            transfer_mechanism:
+              type: string
+          required:
+            - dpa_available
+            - residency
+          type: object
+        id:
+          type: string
+        last_verified_at:
+          type: string
+        provider:
+          type: string
+        provider_display_name:
+          type: string
+        region:
+          type: string
+        region_detail:
+          type: string
+        sources:
+          items:
+            type: string
+          type: array
+        underlying_maker:
+          type: string
+      required:
+        - id
+        - provider
+        - provider_display_name
+        - region
+        - data_handling
+        - gdpr
+      type: object
+    RouteDataHandling:
+      properties:
+        logging:
+          properties:
+            default:
+              type: string
+            human_review:
+              type: string
+            retention_days:
+              type: integer
+          required:
+            - default
+            - retention_days
+            - human_review
+          type: object
+        residency_enforced:
+          type: boolean
+        third_party_access:
+          type: boolean
+        training:
+          properties:
+            default:
+              type: string
+          required:
+            - default
+          type: object
+        zdr:
+          properties:
+            activation_steps:
+              items:
+                type: string
+              type: array
+            status:
+              type: string
+          required:
+            - status
+          type: object
+      required:
+        - training
+        - logging
+        - zdr
+        - third_party_access
+        - residency_enforced
+      type: object
+    RouteGDPR:
+      properties:
+        dpa_available:
+          type: boolean
+        notes:
+          type: string
+        residency:
+          type: string
+        transfer_mechanism:
+          type: string
+      required:
+        - dpa_available
+        - residency
+      type: object
+    RouteLogging:
+      properties:
+        default:
+          type: string
+        human_review:
+          type: string
+        retention_days:
+          type: integer
+      required:
+        - default
+        - retention_days
+        - human_review
+      type: object
+    RouteTraining:
+      properties:
+        default:
+          type: string
+      required:
+        - default
+      type: object
+    RouteZDR:
+      properties:
+        activation_steps:
+          items:
+            type: string
+          type: array
+        status:
+          type: string
+      required:
+        - status
       type: object
     RunRequest:
       properties:
@@ -3477,18 +6668,52 @@ components:
                     items:
                       type: string
                     type: array
+                  engine:
+                    type: string
+                  kind:
+                    type: string
                   model:
                     type: string
+                  name:
+                    type: string
+                  patterns:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        regex:
+                          type: string
+                      required:
+                        - regex
+                      type: object
+                    type: array
                   presets:
                     items:
                       type: string
                     type: array
+                  prompt:
+                    type: string
                   replacement:
+                    type: string
+                  rule_id:
+                    type: string
+                  rule_name:
+                    type: string
+                  scope:
+                    properties:
+                      functions:
+                        items:
+                          type: string
+                        type: array
+                      kind:
+                        type: string
+                    required:
+                      - kind
+                    type: object
+                  scope_type:
                     type: string
                   type:
                     type: string
-                required:
-                  - type
                 type: object
               type: array
             output:
@@ -3504,18 +6729,52 @@ components:
                     items:
                       type: string
                     type: array
+                  engine:
+                    type: string
+                  kind:
+                    type: string
                   model:
                     type: string
+                  name:
+                    type: string
+                  patterns:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        regex:
+                          type: string
+                      required:
+                        - regex
+                      type: object
+                    type: array
                   presets:
                     items:
                       type: string
                     type: array
+                  prompt:
+                    type: string
                   replacement:
+                    type: string
+                  rule_id:
+                    type: string
+                  rule_name:
+                    type: string
+                  scope:
+                    properties:
+                      functions:
+                        items:
+                          type: string
+                        type: array
+                      kind:
+                        type: string
+                    required:
+                      - kind
+                    type: object
+                  scope_type:
                     type: string
                   type:
                     type: string
-                required:
-                  - type
                 type: object
               type: array
           type: object
@@ -3568,6 +6827,12 @@ components:
           type: object
         parent_span_id:
           type: string
+        reasoning_effort:
+          description: Reasoning effort for reasoning-capable models. One of "low"
+          type: string
+        reasoning_summary:
+          description: Opt into thought summary streaming. "auto"
+          type: string
         route:
           properties:
             prefer:
@@ -3610,12 +6875,24 @@ components:
             guards:
               items:
                 properties:
+                  code:
+                    type: string
                   findings:
                     items:
                       description: Any value
                     type: array
                   flagged:
                     type: boolean
+                  phase:
+                    type: string
+                  rule_id:
+                    type: string
+                  rule_name:
+                    type: string
+                  scope_type:
+                    type: string
+                  status:
+                    type: string
                   type:
                     type: string
                 required:
@@ -3656,6 +6933,10 @@ components:
               type: boolean
             status:
               type: string
+            tool_calls:
+              items:
+                type: object
+              type: array
             trace_uuid:
               type: string
             tts_calls:
@@ -3967,7 +7248,7 @@ paths:
                 $ref: "#/components/schemas/RunResponse"
             text/event-stream:
               schema:
-                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
+                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: '."
                 type: string
           description: Successful response
         "400":
@@ -3992,7 +7273,7 @@ paths:
       description: OpenAI-compatible chat completions endpoint. Supports streaming via the stream parameter.
       operationId: chatCompletions
       parameters:
-        - description: Function name for tracing and routing.
+        - description: Function name for tracing and project-level guardrail function-scope filtering.
           in: header
           name: X-Opper-Name
           schema:
@@ -4002,26 +7283,6 @@ paths:
           name: X-Opper-Parent-Span-Id
           schema:
             format: uuid
-            type: string
-        - description: Comma-separated input guardrail checks (e.g. "pii,secrets").
-          in: header
-          name: X-Opper-Guard-Input
-          schema:
-            type: string
-        - description: Comma-separated output guardrail checks (e.g. "toxicity").
-          in: header
-          name: X-Opper-Guard-Output
-          schema:
-            type: string
-        - description: "Action for guardrail violations: \"flag\" (default), \"block\", or \"redact\"."
-          in: header
-          name: X-Opper-Guard-Action
-          schema:
-            default: flag
-            enum:
-              - flag
-              - block
-              - redact
             type: string
       requestBody:
         content:
@@ -4037,7 +7298,7 @@ paths:
                 $ref: "#/components/schemas/ChatResponse"
             text/event-stream:
               schema:
-                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
+                description: "Server-Sent Events stream. Each event is `data: <json>` (a `chat.completion.chunk` object). The stream terminates with `data: [DONE]`. When `stream_options.include_usage` is true, the final chunk before `[DONE]` carries `usage` and an Opper `cost` extension."
                 type: string
           description: Successful response
           headers:
@@ -4068,7 +7329,7 @@ paths:
       description: OpenAI-compatible embeddings endpoint.
       operationId: createEmbeddings
       parameters:
-        - description: Function name for tracing and routing.
+        - description: Function name for tracing and project-level guardrail function-scope filtering.
           in: header
           name: X-Opper-Name
           schema:
@@ -4078,26 +7339,6 @@ paths:
           name: X-Opper-Parent-Span-Id
           schema:
             format: uuid
-            type: string
-        - description: Comma-separated input guardrail checks (e.g. "pii,secrets").
-          in: header
-          name: X-Opper-Guard-Input
-          schema:
-            type: string
-        - description: Comma-separated output guardrail checks (e.g. "toxicity").
-          in: header
-          name: X-Opper-Guard-Output
-          schema:
-            type: string
-        - description: "Action for guardrail violations: \"flag\" (default), \"block\", or \"redact\"."
-          in: header
-          name: X-Opper-Guard-Action
-          schema:
-            default: flag
-            enum:
-              - flag
-              - block
-              - redact
             type: string
       requestBody:
         content:
@@ -4140,7 +7381,7 @@ paths:
       description: "OpenResponses-compatible endpoint with multi-provider support and opper: extension items."
       operationId: createOpenResponse
       parameters:
-        - description: Function name for tracing and routing.
+        - description: Function name for tracing and project-level guardrail function-scope filtering.
           in: header
           name: X-Opper-Name
           schema:
@@ -4150,26 +7391,6 @@ paths:
           name: X-Opper-Parent-Span-Id
           schema:
             format: uuid
-            type: string
-        - description: Comma-separated input guardrail checks (e.g. "pii,secrets").
-          in: header
-          name: X-Opper-Guard-Input
-          schema:
-            type: string
-        - description: Comma-separated output guardrail checks (e.g. "toxicity").
-          in: header
-          name: X-Opper-Guard-Output
-          schema:
-            type: string
-        - description: "Action for guardrail violations: \"flag\" (default), \"block\", or \"redact\"."
-          in: header
-          name: X-Opper-Guard-Action
-          schema:
-            default: flag
-            enum:
-              - flag
-              - block
-              - redact
             type: string
       requestBody:
         content:
@@ -4185,8 +7406,24 @@ paths:
                 $ref: "#/components/schemas/ORResponse"
             text/event-stream:
               schema:
-                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
-                type: string
+                description: "Server-Sent Events stream. Each event has an `event:` line and a `data: <json>` line; the payload's `type` field discriminates the event. The stream terminates with a `response.completed` event whose payload carries the final `usage` (token counts and `cost`)."
+                discriminator:
+                  propertyName: type
+                oneOf:
+                  - $ref: "#/components/schemas/ORStreamEventResponseCreated"
+                  - $ref: "#/components/schemas/ORStreamEventResponseInProgress"
+                  - $ref: "#/components/schemas/ORStreamEventOutputItemAdded"
+                  - $ref: "#/components/schemas/ORStreamEventContentPartAdded"
+                  - $ref: "#/components/schemas/ORStreamEventOutputTextDelta"
+                  - $ref: "#/components/schemas/ORStreamEventOutputTextDone"
+                  - $ref: "#/components/schemas/ORStreamEventContentPartDone"
+                  - $ref: "#/components/schemas/ORStreamEventReasoningSummaryDelta"
+                  - $ref: "#/components/schemas/ORStreamEventReasoningSummaryDone"
+                  - $ref: "#/components/schemas/ORStreamEventFunctionCallArgumentsDelta"
+                  - $ref: "#/components/schemas/ORStreamEventFunctionCallArgumentsDone"
+                  - $ref: "#/components/schemas/ORStreamEventOutputItemDone"
+                  - $ref: "#/components/schemas/ORStreamEventCompleted"
+                  - $ref: "#/components/schemas/ORStreamEventError"
           description: Successful response
           headers:
             X-Opper-Cost:
@@ -4216,7 +7453,7 @@ paths:
       description: OpenAI Responses API compatible endpoint. Supports streaming via the stream parameter.
       operationId: createResponse
       parameters:
-        - description: Function name for tracing and routing.
+        - description: Function name for tracing and project-level guardrail function-scope filtering.
           in: header
           name: X-Opper-Name
           schema:
@@ -4226,26 +7463,6 @@ paths:
           name: X-Opper-Parent-Span-Id
           schema:
             format: uuid
-            type: string
-        - description: Comma-separated input guardrail checks (e.g. "pii,secrets").
-          in: header
-          name: X-Opper-Guard-Input
-          schema:
-            type: string
-        - description: Comma-separated output guardrail checks (e.g. "toxicity").
-          in: header
-          name: X-Opper-Guard-Output
-          schema:
-            type: string
-        - description: "Action for guardrail violations: \"flag\" (default), \"block\", or \"redact\"."
-          in: header
-          name: X-Opper-Guard-Action
-          schema:
-            default: flag
-            enum:
-              - flag
-              - block
-              - redact
             type: string
       requestBody:
         content:
@@ -4261,7 +7478,7 @@ paths:
                 $ref: "#/components/schemas/ResponsesResponse"
             text/event-stream:
               schema:
-                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
+                description: "Server-Sent Events stream following the OpenAI Responses streaming protocol. Each event has an `event:` line and a `data: <json>` line. The stream terminates with a `response.completed` event whose payload carries the final `usage` (token counts and Opper `cost` extension)."
                 type: string
           description: Successful response
           headers:
@@ -4292,7 +7509,7 @@ paths:
       description: Anthropic Messages API compatible endpoint. Supports streaming via the stream parameter.
       operationId: createMessage
       parameters:
-        - description: Function name for tracing and routing.
+        - description: Function name for tracing and project-level guardrail function-scope filtering.
           in: header
           name: X-Opper-Name
           schema:
@@ -4302,26 +7519,6 @@ paths:
           name: X-Opper-Parent-Span-Id
           schema:
             format: uuid
-            type: string
-        - description: Comma-separated input guardrail checks (e.g. "pii,secrets").
-          in: header
-          name: X-Opper-Guard-Input
-          schema:
-            type: string
-        - description: Comma-separated output guardrail checks (e.g. "toxicity").
-          in: header
-          name: X-Opper-Guard-Output
-          schema:
-            type: string
-        - description: "Action for guardrail violations: \"flag\" (default), \"block\", or \"redact\"."
-          in: header
-          name: X-Opper-Guard-Action
-          schema:
-            default: flag
-            enum:
-              - flag
-              - block
-              - redact
             type: string
       requestBody:
         content:
@@ -4337,7 +7534,7 @@ paths:
                 $ref: "#/components/schemas/MessagesResponse"
             text/event-stream:
               schema:
-                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
+                description: Server-Sent Events stream following the Anthropic Messages streaming protocol. The stream terminates with a `message_stop` event; the `message_delta` event preceding it carries the final `usage` and Opper `cost` extension.
                 type: string
           description: Successful response
           headers:
@@ -4363,12 +7560,59 @@ paths:
       summary: Messages API
       tags:
         - Compatibility
+  /v3/compat/v1/models:
+    get:
+      description: Anthropic Models API compatible endpoint. Returns Opper LLM models in Anthropic's models.list shape so SDKs and tools (e.g. Claude Code's /model picker) can discover the live catalogue without hardcoding model IDs. Supports forward (after_id) and backward (before_id) cursor pagination on a deterministic featured-first, ID-ascending sort.
+      operationId: listAnthropicCompatModels
+      parameters:
+        - description: Max models to return (1-1000, default 20).
+          in: query
+          name: limit
+          schema:
+            default: 20
+            maximum: 1000
+            minimum: 1
+            type: integer
+        - description: Forward-paginate before this model ID; unknown IDs are ignored.
+          in: query
+          name: before_id
+          schema:
+            type: string
+        - description: Forward-paginate after this model ID; unknown IDs are ignored.
+          in: query
+          name: after_id
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnthropicCompatModelsListResponse"
+          description: Successful response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: List models (Anthropic-compatible)
+      tags:
+        - Compatibility
   /v3/compat/v1beta/interactions:
     post:
       description: Google Interactions API compatible endpoint. Supports streaming via the stream parameter.
       operationId: createInteraction
       parameters:
-        - description: Function name for tracing and routing.
+        - description: Function name for tracing and project-level guardrail function-scope filtering.
           in: header
           name: X-Opper-Name
           schema:
@@ -4378,26 +7622,6 @@ paths:
           name: X-Opper-Parent-Span-Id
           schema:
             format: uuid
-            type: string
-        - description: Comma-separated input guardrail checks (e.g. "pii,secrets").
-          in: header
-          name: X-Opper-Guard-Input
-          schema:
-            type: string
-        - description: Comma-separated output guardrail checks (e.g. "toxicity").
-          in: header
-          name: X-Opper-Guard-Output
-          schema:
-            type: string
-        - description: "Action for guardrail violations: \"flag\" (default), \"block\", or \"redact\"."
-          in: header
-          name: X-Opper-Guard-Action
-          schema:
-            default: flag
-            enum:
-              - flag
-              - block
-              - redact
             type: string
       requestBody:
         content:
@@ -4413,7 +7637,7 @@ paths:
                 $ref: "#/components/schemas/InteractionsResponse"
             text/event-stream:
               schema:
-                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
+                description: "Server-Sent Events stream. Each event has an `event:` line and a `data: <json>` line. The stream terminates with an `interaction.complete` event whose payload carries the final `usage` and Opper `cost` extension."
                 type: string
           description: Successful response
           headers:
@@ -4950,7 +8174,7 @@ paths:
                 $ref: "#/components/schemas/RunResponse"
             text/event-stream:
               schema:
-                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
+                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: '."
                 type: string
           description: Successful response
         "400":
@@ -5107,8 +8331,69 @@ paths:
         - Generations
   /v3/models:
     get:
-      description: List all available models with their capabilities and parameters.
+      description: "Endpoint to retrieve model info. Optional `include` adds extra fields per item: `maker` (underlying-weights creator, e.g. `meta` for Llama), `route` (data-handling / legal block — requires an Opper API key), `benchmarks` (public scores from artificialanalysis.ai; absent for realtime, OCR, image-gen, and other specialty models). Comma-separated, e.g. `?include=maker,benchmarks`."
       operationId: listModels
+      parameters:
+        - description: "Comma-separated list of optional fields to attach to each item. Supported: `maker` (public), `route` (requires API key), `benchmarks` (public)."
+          in: query
+          name: include
+          schema:
+            example: maker,benchmarks
+            type: string
+        - description: Free-text search across model ID, name, and description.
+          in: query
+          name: q
+          schema:
+            type: string
+        - description: Filter by provider name (e.g. `openai`, `anthropic`).
+          in: query
+          name: provider
+          schema:
+            type: string
+        - description: Filter by model type (`llm`, `image`, `tts`, `stt`, `video`, `realtime`, `embedding`, `rerank`, `ocr`).
+          in: query
+          name: type
+          schema:
+            type: string
+        - description: Filter by capability (repeatable). Items matching ALL listed capabilities are returned.
+          in: query
+          name: capability
+          schema:
+            items:
+              type: string
+            type: array
+        - description: Set to `true` to include retired models in results.
+          in: query
+          name: deprecated
+          schema:
+            type: boolean
+        - description: Field to sort by (`id`, `name`, `provider`, `type`, `cost`, `speed`, `quality`, `context_window`). Default `id`.
+          in: query
+          name: sort
+          schema:
+            default: id
+            type: string
+        - description: "`asc` (default) or `desc`."
+          in: query
+          name: order
+          schema:
+            default: asc
+            type: string
+        - description: Pagination offset.
+          in: query
+          name: offset
+          schema:
+            default: 0
+            minimum: 0
+            type: integer
+        - description: Page size (max 500).
+          in: query
+          name: limit
+          schema:
+            default: 50
+            maximum: 500
+            minimum: 1
+            type: integer
       responses:
         "200":
           content:
@@ -5188,6 +8473,64 @@ paths:
       summary: OpenAPI spec (YAML)
       tags:
         - System
+  /v3/realtime:
+    get:
+      description: "Model-driven, scriptless realtime WebSocket endpoint. Open a WS connection, send a `session.start` event with `config.model` set to an Opper realtime model id (e.g. `openai/gpt-realtime-2`); the server resolves the provider from the model registry and connects upstream. Requires a project-scoped runtime API key (server-side) OR an ephemeral ticket minted via `POST /v3/realtime-sessions` (browser-side, passed as `?ticket=<value>` or `Sec-WebSocket-Protocol: opper-ticket.<value>`). Sessions are bounded by per-project concurrency, max duration, and idle timeout caps; billing flushes every 30 seconds with synchronous balance enforcement."
+      operationId: realtimeAdhocWebSocket
+      responses:
+        "101":
+          description: Switching Protocols – WebSocket connection established
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: Realtime WebSocket (ad-hoc)
+      tags:
+        - Functions
+  /v3/realtime-sessions:
+    post:
+      description: Server-to-server endpoint that mints a short-lived, single-use ticket the browser uses to open a `/v3/realtime` WebSocket. Browsers cannot set an `Authorization` header on a WebSocket constructor, so the customer's backend authenticates with its normal API key here and returns the ticket to the browser. Fields in `config` are bound to the ticket and cannot be overridden by the browser at session.start — pre-bind `model` at minimum so a leaked ticket can't be redirected to a more expensive model. To lock a field to its zero value (e.g. force `output_transcription` off), include the field name in `locked_fields`; non-listed zero values stay open for the browser to fill in.
+      operationId: createRealtimeSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealtimeSessionRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealtimeSessionResponse"
+          description: Successful response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: Mint realtime ephemeral ticket
+      tags:
+        - Functions
   /v3/realtime/{name}:
     get:
       description: WebSocket endpoint for realtime voice agent communication. The client must send an HTTP Upgrade request; a successful connection returns 101 Switching Protocols. OpenAPI 3.1 does not natively support WebSocket, so this is documented descriptively.
@@ -5237,7 +8580,7 @@ paths:
                 $ref: "#/components/schemas/RoundtableResponse"
             text/event-stream:
               schema:
-                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: ' and terminated with the '[DONE]' sentinel."
+                description: "Server-Sent Events stream. Each event is a JSON object prefixed with 'data: '."
                 type: string
           description: Successful response
         "400":
@@ -5254,7 +8597,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
           description: Internal server error
-      summary: Roundtable ensemble call
+      summary: Roundtable
       tags:
         - Roundtable
       x-beta: true
@@ -5453,6 +8796,41 @@ paths:
       summary: Create span event
       tags:
         - Spans
+  /v3/tools/models/resolve:
+    post:
+      description: Select the best model matching the given requirements and preference.
+      operationId: resolveModel
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelResolveRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelResolveResponse"
+          description: Successful response
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Bad request
+        "401":
+          description: "Unauthorized - missing or invalid API key"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: Internal server error
+      summary: Resolve model
+      tags:
+        - Tools
+      x-beta: true
   /v3/tools/web/fetch:
     post:
       description: Fetch a URL and return its content as markdown.
@@ -5686,7 +9064,7 @@ tags:
     name: Generations
   - description: System health and status
     name: System
-  - description: Multi-model ensemble endpoint — fan out a query to multiple LLMs and combine results
+  - description: Roundtable endpoint — fan out a query to multiple LLMs and combine results
     name: Roundtable
   - description: Web search, fetch, and other utility tools
     name: Tools

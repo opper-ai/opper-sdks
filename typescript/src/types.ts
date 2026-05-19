@@ -228,6 +228,7 @@ export interface ResponseMeta {
   readonly models_used?: string[];
   readonly model_warnings?: string[];
   readonly guards?: unknown[];
+  readonly tool_calls?: unknown[];
   readonly message?: string;
   readonly status?: string;
   readonly pending_operations?: PendingOperation[];
@@ -247,8 +248,10 @@ export interface RunRequest {
   readonly temperature?: number;
   /** Maximum tokens in the response. */
   readonly max_tokens?: number;
-  /** Reasoning effort hint, e.g. `"low"`, `"medium"`, `"high"`. */
-  readonly reasoning_effort?: string;
+  /** Reasoning effort hint for reasoning-capable models. */
+  readonly reasoning_effort?: "low" | "medium" | "high";
+  /** Opt into thought summary streaming, e.g. `"auto"`. */
+  readonly reasoning_summary?: string;
   /** Instructions for the function. */
   readonly instructions?: string;
   /** Parent span ID for tracing/observability. */
@@ -272,8 +275,10 @@ export interface SchemaRunRequest<TOutput = unknown> {
   readonly temperature?: number;
   /** Maximum tokens in the response. */
   readonly max_tokens?: number;
-  /** Reasoning effort hint, e.g. `"low"`, `"medium"`, `"high"`. */
-  readonly reasoning_effort?: string;
+  /** Reasoning effort hint for reasoning-capable models. */
+  readonly reasoning_effort?: "low" | "medium" | "high";
+  /** Opt into thought summary streaming, e.g. `"auto"`. */
+  readonly reasoning_summary?: string;
   /** Instructions for the function. */
   readonly instructions?: string;
   /** Parent span ID for tracing/observability. */
@@ -513,6 +518,12 @@ export interface ModelInfo {
   readonly capabilities?: Record<string, unknown>;
   readonly pricing?: Record<string, unknown>;
   readonly parameters?: Record<string, unknown>;
+  /** Model family/series (e.g. "gpt-4", "claude-sonnet-4"). */
+  readonly family?: string;
+  /** Maximum output tokens supported by the model. */
+  readonly max_output_tokens?: number;
+  /** Whether the model supports reasoning/thinking. */
+  readonly thinking?: boolean;
   /** Date when this model will be or was retired. */
   readonly retired_at?: string;
 }

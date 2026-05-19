@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncIterator, Iterator
 from datetime import datetime, timezone
-from typing import Any, TypeVar, overload
+from typing import Any, Literal, TypeVar, overload
 
 from ._base_client import BaseClient
 from ._context import TraceContext, get_trace_context, set_trace_context
@@ -245,6 +245,8 @@ class Opper:
         model: Model | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         parent_span_id: str | None = ...,
+        reasoning_effort: Literal["low", "medium", "high"] | None = ...,
+        reasoning_summary: str | None = ...,
     ) -> RunResponse[T]: ...
     @overload
     def call(
@@ -258,6 +260,8 @@ class Opper:
         model: Model | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         parent_span_id: str | None = ...,
+        reasoning_effort: Literal["low", "medium", "high"] | None = ...,
+        reasoning_summary: str | None = ...,
     ) -> RunResponse[Any]: ...
 
     def call(
@@ -271,6 +275,8 @@ class Opper:
         model: Model | None = None,
         tools: list[dict[str, Any]] | None = None,
         parent_span_id: str | None = None,
+        reasoning_effort: Literal["low", "medium", "high"] | None = None,
+        reasoning_summary: str | None = None,
     ) -> RunResponse[Any]:
         request = self._build_request(
             input=input,
@@ -280,6 +286,8 @@ class Opper:
             model=model,
             parent_span_id=parent_span_id,
             tools=tools,
+            reasoning_effort=reasoning_effort,
+            reasoning_summary=reasoning_summary,
         )
         data = self._client._post(f"/v3/functions/{_quote(name)}/call", request)
         result_data = parse_output(data.get("data"), output_schema)
@@ -297,6 +305,8 @@ class Opper:
         model: Model | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         parent_span_id: str | None = ...,
+        reasoning_effort: Literal["low", "medium", "high"] | None = ...,
+        reasoning_summary: str | None = ...,
     ) -> RunResponse[T]: ...
     @overload
     async def call_async(
@@ -310,6 +320,8 @@ class Opper:
         model: Model | None = ...,
         tools: list[dict[str, Any]] | None = ...,
         parent_span_id: str | None = ...,
+        reasoning_effort: Literal["low", "medium", "high"] | None = ...,
+        reasoning_summary: str | None = ...,
     ) -> RunResponse[Any]: ...
 
     async def call_async(
@@ -323,6 +335,8 @@ class Opper:
         model: Model | None = None,
         tools: list[dict[str, Any]] | None = None,
         parent_span_id: str | None = None,
+        reasoning_effort: Literal["low", "medium", "high"] | None = None,
+        reasoning_summary: str | None = None,
     ) -> RunResponse[Any]:
         request = self._build_request(
             input=input,
@@ -332,6 +346,8 @@ class Opper:
             model=model,
             parent_span_id=parent_span_id,
             tools=tools,
+            reasoning_effort=reasoning_effort,
+            reasoning_summary=reasoning_summary,
         )
         data = await self._client._post_async(f"/v3/functions/{_quote(name)}/call", request)
         result_data = parse_output(data.get("data"), output_schema)
@@ -348,6 +364,8 @@ class Opper:
         model: Model | None = None,
         tools: list[dict[str, Any]] | None = None,
         parent_span_id: str | None = None,
+        reasoning_effort: Literal["low", "medium", "high"] | None = None,
+        reasoning_summary: str | None = None,
     ) -> Iterator[StreamChunk]:
         request = self._build_request(
             input=input,
@@ -357,6 +375,8 @@ class Opper:
             model=model,
             parent_span_id=parent_span_id,
             tools=tools,
+            reasoning_effort=reasoning_effort,
+            reasoning_summary=reasoning_summary,
         )
         return self._client._stream_sse(f"/v3/functions/{_quote(name)}/stream", request)
 
@@ -371,6 +391,8 @@ class Opper:
         model: Model | None = None,
         tools: list[dict[str, Any]] | None = None,
         parent_span_id: str | None = None,
+        reasoning_effort: Literal["low", "medium", "high"] | None = None,
+        reasoning_summary: str | None = None,
     ) -> AsyncIterator[StreamChunk]:
         request = self._build_request(
             input=input,
@@ -380,6 +402,8 @@ class Opper:
             model=model,
             parent_span_id=parent_span_id,
             tools=tools,
+            reasoning_effort=reasoning_effort,
+            reasoning_summary=reasoning_summary,
         )
         return self._client._stream_sse_async(f"/v3/functions/{_quote(name)}/stream", request)
 
@@ -665,6 +689,8 @@ class Opper:
         model: Model | None = None,
         parent_span_id: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        reasoning_effort: Literal["low", "medium", "high"] | None = None,
+        reasoning_summary: str | None = None,
     ) -> dict[str, Any]:
         """Build a RunRequest dict, resolving schemas and trace context."""
         request: dict[str, Any] = {"input": _serialize_value(input)}
@@ -700,6 +726,11 @@ class Opper:
                         t["parameters"] = resolved_params
                 resolved_tools.append(t)
             request["tools"] = resolved_tools
+
+        if reasoning_effort is not None:
+            request["reasoning_effort"] = reasoning_effort
+        if reasoning_summary is not None:
+            request["reasoning_summary"] = reasoning_summary
 
         return request
 

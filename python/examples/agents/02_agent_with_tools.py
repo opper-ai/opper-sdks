@@ -45,6 +45,7 @@ async def main() -> None:
             "to look up products and check availability. Be concise."
         ),
         tools=[lookup_product, check_availability],
+        model="gemini/gemini-2.5-flash",
     )
 
     result = await agent.run(
