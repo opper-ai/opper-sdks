@@ -11,6 +11,7 @@ async def main() -> None:
     agent = Agent(
         name="my-first-agent",
         instructions="You are a helpful assistant. Answer concisely.",
+        model="gemini/gemini-2.5-flash",
     )
 
     result = await agent.run("What is the capital of France, and what is it famous for?")

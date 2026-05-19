@@ -42,6 +42,7 @@ const agent = new Agent({
   instructions: "You help with math. Use the calculate tool for any computation. Show your work briefly.",
   tools: [calculate],
   hooks,
+  model: "gemini/gemini-2.5-flash",
 });
 
 // Stream events for live text output

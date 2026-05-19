@@ -269,6 +269,7 @@ class Agent:
         max_tokens: int | None = None,
         max_iterations: int = 25,
         reasoning_effort: Literal["low", "medium", "high"] | None = None,
+        reasoning_summary: str | None = None,
         parallel_tool_execution: bool = True,
         hooks: Hooks | None = None,
         trace_name: str | None = None,
@@ -293,6 +294,7 @@ class Agent:
         self.max_tokens: int | None = max_tokens
         self.max_iterations: int = max_iterations
         self.reasoning_effort: Literal["low", "medium", "high"] | None = reasoning_effort
+        self.reasoning_summary: str | None = reasoning_summary
         self.parallel_tool_execution: bool = parallel_tool_execution
         self.hooks: Hooks | None = hooks
         self.trace_name: str = trace_name or name
@@ -631,6 +633,7 @@ class Agent:
             max_tokens=self.max_tokens,
             max_iterations=self.max_iterations,
             reasoning_effort=self.reasoning_effort,
+            reasoning_summary=self.reasoning_summary,
             parallel_tool_execution=self.parallel_tool_execution,
             hooks=self.hooks,
             trace_context=trace_context,
@@ -647,6 +650,7 @@ def _kwargs_to_run_options(kwargs: dict[str, Any]) -> RunOptions:
         max_tokens=kwargs.get("max_tokens"),
         max_iterations=kwargs.get("max_iterations"),
         reasoning_effort=kwargs.get("reasoning_effort"),
+        reasoning_summary=kwargs.get("reasoning_summary"),
         parent_span_id=kwargs.get("parent_span_id"),
     )
 

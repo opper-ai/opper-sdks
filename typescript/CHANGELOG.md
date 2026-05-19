@@ -14,6 +14,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
   and side-by-side old → new examples.
 
+## [4.0.0-beta.13] - 2026-05-19
+
+### Added
+
+- `reasoning_effort` and `reasoning_summary` on `RunRequest` / `SchemaRunRequest`,
+  wired through `Opper.call()` / `stream()` and the underlying wire mapping.
+  `reasoning_effort` is now typed as `"low" | "medium" | "high"` (previously
+  loosely `string`); `reasoning_summary` opts into thought summary streaming.
+  Both fields are also accepted on `AgentConfig` and `RunOptions` as
+  `reasoningEffort` / `reasoningSummary`.
+- `ResponseMeta.tool_calls` — per-call tool invocation records surfaced by
+  the server on the response metadata.
+- `ModelInfo.family`, `ModelInfo.max_output_tokens`, `ModelInfo.thinking`
+  to match the v3 model catalogue schema.
+- `ORResponse.parallel_tool_calls`, `ORResponse.previous_response_id`,
+  and `ORUsage.cost` on the OpenResponses wire types.
+
+### Changed
+
+- `reasoning_effort` on `RunRequest` and `SchemaRunRequest` is now typed
+  as `"low" | "medium" | "high"` instead of the looser `string`. Callers
+  passing a literal "low" / "medium" / "high" are unaffected; anything else
+  was already a server-side error.
+
 ## [4.0.0-beta.12] - 2026-04-30
 
 ### Changed
@@ -137,6 +161,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.13]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.13
 [4.0.0-beta.12]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.12
 [4.0.0-beta.11]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.11
 [4.0.0-beta.10]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.10

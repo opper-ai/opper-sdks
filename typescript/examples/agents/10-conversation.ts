@@ -30,6 +30,7 @@ const agent = new Agent({
   name: "note-assistant",
   instructions: "You are a helpful note-taking assistant. Be concise.",
   tools: [saveNote, listNotes],
+  model: "gemini/gemini-2.5-flash",
 });
 
 // --- Pattern 1: Multi-turn with .send() ---

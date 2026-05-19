@@ -24,6 +24,7 @@ const agent = new Agent({
   instructions:
     "You are a helpful file explorer. Use the filesystem tools to answer questions about files. Be concise.",
   tools: [FilesystemMCP],
+  model: "gemini/gemini-2.5-flash",
 });
 
 const result = await agent.run(

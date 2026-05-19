@@ -59,6 +59,7 @@ const agent = new Agent({
   instructions: "You answer questions about cities. Use the lookup_city tool to get facts. Be concise.",
   tools: [lookupCity],
   hooks: loggingHooks,
+  model: "gemini/gemini-2.5-flash",
 });
 
 const result = await agent.run("Compare Paris and Tokyo — which is bigger?");

@@ -30,6 +30,7 @@ async def main() -> None:
                 )
             ),
         ],
+        model="gemini/gemini-2.5-flash",
     )
 
     result = await agent.run("List the files in /tmp and tell me how many there are.")

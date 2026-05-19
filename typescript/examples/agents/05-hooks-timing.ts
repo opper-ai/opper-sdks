@@ -63,6 +63,7 @@ const agent = new Agent({
   instructions: "You help users check the weather. Use the get_weather tool. Be concise.",
   tools: [getWeather],
   hooks,
+  model: "gemini/gemini-2.5-flash",
 });
 
 const result = await agent.run("What's the weather in Berlin?");

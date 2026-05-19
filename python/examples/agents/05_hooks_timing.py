@@ -54,6 +54,7 @@ async def main() -> None:
         instructions="You help with lookups. Be concise.",
         tools=[slow_lookup],
         hooks=hooks,
+        model="gemini/gemini-2.5-flash",
     )
 
     result = await agent.run("Look up 'machine learning' and 'deep learning'")

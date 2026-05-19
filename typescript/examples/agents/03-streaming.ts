@@ -19,6 +19,7 @@ const agent = new Agent({
   name: "weather-assistant",
   instructions: "You help users check the weather. Be concise.",
   tools: [getWeather],
+  model: "gemini/gemini-2.5-flash",
 });
 
 // Pattern 1: Iterate events for live output

@@ -63,6 +63,7 @@ async def main() -> None:
         ),
         tools=[lookup_city],
         hooks=hooks,
+        model="gemini/gemini-2.5-flash",
     )
 
     result = await agent.run("Compare Paris and Tokyo - which is bigger?")

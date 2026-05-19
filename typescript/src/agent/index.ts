@@ -136,6 +136,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   readonly maxTokens?: number;
   readonly maxIterations: number;
   readonly reasoningEffort?: "low" | "medium" | "high";
+  readonly reasoningSummary?: string;
   readonly parallelToolExecution: boolean;
   readonly hooks?: Hooks;
   readonly traceName: string;
@@ -165,6 +166,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     this.maxTokens = config.maxTokens;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
     this.reasoningEffort = config.reasoningEffort;
+    this.reasoningSummary = config.reasoningSummary;
     this.parallelToolExecution = config.parallelToolExecution ?? true;
     this.hooks = config.hooks;
     this.traceName = config.traceName ?? config.name;
@@ -299,6 +301,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
           maxTokens: this.maxTokens,
           maxIterations: this.maxIterations,
           reasoningEffort: this.reasoningEffort,
+          reasoningSummary: this.reasoningSummary,
           parallelToolExecution: this.parallelToolExecution,
           hooks: this.hooks,
           traceContext,
@@ -445,6 +448,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
           maxTokens: this.maxTokens,
           maxIterations: this.maxIterations,
           reasoningEffort: this.reasoningEffort,
+          reasoningSummary: this.reasoningSummary,
           parallelToolExecution: this.parallelToolExecution,
           hooks: this.hooks,
           traceContext,

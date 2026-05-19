@@ -222,6 +222,7 @@ class RunOptions:
     max_tokens: int | None = None
     max_iterations: int | None = None
     reasoning_effort: Literal["low", "medium", "high"] | None = None
+    reasoning_summary: str | None = None
     parent_span_id: str | None = None
 
 

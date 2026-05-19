@@ -64,6 +64,7 @@ class LoopConfig:
     max_tokens: int | None = None
     max_iterations: int = 25
     reasoning_effort: Literal["low", "medium", "high"] | None = None
+    reasoning_summary: str | None = None
     parallel_tool_execution: bool = True
     hooks: Hooks | None = None
     trace_context: dict[str, str] | None = None
@@ -146,9 +147,15 @@ def _build_request(
     if max_tokens is not None:
         req["max_output_tokens"] = max_tokens
 
-    reasoning = (options.reasoning_effort if options else None) or config.reasoning_effort
-    if reasoning:
-        req["reasoning"] = {"effort": reasoning}
+    reasoning_effort = (options.reasoning_effort if options else None) or config.reasoning_effort
+    reasoning_summary = (options.reasoning_summary if options else None) or config.reasoning_summary
+    if reasoning_effort or reasoning_summary:
+        reasoning_cfg: dict[str, Any] = {}
+        if reasoning_effort:
+            reasoning_cfg["effort"] = reasoning_effort
+        if reasoning_summary:
+            reasoning_cfg["summary"] = reasoning_summary
+        req["reasoning"] = reasoning_cfg
 
     if config.output_schema:
         req["text"] = {

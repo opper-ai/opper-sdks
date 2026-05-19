@@ -43,6 +43,7 @@ researcher = Agent(
         "Be thorough but concise."
     ),
     tools=[market_data, audience_insights],
+    model="gemini/gemini-2.5-flash",
 )
 
 # --- Specialist: Writer ---
@@ -63,6 +64,7 @@ writer = Agent(
     name="writer",
     instructions="You write clear, engaging content following the style guide. Be concise.",
     tools=[style_guide],
+    model="gemini/gemini-2.5-flash",
 )
 
 # --- Coordinator ---
@@ -91,6 +93,7 @@ coordinator = Agent(
         ),
     ],
     hooks=hooks,
+    model="gemini/gemini-2.5-flash",
 )
 
 

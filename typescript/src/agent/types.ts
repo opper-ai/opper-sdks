@@ -133,6 +133,8 @@ export interface ORUsage {
   total_tokens: number;
   input_tokens_details?: { cached_tokens: number };
   output_tokens_details?: { reasoning_tokens: number };
+  /** Execution cost in USD. Surfaced on streaming `response.completed`; non-stream uses the `X-Opper-Cost` header. */
+  cost?: number;
 }
 
 /** Error information from the server. */
@@ -168,6 +170,8 @@ export interface ORResponse {
   truncation?: string;
   service_tier?: string;
   incomplete_details?: unknown;
+  parallel_tool_calls?: boolean;
+  previous_response_id?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -352,6 +356,8 @@ export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | und
   maxTokens?: number;
   maxIterations?: number;
   reasoningEffort?: "low" | "medium" | "high";
+  /** Opt into thought summary streaming, e.g. `"auto"`. */
+  reasoningSummary?: string;
   parallelToolExecution?: boolean;
   hooks?: Hooks;
   /** Override the function name used for tracing. Defaults to `name`. */
@@ -463,6 +469,8 @@ export interface RunOptions {
   maxTokens?: number;
   maxIterations?: number;
   reasoningEffort?: "low" | "medium" | "high";
+  /** Opt into thought summary streaming, e.g. `"auto"`. */
+  reasoningSummary?: string;
   signal?: AbortSignal;
   parentSpanId?: string;
   requestOptions?: RequestOptions;

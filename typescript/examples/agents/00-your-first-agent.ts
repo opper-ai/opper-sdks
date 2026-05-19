@@ -6,6 +6,7 @@ import { Agent } from "../../src/index.js";
 const agent = new Agent({
   name: "my-first-agent",
   instructions: "You are a helpful assistant. Answer concisely.",
+  model: "gemini/gemini-2.5-flash",
 });
 
 const result = await agent.run("What is the capital of France, and what is it famous for?");
