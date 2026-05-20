@@ -7,12 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-05-20
+
+First stable release of the 2.0 line. Built for Opper API v3.
+
 ### Changed
 
 - **Breaking:** The 2.0 line is a single unified `opperai` package that
   replaces both `opperai` 1.x and `opper-agents` 0.x. See
-  [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
-  and side-by-side old → new examples.
+  [`MIGRATION.md`](./MIGRATION.md) or the hosted
+  [migration guide](https://docs.opper.ai/agents/migration) for a complete
+  list of breaking changes and side-by-side old → new examples.
+
+### Highlights since 1.x
+
+- **Agent SDK** built into `opperai` — `Agent` with `run()` / `stream()` /
+  `conversation()`, `@tool` decorator, lifecycle `Hooks`, `RetryPolicy`,
+  structured output via Pydantic / dataclasses / TypedDicts, multi-agent
+  composition via `agent.as_tool()`, MCP tool providers (stdio / SSE /
+  streamable-HTTP), and automatic tracing with parent + per-tool child spans.
+- **Realtime** — `opper.realtime` client for the model-driven `/v3/realtime`
+  WebSocket endpoint, including `create_session()` to mint ephemeral tickets
+  for browser-direct access.
+- **Reasoning** — `reasoning_effort` (`"low" | "medium" | "high"`) and
+  `reasoning_summary` on `opper.call` / `stream` / `Agent` / `RunOptions`.
+- **Models** — `ModelConfig` and `Model` types accept a string, a config dict
+  with provider-specific `options`, or a fallback chain.
+- **Beta endpoints** — `@beta` decorator emits a one-time `BetaWarning` for
+  endpoints marked `x-beta: true` in the OpenAPI spec; beta endpoints exposed
+  under the `opper.beta.*` namespace (e.g. `opper.beta.web.search`).
+- **Artifacts** — `PendingOperation` / `ArtifactStatus` types, async
+  `ArtifactsClient.get_status()`, and `generate_video()` auto-polls.
+- **Spans** — `spans.create` / `update` accept `datetime` for `start_time` /
+  `end_time` (naive datetimes assumed UTC).
+- **Errors** — typed error hierarchy (`BadRequestError`, `NotFoundError`,
+  `AuthenticationError`, `RateLimitError`, …) raised consistently across
+  streaming and non-streaming paths; `4xx` (except `408` / `429`) are fatal
+  in the agent loop instead of being silently retried.
+
+See the `2.0.0b1` … `2.0.0b13` entries below for the full per-pre-release
+history.
 
 ## [2.0.0b13] - 2026-05-19
 
@@ -175,6 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[2.0.0]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0
 [2.0.0b13]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b13
 [2.0.0b12]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b12
 [2.0.0b11]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b11
