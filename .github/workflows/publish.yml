@@ -58,11 +58,8 @@ jobs:
       - uses: actions/setup-node@v5
         if: steps.version.outputs.changed == 'true'
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
-
-      - run: npm install -g npm@latest
-        if: steps.version.outputs.changed == 'true'
 
       - run: npm ci
         if: steps.version.outputs.changed == 'true'

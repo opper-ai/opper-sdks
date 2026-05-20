@@ -14,13 +14,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
   and side-by-side old → new examples.
 
+## [4.0.0-beta.16] - 2026-05-20
+
+### Changed
+
+- Publishing infrastructure: bump the publish job to Node 24 so the
+  bundled npm is new enough for trusted publishing (≥11.5.1) without an
+  in-place self-upgrade step, which was racing against itself on Node 22.
+  No SDK code changes.
+
 ## [4.0.0-beta.15] - 2026-05-20
 
 ### Changed
 
 - Publishing infrastructure: moved to npm trusted publishing (OIDC) with
-  provenance attestations. No SDK code changes — this release exists to
-  validate the new release pipeline.
+  provenance attestations. (Not actually published — the publish job
+  failed mid-release; superseded by `4.0.0-beta.16`.)
 
 ## [4.0.0-beta.14] - 2026-05-19
 
@@ -198,6 +207,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.16]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.16
 [4.0.0-beta.15]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.15
 [4.0.0-beta.14]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.14
 [4.0.0-beta.13]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.13
