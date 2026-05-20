@@ -18,7 +18,7 @@ jobs:
           owner: opper-ai
           repositories: opper,opper-sdks
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           token: ${{ steps.app-token.outputs.token }}
 
