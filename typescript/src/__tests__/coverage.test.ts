@@ -33,10 +33,6 @@ describe("Spec endpoint coverage", () => {
     expect(typeof client.functions.delete).toBe("function");
   });
 
-  it("POST /v3/functions/{name}/realtime → client.functions.createRealtime", () => {
-    expect(typeof client.functions.createRealtime).toBe("function");
-  });
-
   it("GET /v3/functions/{name}/revisions → client.functions.listRevisions", () => {
     expect(typeof client.functions.listRevisions).toBe("function");
   });
@@ -66,9 +62,13 @@ describe("Spec endpoint coverage", () => {
     expect(typeof client.functions.deleteExample).toBe("function");
   });
 
-  // WebSocket URL helper
-  it("WS /v3/realtime/{name} → client.functions.getRealtimeWebSocketUrl", () => {
-    expect(typeof client.functions.getRealtimeWebSocketUrl).toBe("function");
+  // REALTIME
+  it("WS /v3/realtime → client.realtime.url", () => {
+    expect(typeof client.realtime.url).toBe("function");
+  });
+
+  it("POST /v3/realtime-sessions → client.realtime.createSession", () => {
+    expect(typeof client.realtime.createSession).toBe("function");
   });
 
   // OBSERVABILITY

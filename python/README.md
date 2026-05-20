@@ -171,6 +171,7 @@ r2 = await conversation.send("What is my name?")
 | 09b | [Manual tracing](./examples/getting-started/09b_manual_tracing.py) | Manual span creation |
 | 09c | [Traces](./examples/getting-started/09c_traces.py) | List, get, and inspect traces |
 | 10 | [Models](./examples/getting-started/10_models.py) | List available models |
+| 11 | [Realtime](./examples/getting-started/11_realtime.py) | Mint a ticket for browser-direct voice WebSocket |
 | 12 | [Knowledge base](./examples/getting-started/12_knowledge_base.py) | Semantic search with knowledge bases |
 | 13 | [Web tools](./examples/getting-started/13_web_tools.py) | Web search and URL fetch (beta) |
 

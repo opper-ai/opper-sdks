@@ -22,7 +22,6 @@ EXAMPLES_ROOT = Path(__file__).parent
 # Slow / external-dependency examples that are skipped without --all.
 SLOW_EXAMPLES = {
     "06_video",
-    "11_real_time",
 }
 
 

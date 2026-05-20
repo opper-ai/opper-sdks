@@ -10,6 +10,7 @@ import { FunctionsClient } from "./clients/functions.js";
 import { GenerationsClient } from "./clients/generations.js";
 import { KnowledgeClient } from "./clients/knowledge.js";
 import { ModelsClient } from "./clients/models.js";
+import { RealtimeClient } from "./clients/realtime.js";
 import { SpansClient } from "./clients/spans.js";
 import { SystemClient } from "./clients/system.js";
 import { TracesClient } from "./clients/traces.js";
@@ -124,6 +125,9 @@ export class Opper {
   /** Client for knowledge base operations (v2 API). */
   readonly knowledge: KnowledgeClient;
 
+  /** Client for the realtime WebSocket endpoint (`/v3/realtime`). */
+  readonly realtime: RealtimeClient;
+
   private readonly resolvedConfig: { apiKey: string; baseUrl: string };
 
   constructor(config?: ClientConfig) {
@@ -140,6 +144,7 @@ export class Opper {
     this.artifacts = new ArtifactsClient(resolved);
     this.beta = { web: new WebToolsClient(resolved) };
     this.knowledge = new KnowledgeClient(resolved);
+    this.realtime = new RealtimeClient(resolved);
   }
 
   /**
@@ -589,11 +594,9 @@ export { WebToolsClient } from "./clients/web-tools.js";
 // ---------------------------------------------------------------------------
 
 export type {
-  CreateRealtimeFunctionRequest,
   Example,
   ListExamplesParams,
 } from "./clients/functions.js";
-
 export type {
   DeleteGenerationResponse,
   Generation,
@@ -601,6 +604,7 @@ export type {
   GenerationsListResponse,
   ListGenerationsParams as GenerationsListParams,
 } from "./clients/generations.js";
+export { RealtimeClient } from "./clients/realtime.js";
 
 export type { HealthCheckResponse } from "./clients/system.js";
 
@@ -631,6 +635,7 @@ export type {
   ContentChunk,
   CreateKnowledgeBaseRequest,
   CreateKnowledgeBaseResponse,
+  CreateRealtimeSessionRequest,
   CreateSpanRequest,
   CreateSpanResponse,
   DeleteDocumentsRequest,
@@ -669,8 +674,10 @@ export type {
   PendingOperation,
   QueryKnowledgeBaseRequest,
   QueryKnowledgeBaseResponse,
-  RealtimeCreateRequest,
-  RealtimeCreateResponse,
+  RealtimeSession,
+  RealtimeSessionConfig,
+  RealtimeTool,
+  RealtimeTurnDetection,
   RegisterFileUploadRequest,
   RegisterFileUploadResponse,
   RequestOptions,

@@ -84,7 +84,7 @@ await opper.traced("my-pipeline", async () => {
 | 09b | [Manual tracing](./examples/getting-started/09b-manual-tracing.ts) | Manual span creation |
 | 09c | [Traces](./examples/getting-started/09c-traces.ts) | List, get, and inspect traces |
 | 10 | [Models](./examples/getting-started/10-models.ts) | List available models |
-| 11 | [Realtime](./examples/getting-started/11-real-time.ts) | WebSocket URL for voice agents |
+| 11 | [Realtime](./examples/getting-started/11-real-time.ts) | Model-driven voice WebSocket: ticket mint + direct WS audio |
 | 12 | [Knowledge base](./examples/getting-started/12-knowledge-base.ts) | Semantic search with knowledge bases |
 | 13 | [Web tools](./examples/getting-started/13-web-tools.ts) | Web search and URL fetch (beta) |
 

@@ -373,14 +373,44 @@ class FunctionRevision:
     output_schema: JsonSchema = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
-class RealtimeCreateResponse:
-    """Response from creating a realtime function."""
+# ---------------------------------------------------------------------------
+# Realtime Types
+# ---------------------------------------------------------------------------
 
-    name: str = ""
-    script: str = ""
-    cached: bool = False
-    reasoning: str | None = None
+
+@dataclass(frozen=True)
+class RealtimeTurnDetection:
+    """Server-side turn detection (VAD) configuration."""
+
+    type: str
+    """Detection strategy, e.g. ``"server_vad"``."""
+    threshold: float | None = None
+    """Voice activation threshold, 0..1."""
+    prefix_padding_ms: int | None = None
+    """Audio prepended to the start of detected speech, in ms."""
+    silence_duration_ms: int | None = None
+    """Silence required to end a turn, in ms."""
+
+
+@dataclass(frozen=True)
+class RealtimeTool:
+    """Tool definition exposed to the realtime model."""
+
+    name: str
+    description: str | None = None
+    parameters: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True)
+class RealtimeSession:
+    """Response from ``POST /v3/realtime-sessions`` — an ephemeral ticket."""
+
+    client_secret: str = ""
+    """Single-use ticket secret."""
+    expires_at: str = ""
+    """Expiry timestamp (ISO 8601)."""
+    ws_url: str | None = None
+    """Optional fully-qualified WS URL the browser should open."""
 
 
 # ---------------------------------------------------------------------------

@@ -63,14 +63,16 @@ schemas:
   - ModelListItem
   - ModelResolveRequest
   - ModelResolveResponse
-  - RealtimeSessionRequest
-  - RealtimeSessionResponse
   - Route
   - RouteDataHandling
   - RouteGDPR
   - RouteLogging
   - RouteTraining
   - RouteZDR
+  # Legacy function-based realtime — superseded by model-driven `/v3/realtime` +
+  # ephemeral tickets via `/v3/realtime-sessions`. Not exposed by the SDKs.
+  - RealtimeCreateRequest
+  - RealtimeCreateResponse
 
 endpoints:
   # Compat endpoints not exposed by the SDKs
@@ -80,7 +82,10 @@ endpoints:
   - /v3/compat/chat/completions
   - /v3/compat/v1beta/interactions
   # Beta endpoints not yet exposed by the SDKs.
-  # Note: prefix matching — keep specific so e.g. "/v3/realtime" doesn't
-  # silently swallow "/v3/realtime/{name}", which IS exposed.
-  - /v3/realtime-sessions
   - /v3/tools/models/resolve
+  # Legacy function-based realtime — superseded by model-driven `/v3/realtime` +
+  # ephemeral tickets via `/v3/realtime-sessions`.
+  # NOTE: prefix matching — `/v3/realtime/` (with trailing slash) targets only
+  # `/v3/realtime/{name}` and leaves `/v3/realtime` (no slash) exposed.
+  - /v3/functions/{name}/realtime
+  - /v3/realtime/

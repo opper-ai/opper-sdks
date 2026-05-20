@@ -95,42 +95,6 @@ describe("FunctionsClient CRUD", () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Realtime
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe("FunctionsClient realtime", () => {
-  it("createRealtime sends POST to /v3/functions/{name}/realtime", async () => {
-    const resp = { session_id: "s-1" };
-    const fetchMock = mockFetch(resp);
-    globalThis.fetch = fetchMock;
-
-    const client = new FunctionsClient(config);
-    await client.createRealtime("voice-fn", {
-      instructions: "Be helpful",
-      model: "openai/gpt-4o-realtime",
-      voice: "alloy",
-    });
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.test.com/v3/functions/voice-fn/realtime");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body).instructions).toBe("Be helpful");
-  });
-
-  it("getRealtimeWebSocketUrl converts http to ws", () => {
-    const client = new FunctionsClient(config);
-    const url = client.getRealtimeWebSocketUrl("voice-fn");
-    expect(url).toBe("wss://api.test.com/v3/realtime/voice-fn");
-  });
-
-  it("getRealtimeWebSocketUrl encodes name", () => {
-    const client = new FunctionsClient(config);
-    const url = client.getRealtimeWebSocketUrl("my fn");
-    expect(url).toBe("wss://api.test.com/v3/realtime/my%20fn");
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
 // Revisions
 // ═══════════════════════════════════════════════════════════════════════════
 
