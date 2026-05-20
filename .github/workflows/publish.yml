@@ -1,8 +1,5 @@
 name: Publish
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 on:
   push:
     branches: [main]
@@ -19,7 +16,7 @@ jobs:
       typescript: ${{ steps.filter.outputs.typescript }}
       python: ${{ steps.filter.outputs.python }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
       - uses: dorny/paths-filter@v3
@@ -40,7 +37,7 @@ jobs:
       run:
         working-directory: typescript
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
@@ -58,11 +55,14 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: steps.version.outputs.changed == 'true'
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
+      - run: npm install -g npm@latest
+        if: steps.version.outputs.changed == 'true'
 
       - run: npm ci
         if: steps.version.outputs.changed == 'true'
@@ -70,10 +70,8 @@ jobs:
       - run: npm run build
         if: steps.version.outputs.changed == 'true'
 
-      - run: npm publish
+      - run: npm publish --provenance --access public
         if: steps.version.outputs.changed == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Extract changelog and create GitHub release
         if: steps.version.outputs.changed == 'true'
@@ -110,7 +108,7 @@ jobs:
       run:
         working-directory: python
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
