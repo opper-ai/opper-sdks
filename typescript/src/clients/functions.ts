@@ -3,7 +3,6 @@ import type {
   FunctionDetails,
   FunctionInfo,
   FunctionRevision,
-  RealtimeCreateResponse,
   RequestOptions,
   RevisionInfo,
   RunRequest,
@@ -15,19 +14,6 @@ import type {
 // ---------------------------------------------------------------------------
 // Request / Response types specific to the functions client
 // ---------------------------------------------------------------------------
-
-/** Request body for creating a realtime function. */
-export interface CreateRealtimeFunctionRequest {
-  readonly instructions: string;
-  readonly model?: string;
-  readonly provider?: string;
-  readonly voice?: string;
-  readonly tools?: ReadonlyArray<{
-    readonly name: string;
-    readonly description?: string;
-    readonly parameters: Record<string, unknown>;
-  }>;
-}
 
 /** A single example for a function. */
 export interface Example {
@@ -96,22 +82,6 @@ export class FunctionsClient extends BaseClient {
    */
   async delete(name: string, options?: RequestOptions): Promise<void> {
     return this._delete<void>(`/v3/functions/${encodeURIComponent(name)}`, options);
-  }
-
-  /**
-   * Generate a realtime voice agent function.
-   * POST /v3/functions/{name}/realtime
-   */
-  async createRealtime(
-    name: string,
-    body: CreateRealtimeFunctionRequest,
-    options?: RequestOptions,
-  ): Promise<RealtimeCreateResponse> {
-    return this._post<RealtimeCreateResponse>(
-      `/v3/functions/${encodeURIComponent(name)}/realtime`,
-      body,
-      options,
-    );
   }
 
   /**
@@ -191,14 +161,6 @@ export class FunctionsClient extends BaseClient {
       body,
       options,
     );
-  }
-
-  /**
-   * Get the WebSocket URL for realtime voice agent communication.
-   */
-  getRealtimeWebSocketUrl(name: string): string {
-    const httpUrl = `${this.baseUrl}/v3/realtime/${encodeURIComponent(name)}`;
-    return httpUrl.replace(/^http/, "ws");
   }
 
   // ---------------------------------------------------------------------------

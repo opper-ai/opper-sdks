@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from opperai._client import Opper
-from opperai.types import FunctionDetails, FunctionInfo, FunctionRevision, RealtimeCreateResponse, RevisionInfo
+from opperai.types import FunctionDetails, FunctionInfo, FunctionRevision, RevisionInfo
 
 
 class TestFunctionsList:
@@ -83,24 +83,6 @@ class TestFunctionsRun:
         opper._client._post_async.return_value = {"data": "async-result", "meta": None}
         result = await opper.functions.run_async("fn1", {"input": "hi"})
         assert result.data == "async-result"
-
-
-class TestFunctionsRealtime:
-    def test_create_realtime(self, opper: Opper) -> None:
-        opper._client._post.return_value = {"name": "rt-fn", "script": "code", "cached": False}
-        result = opper.functions.create_realtime("rt-fn", instructions="do stuff")
-        assert isinstance(result, RealtimeCreateResponse)
-        assert result.name == "rt-fn"
-
-    def test_get_realtime_ws_url(self, opper: Opper) -> None:
-        url = opper.functions.get_realtime_ws_url("my-fn")
-        assert url.startswith("wss://")
-        assert "my-fn" in url
-
-    async def test_create_realtime_async(self, opper: Opper) -> None:
-        opper._client._post_async.return_value = {"name": "rt", "script": "s", "cached": True}
-        result = await opper.functions.create_realtime_async("rt", instructions="x")
-        assert result.cached is True
 
 
 class TestFunctionsRevisions:

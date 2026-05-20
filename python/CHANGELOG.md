@@ -14,6 +14,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
   and side-by-side old → new examples.
 
+## [2.0.0b13] - 2026-05-19
+
+### Added
+
+- `opper.realtime` client for the model-driven `/v3/realtime` WebSocket
+  endpoint:
+  - `opper.realtime.url(ticket=None)` — build the WebSocket URL, optionally
+    appending a ticket query parameter for clients that can't set
+    subprotocols.
+  - `opper.realtime.create_session(config=..., locked_fields=...,
+    ttl_seconds=...)` (+ `create_session_async`) — POST
+    `/v3/realtime-sessions` to mint a single-use ephemeral ticket for
+    browser-direct WebSocket access. The returned `client_secret` is what
+    the browser carries in the `Sec-WebSocket-Protocol: opper-ticket.<secret>`
+    subprotocol header.
+- `RealtimeSession`, `RealtimeTool`, `RealtimeTurnDetection` dataclasses
+  in `opperai.types`.
+
+### Removed
+
+- **Breaking:** `opper.functions.create_realtime` /
+  `create_realtime_async` / `get_realtime_ws_url` and the
+  `RealtimeCreateResponse` dataclass. The legacy `/v3/functions/{name}/realtime`
+  create-then-connect flow is superseded by the model-driven `/v3/realtime`
+  endpoint with inline `config` (server-side) or pre-bound config on an
+  ephemeral ticket (browser-side). Use `opper.realtime.url()` and
+  `opper.realtime.create_session()` instead.
+
 ## [2.0.0b12] - 2026-05-19
 
 ### Added
@@ -147,6 +175,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[2.0.0b13]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b13
 [2.0.0b12]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b12
 [2.0.0b11]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b11
 [2.0.0b10]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b10

@@ -14,6 +14,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
   and side-by-side old → new examples.
 
+## [4.0.0-beta.14] - 2026-05-19
+
+### Added
+
+- `opper.realtime` client for the model-driven `/v3/realtime` WebSocket
+  endpoint:
+  - `opper.realtime.url({ ticket? })` — build the WebSocket URL,
+    optionally appending a ticket query parameter for clients that can't
+    set subprotocols.
+  - `opper.realtime.createSession({ config, locked_fields?, ttl_seconds? })`
+    — POST `/v3/realtime-sessions` to mint a single-use ephemeral ticket
+    for browser-direct WebSocket access. The returned `client_secret` is
+    what the browser carries in the `Sec-WebSocket-Protocol:
+    opper-ticket.<secret>` subprotocol header.
+- Types: `RealtimeSession`, `RealtimeSessionConfig`,
+  `CreateRealtimeSessionRequest`, `RealtimeTool`, `RealtimeTurnDetection`,
+  plus a `RealtimeClient` export.
+
+### Removed
+
+- **Breaking:** `opper.functions.createRealtime()`,
+  `opper.functions.getRealtimeWebSocketUrl()`, and the
+  `CreateRealtimeFunctionRequest` / `RealtimeCreateRequest` /
+  `RealtimeCreateResponse` types. The legacy `/v3/functions/{name}/realtime`
+  create-then-connect flow is superseded by the model-driven `/v3/realtime`
+  endpoint with inline `config` (server-side) or pre-bound config on an
+  ephemeral ticket (browser-side). Use `opper.realtime.url()` and
+  `opper.realtime.createSession()` instead.
+
 ## [4.0.0-beta.13] - 2026-05-19
 
 ### Added
@@ -161,6 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0-beta.14]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.14
 [4.0.0-beta.13]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.13
 [4.0.0-beta.12]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.12
 [4.0.0-beta.11]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.11

@@ -16,6 +16,7 @@ from .clients.functions import FunctionsClient
 from .clients.generations import GenerationsClient
 from .clients.knowledge import KnowledgeClient
 from .clients.models import ModelsClient
+from .clients.realtime import RealtimeClient
 from .clients.spans import SpansClient
 from .clients.system import SystemClient
 from .clients.traces import TracesClient
@@ -204,6 +205,7 @@ class Opper:
         self.knowledge = KnowledgeClient(self._client)
         self.system = SystemClient(self._client)
         self.artifacts = ArtifactsClient(self._client)
+        self.realtime = RealtimeClient(self._client)
         self.beta = _BetaNamespace(self._client)
 
     # --- Agent factory --------------------------------------------------------

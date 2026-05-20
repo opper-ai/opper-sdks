@@ -11,7 +11,6 @@ from ..types import (
     FunctionDetails,
     FunctionInfo,
     FunctionRevision,
-    RealtimeCreateResponse,
     RequestOptions,
     RevisionInfo,
     RunResponse,
@@ -83,60 +82,6 @@ class FunctionsClient:
         self, name: str, request: dict[str, Any], *, options: RequestOptions | None = None
     ) -> AsyncIterator[StreamChunk]:
         return self._client._stream_sse_async(f"{self._fn_path(name)}/stream", request, options=options)
-
-    # --- Realtime -------------------------------------------------------------
-
-    def create_realtime(
-        self,
-        name: str,
-        *,
-        instructions: str,
-        model: str | None = None,
-        provider: str | None = None,
-        voice: str | None = None,
-        tools: list[dict[str, Any]] | None = None,
-        options: RequestOptions | None = None,
-    ) -> RealtimeCreateResponse:
-        body: dict[str, Any] = {"instructions": instructions}
-        if model is not None:
-            body["model"] = model
-        if provider is not None:
-            body["provider"] = provider
-        if voice is not None:
-            body["voice"] = voice
-        if tools is not None:
-            body["tools"] = tools
-        data = self._client._post(f"{self._fn_path(name)}/realtime", body, options=options)
-        return _from_dict(RealtimeCreateResponse, data)
-
-    async def create_realtime_async(
-        self,
-        name: str,
-        *,
-        instructions: str,
-        model: str | None = None,
-        provider: str | None = None,
-        voice: str | None = None,
-        tools: list[dict[str, Any]] | None = None,
-        options: RequestOptions | None = None,
-    ) -> RealtimeCreateResponse:
-        body: dict[str, Any] = {"instructions": instructions}
-        if model is not None:
-            body["model"] = model
-        if provider is not None:
-            body["provider"] = provider
-        if voice is not None:
-            body["voice"] = voice
-        if tools is not None:
-            body["tools"] = tools
-        data = await self._client._post_async(f"{self._fn_path(name)}/realtime", body, options=options)
-        return _from_dict(RealtimeCreateResponse, data)
-
-    def get_realtime_ws_url(self, name: str) -> str:
-        base = self._client._base_url
-        scheme = "wss" if base.startswith("https") else "ws"
-        host = base.replace("https://", "").replace("http://", "")
-        return f"{scheme}://{host}/v3/realtime/{quote(name, safe='')}"
 
     # --- Revisions ------------------------------------------------------------
 

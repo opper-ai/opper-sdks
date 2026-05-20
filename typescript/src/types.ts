@@ -392,20 +392,83 @@ export interface RevisionInfo {
   readonly is_current: boolean;
 }
 
-/** Request to create a realtime function. */
-export interface RealtimeCreateRequest {
-  readonly name: string;
-  readonly script: string;
-  readonly cached: boolean;
-  readonly reasoning?: string;
+// ---------------------------------------------------------------------------
+// Realtime Types
+// ---------------------------------------------------------------------------
+
+/** Server-side turn detection (VAD) configuration. */
+export interface RealtimeTurnDetection {
+  /** Detection strategy, e.g. `"server_vad"`. */
+  readonly type: string;
+  /** Voice activation threshold, 0..1. */
+  readonly threshold?: number;
+  /** Audio prepended to the start of detected speech, in ms. */
+  readonly prefix_padding_ms?: number;
+  /** Silence required to end a turn, in ms. */
+  readonly silence_duration_ms?: number;
 }
 
-/** Response from creating a realtime function. */
-export interface RealtimeCreateResponse {
+/** A tool definition exposed to the realtime model. */
+export interface RealtimeTool {
   readonly name: string;
-  readonly script: string;
-  readonly cached: boolean;
-  readonly reasoning?: string;
+  readonly description?: string;
+  readonly parameters?: Record<string, unknown>;
+}
+
+/**
+ * Session configuration bound at ticket-mint time or sent inline on
+ * `session.start` for server-side connections.
+ */
+export interface RealtimeSessionConfig {
+  /** Opper model id, e.g. `"openai/gpt-realtime-2"`. */
+  readonly model?: string;
+  /** System instructions for the session. */
+  readonly instructions?: string;
+  /** Voice id (model-specific). */
+  readonly voice?: string;
+  /** Active modalities, e.g. `["audio", "text"]`. */
+  readonly modalities?: ReadonlyArray<string>;
+  /** Sampling temperature. */
+  readonly temperature?: number;
+  /** Reasoning effort for reasoning-capable models. */
+  readonly reasoning_effort?: string;
+  /** PCM audio format for inbound audio, e.g. `"pcm16"`. */
+  readonly input_audio_format?: string;
+  /** PCM audio format for outbound audio. */
+  readonly output_audio_format?: string;
+  /** Enable transcription of user audio. */
+  readonly input_transcription?: boolean;
+  /** Provider-specific transcription model. */
+  readonly input_transcription_model?: string;
+  /** Enable transcription of model audio. */
+  readonly output_transcription?: boolean;
+  /** Server-side turn detection (VAD) settings. */
+  readonly turn_detection?: RealtimeTurnDetection;
+  /** Tools the model may call during the session. */
+  readonly tools?: ReadonlyArray<RealtimeTool>;
+}
+
+/** Body for `POST /v3/realtime-sessions`. */
+export interface CreateRealtimeSessionRequest {
+  /** Fields locked to the ticket; the browser cannot override them at session.start. */
+  readonly config?: RealtimeSessionConfig;
+  /**
+   * Field names whose zero value must stay zero (e.g. force `output_transcription` off).
+   * Fields not listed remain open for the browser to fill in.
+   */
+  readonly locked_fields?: ReadonlyArray<string>;
+  /** Ticket lifetime in seconds. */
+  readonly ttl_seconds?: number;
+}
+
+/** Response from `POST /v3/realtime-sessions`. */
+export interface RealtimeSession {
+  /** Single-use ticket secret. */
+  readonly client_secret: string;
+  /** Expiry timestamp (ISO 8601). */
+  readonly expires_at: string;
+  /** Optional fully-qualified WS URL. */
+  readonly ws_url?: string;
 }
 
 // ---------------------------------------------------------------------------
