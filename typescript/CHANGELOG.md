@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-05-21
+
+### Changed
+
+- Refreshed npm package keywords for better discoverability (added `ai`,
+  `ai-agents`, `tool-use`, `structured-output`, `json-schema`, `zod`,
+  `streaming`, `mcp`, `rag`, `knowledge-base`, `gateway`, `control-plane`,
+  `zdr`, `zero-data-retention`, `observability`; removed stale `starlark`,
+  `task-api`, `sdk`).
+
 ## [4.0.0] - 2026-05-20
 
 First stable release of the 4.0 line. Built for Opper API v3.
@@ -241,6 +251,7 @@ per-pre-release history.
 
 - New major version built for Opper API v3
 
+[4.0.1]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.1
 [4.0.0]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0
 [4.0.0-beta.16]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.16
 [4.0.0-beta.14]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.14
