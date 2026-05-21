@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-05-21
+
+### Changed
+
+- Added PyPI `keywords` and `classifiers` metadata for better discoverability
+  on PyPI search and browse filters. Keywords mirror the TypeScript SDK
+  (`ai`, `ai-agents`, `tool-use`, `structured-output`, `json-schema`,
+  `pydantic`, `streaming`, `mcp`, `rag`, `knowledge-base`, `gateway`,
+  `control-plane`, `zdr`, `zero-data-retention`, `observability`).
+
 ## [2.0.1] - 2026-05-21
 
 ### Fixed
