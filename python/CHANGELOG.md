@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-05-21
+
+### Fixed
+
+- Nested Pydantic models in `output_schema` no longer break structured output.
+  Pydantic's `model_json_schema()` emits nested models as `$ref` pointers into
+  a top-level `$defs` dict; the SDK now inlines those refs before sending so
+  the schema is self-contained. Without this, OpenAI strict mode returned 400
+  (`"items section, the schema is missing a required 'type' key"`) and
+  Anthropic / Vertex providers silently flattened nested objects into scalars,
+  causing `model_validate` failures on the client. Supports both `$defs` and
+  the legacy `definitions` keyword; self-referential schemas leave the cycle
+  in place rather than infinite-loop.
+
 ## [2.0.0] - 2026-05-20
 
 First stable release of the 2.0 line. Built for Opper API v3.
@@ -209,6 +223,7 @@ history.
 
 - New major version built for Opper API v3
 
+[2.0.1]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.1
 [2.0.0]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0
 [2.0.0b13]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b13
 [2.0.0b12]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.0b12
