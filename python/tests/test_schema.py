@@ -84,6 +84,86 @@ class TestResolveSchemaWithPydantic:
         assert "properties" in result
         assert "name" in result["properties"]
 
+    def test_pydantic_nested_model_inlines_refs(self) -> None:
+        """Nested Pydantic models must not leave `$ref`/`$defs` in the schema.
+
+        Regression: OpenAI strict mode rejects unresolved `$ref` with a 400,
+        and Anthropic/Vertex silently flatten nested objects into scalars.
+        """
+        try:
+            from pydantic import BaseModel
+        except ImportError:
+            pytest.skip("pydantic not installed")
+
+        class Person(BaseModel):
+            name: str
+            role: str | None = None
+
+        class Entities(BaseModel):
+            people: list[Person]
+            locations: list[str]
+
+        result = resolve_schema(Entities)
+        assert result is not None
+        assert "$defs" not in result
+        assert "definitions" not in result
+        people = result["properties"]["people"]
+        assert people["type"] == "array"
+        # items must be the inlined Person object, not a $ref
+        assert "$ref" not in people["items"]
+        assert people["items"]["type"] == "object"
+        assert "name" in people["items"]["properties"]
+
+    def test_pydantic_self_referential_does_not_recurse(self) -> None:
+        """Self-referential models should leave the cycle as `$ref` rather
+        than infinite-loop. Most providers don't support recursive schemas
+        anyway; the SDK's job is to not crash."""
+        try:
+            from pydantic import BaseModel
+        except ImportError:
+            pytest.skip("pydantic not installed")
+
+        class Node(BaseModel):
+            value: str
+            children: list[Node] = []
+
+        Node.model_rebuild()
+
+        result = resolve_schema(Node)
+        assert result is not None
+        # Did not infinite-loop. Top-level $defs is still stripped.
+        assert "$defs" not in result
+
+
+class TestInlineRefsDict:
+    def test_dict_input_inlines_refs(self) -> None:
+        schema = {
+            "$defs": {"Item": {"type": "object", "properties": {"x": {"type": "integer"}}}},
+            "type": "array",
+            "items": {"$ref": "#/$defs/Item"},
+        }
+        result = resolve_schema(schema)
+        assert result is not None
+        assert "$defs" not in result
+        assert result["items"]["type"] == "object"
+        assert result["items"]["properties"]["x"]["type"] == "integer"
+
+    def test_dict_without_refs_unchanged(self) -> None:
+        schema = {"type": "object", "properties": {"name": {"type": "string"}}}
+        result = resolve_schema(schema)
+        assert result == schema
+
+    def test_legacy_definitions_keyword(self) -> None:
+        schema = {
+            "definitions": {"Foo": {"type": "string"}},
+            "type": "object",
+            "properties": {"foo": {"$ref": "#/definitions/Foo"}},
+        }
+        result = resolve_schema(schema)
+        assert result is not None
+        assert "definitions" not in result
+        assert result["properties"]["foo"] == {"type": "string"}
+
 
 class TestParseOutput:
     def test_none_schema_returns_data(self) -> None:

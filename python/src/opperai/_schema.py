@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import dataclasses
 from typing import Any, get_type_hints
 
@@ -15,16 +16,22 @@ def resolve_schema(schema: Any) -> dict[str, Any] | None:
     - Pydantic BaseModel subclass -> model_json_schema()
     - dataclass -> inspect fields
     - TypedDict -> inspect annotations
+
+    Any returned schema is post-processed to inline ``$defs``/``$ref`` so that
+    downstream providers (notably OpenAI strict structured output) that don't
+    dereference ``$ref`` receive a self-contained schema. Anthropic/Vertex
+    accept the schema with refs but silently flatten nested objects, which is
+    arguably worse — inlining fixes both cases.
     """
     if schema is None:
         return None
 
     if isinstance(schema, dict):
-        return schema
+        return _inline_refs(schema)
 
     # Pydantic BaseModel (detected at runtime — no import needed)
     if isinstance(schema, type) and hasattr(schema, "model_json_schema"):
-        return schema.model_json_schema()  # type: ignore[union-attr]
+        return _inline_refs(schema.model_json_schema())  # type: ignore[union-attr]
 
     # dataclass
     if isinstance(schema, type) and dataclasses.is_dataclass(schema):
@@ -81,6 +88,70 @@ def parse_output(data: Any, schema: Any) -> Any:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
+    """Inline ``$defs``/``$ref`` so the returned schema is self-contained.
+
+    Pydantic's ``model_json_schema()`` emits nested models as ``$ref`` pointers
+    into a top-level ``$defs`` dict. OpenAI's strict structured-output mode
+    rejects schemas where the type at ``items`` is only reachable via ``$ref``
+    ("schema must have a 'type' key"), and other providers silently drop the
+    nested structure. Inlining sidesteps both.
+
+    Supports ``$defs`` and the legacy ``definitions`` keyword. Self-referential
+    schemas leave the ``$ref`` in place to avoid infinite recursion.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    defs: dict[str, Any] = {}
+    for key in ("$defs", "definitions"):
+        if isinstance(schema.get(key), dict):
+            defs.update(schema[key])
+
+    if not defs:
+        return schema
+
+    result = _deref(schema, defs, in_progress=frozenset())
+    if isinstance(result, dict):
+        result.pop("$defs", None)
+        result.pop("definitions", None)
+    return result  # type: ignore[no-any-return]
+
+
+def _deref(node: Any, defs: dict[str, Any], in_progress: frozenset[str]) -> Any:
+    """Recursively replace ``{"$ref": "#/$defs/Name"}`` with the inlined def."""
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            name = _ref_name(ref)
+            if name and name in defs and name not in in_progress:
+                target = copy.deepcopy(defs[name])
+                # Sibling keys alongside $ref (rare, but legal) are dropped to
+                # match JSON Schema semantics; if present, merge them in.
+                inlined = _deref(target, defs, in_progress | {name})
+                if isinstance(inlined, dict):
+                    for k, v in node.items():
+                        if k == "$ref":
+                            continue
+                        inlined.setdefault(k, v)
+                return inlined
+            # Cycle or unresolved ref — leave as-is.
+            return node
+        return {k: _deref(v, defs, in_progress) for k, v in node.items() if k not in ("$defs", "definitions")}
+    if isinstance(node, list):
+        return [_deref(item, defs, in_progress) for item in node]
+    return node
+
+
+def _ref_name(ref: str) -> str | None:
+    """Extract ``Name`` from ``#/$defs/Name`` or ``#/definitions/Name``."""
+    for prefix in ("#/$defs/", "#/definitions/"):
+        if ref.startswith(prefix):
+            return ref[len(prefix):]
+    return None
+
 
 _PYTHON_TYPE_TO_JSON: dict[type, str] = {
     str: "string",
