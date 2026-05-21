@@ -7,12 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-05-20
+
+First stable release of the 4.0 line. Built for Opper API v3.
+
 ### Changed
 
 - **Breaking:** The 4.0 line is a single unified `opperai` package that
   replaces both `opperai` 3.x and `@opperai/agents` 0.x. See
-  [`MIGRATION.md`](./MIGRATION.md) for a complete list of breaking changes
-  and side-by-side old → new examples.
+  [`MIGRATION.md`](./MIGRATION.md) or the hosted
+  [migration guide](https://docs.opper.ai/agents/migration) for a complete
+  list of breaking changes and side-by-side old → new examples.
+- **Breaking:** Simplified client method names to match Python SDK
+  conventions (`models.list()`, `functions.list/get/delete/run/stream`,
+  `knowledge.delete()`), and list methods now return arrays directly
+  (`ModelInfo[]`, `FunctionInfo[]`, …) instead of wrapper objects.
+- **Breaking:** Zod peer dependency narrowed to `^4.0.0` (Zod v3 dropped —
+  it never worked with `toJSONSchema`).
+- npm `latest` dist-tag — no longer published under the `beta` tag.
+
+### Highlights since 3.x
+
+- **Agent SDK** built into `opperai` — `Agent` with `run()` / `stream()` /
+  `conversation()`, `tool(...)` factory, lifecycle `hooks`, structured
+  output, multi-agent composition, MCP tool providers, OpenResponses
+  client, streaming agent loop with eager tool execution, and tracing.
+- **Realtime** — `opper.realtime` client for the model-driven
+  `/v3/realtime` WebSocket endpoint, including
+  `opper.realtime.createSession()` to mint ephemeral tickets for
+  browser-direct access.
+- **Reasoning** — `reasoning_effort` (`"low" | "medium" | "high"`) and
+  `reasoning_summary` on `RunRequest` / `SchemaRunRequest` /
+  `AgentConfig` / `RunOptions` (camelCase on agent surface).
+- **Models** — `ModelConfig` and `Model` types accept a string, a config
+  object with provider-specific `options`, or a fallback array.
+- **Beta endpoints** — `@beta` JSDoc convention on endpoints marked
+  `x-beta: true` in the OpenAPI spec; beta endpoints exposed under the
+  `opper.beta.*` namespace (e.g. `opper.beta.web.search`).
+- **Artifacts** — `PendingOperation` / `ArtifactStatus` types,
+  `ArtifactsClient.getStatus()`, and `generateVideo()` auto-polls.
+- **Spans** — `CreateSpanRequest.start_time` / `end_time` and
+  `UpdateSpanRequest.end_time` accept `Date` in addition to `string`.
+- **Errors** — typed error subclasses (`AuthenticationError`,
+  `RateLimitError`, …) raised consistently across streaming and
+  non-streaming paths; `4xx` (except `408` / `429`) are fatal in the
+  agent loop instead of being silently retried.
+- **Zod v4 hardening** — strip auto-added integer safe-bounds from
+  `z.number().int()` so output schemas don't 400 against strict
+  providers; user-specified bounds preserved.
+
+See the `4.0.0-beta.0` … `4.0.0-beta.16` entries below for the full
+per-pre-release history.
 
 ## [4.0.0-beta.16] - 2026-05-20
 
@@ -196,6 +241,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New major version built for Opper API v3
 
+[4.0.0]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0
 [4.0.0-beta.16]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.16
 [4.0.0-beta.14]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.14
 [4.0.0-beta.13]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.13
