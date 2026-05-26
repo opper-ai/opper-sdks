@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -23,6 +23,11 @@ from ..types import (
 )
 from ._errors import AbortError, AgentError, MaxIterationsError
 from ._hooks import dispatch_hook
+from ._models import (
+    FINAL_ANSWER_INSTRUCTIONS,
+    FINAL_ANSWER_TOOL_NAME,
+    use_tool_fallback,
+)
 from ._reasoning import accumulate_reasoning, extract_reasoning
 from ._serialize import to_json_str
 from ._turn_awareness import get_warning_message, is_recovery_turn
@@ -70,6 +75,11 @@ class LoopConfig:
     trace_context: dict[str, str] | None = None
     retry: RetryPolicy | None = None
     on_max_iterations: Literal["throw", "return_partial"] = "throw"
+    structured_output_mode: Literal["auto", "native", "tool"] | None = None
+    # Optional callback the agent layer installs to create a platform span
+    # for the synthetic ``final_answer`` tool call. Receives (call_id,
+    # arguments_raw, parsed_output). Never raises — tracing is best-effort.
+    record_final_answer: Callable[[str, str, Any], Awaitable[None]] | None = None
 
 
 # =============================================================================
@@ -123,6 +133,22 @@ def _usage_to_aggregated(usage: dict[str, Any]) -> AggregatedUsage:
     )
 
 
+def _final_answer_tool(output_schema: dict[str, Any]) -> dict[str, Any]:
+    """Synthetic tool used to deliver structured output when a model can't
+    accept JSON-schema response format and tools in the same request."""
+    return {
+        "type": "function",
+        "name": FINAL_ANSWER_TOOL_NAME,
+        "description": (
+            "Call this exactly once to provide your final answer. Its "
+            "arguments must conform to the required output schema. Do not "
+            "produce any plain-text final response — only this tool call "
+            "counts as your answer."
+        ),
+        "parameters": output_schema,
+    }
+
+
 def _build_request(
     config: LoopConfig,
     items: list[dict[str, Any]],
@@ -130,12 +156,30 @@ def _build_request(
     options: RunOptions | None = None,
 ) -> dict[str, Any]:
     """Build the ORRequest dict from config, items, and per-run options."""
-    req: dict[str, Any] = {"input": items, "instructions": config.instructions}
-
-    if or_tools:
-        req["tools"] = or_tools
-
     model = (options.model if options else None) or config.model
+    mode = (options.structured_output_mode if options else None) or config.structured_output_mode
+
+    fallback = use_tool_fallback(
+        model=model,
+        has_tools=bool(or_tools),
+        has_output_schema=config.output_schema is not None,
+        mode=mode,
+    )
+
+    instructions = config.instructions
+    if fallback:
+        # Prepend the fallback contract so the model knows it must respond
+        # via `final_answer` rather than emitting prose.
+        instructions = f"{FINAL_ANSWER_INSTRUCTIONS}\n\n{instructions}" if instructions else FINAL_ANSWER_INSTRUCTIONS
+
+    req: dict[str, Any] = {"input": items, "instructions": instructions}
+
+    tools_for_req = list(or_tools)
+    if fallback and config.output_schema is not None:
+        tools_for_req.append(_final_answer_tool(config.output_schema))
+    if tools_for_req:
+        req["tools"] = tools_for_req
+
     if model:
         req["model"] = model
 
@@ -157,7 +201,8 @@ def _build_request(
             reasoning_cfg["summary"] = reasoning_summary
         req["reasoning"] = reasoning_cfg
 
-    if config.output_schema:
+    # Only emit the native response_format when we're not using the tool fallback.
+    if config.output_schema and not fallback:
         req["text"] = {
             "format": {
                 "type": "json_schema",
@@ -167,6 +212,22 @@ def _build_request(
         }
 
     return req
+
+
+def _is_fallback_active(
+    config: LoopConfig,
+    options: RunOptions | None,
+    or_tools: list[dict[str, Any]],
+) -> bool:
+    """Helper: same decision as ``_build_request`` so the loop body can branch."""
+    model = (options.model if options else None) or config.model
+    mode = (options.structured_output_mode if options else None) or config.structured_output_mode
+    return use_tool_fallback(
+        model=model,
+        has_tools=bool(or_tools),
+        has_output_schema=config.output_schema is not None,
+        mode=mode,
+    )
 
 
 def _parse_output(text: str | None, output_schema: dict[str, Any] | None) -> Any:
@@ -605,12 +666,20 @@ async def stream_loop(
 
                 eager_function_calls: list[dict[str, Any]] = []
                 tool_tasks: list[asyncio.Task[tuple[dict[str, Any], ToolCallRecord, list[AgentStreamEvent]]]] = []
+                fallback_active = _is_fallback_active(config, options, or_tools)
 
                 consumer = _consume_stream(sse_stream)
                 async for event in consumer:
                     if isinstance(event, dict) and event.get("_tool_ready"):
                         fc = event["call"]
                         eager_function_calls.append(fc)
+
+                        # The synthetic ``final_answer`` tool is not a real
+                        # tool — it carries the structured output. Skip
+                        # eager execution; the post-stream phase reads its
+                        # arguments and terminates the loop.
+                        if fallback_active and fc.get("name") == FINAL_ANSWER_TOOL_NAME:
+                            continue
 
                         async def _run_eager_tool(
                             _fc: dict[str, Any] = fc,
@@ -659,7 +728,7 @@ async def stream_loop(
                             return (_fc, record, events)
 
                         if config.parallel_tool_execution:
-                            tool_tasks.append(asyncio.create_task(_run_eager_tool(fc)))
+                            tool_tasks.append(asyncio.create_task(_run_eager_tool(fc)))  # type: ignore[reportGeneralTypeIssues]
                         else:
                             _, record, tool_events = await _run_eager_tool(fc)
                             for ev in tool_events:
@@ -732,9 +801,141 @@ async def stream_loop(
                     continue
                 raise AgentError(f"Server error: {err_msg}")
 
-            # No function calls → done
+            # If the structured-output-as-tool fallback is in play, peel the
+            # synthetic ``final_answer`` call (if present) out of
+            # ``function_calls`` so the regular tool-execution path doesn't
+            # try to dispatch it as a user tool.
+            final_answer_call: dict[str, Any] | None = None
+            if _is_fallback_active(config, options, or_tools):
+                remaining_calls: list[dict[str, Any]] = []
+                for fc in function_calls:
+                    if fc.get("name") == FINAL_ANSWER_TOOL_NAME and final_answer_call is None:
+                        final_answer_call = fc
+                    else:
+                        remaining_calls.append(fc)
+                function_calls = remaining_calls
+
+            # Fallback terminal path: model delivered structured output via
+            # ``final_answer``. Parse its arguments as the output and return.
+            if final_answer_call is not None:
+                args_raw = final_answer_call.get("arguments") or "{}"
+                try:
+                    output = json.loads(args_raw)
+                except (json.JSONDecodeError, ValueError):
+                    output = args_raw
+
+                # If the model called real tools alongside ``final_answer``,
+                # the eager path already executed them — preserve their
+                # records in the run meta even though the loop terminates.
+                if tool_records:
+                    all_tool_calls.extend(tool_records)
+
+                # Surface the synthetic ``final_answer`` call as a regular
+                # observability artifact: tool record, hooks, stream events,
+                # and a platform span via the agent-layer callback. Without
+                # this, the run's final structured-output delivery would be
+                # invisible to users tailing hooks or the trace UI.
+                final_answer_call_id = final_answer_call.get("call_id") or "final_answer"
+                fa_record = ToolCallRecord(
+                    name=FINAL_ANSWER_TOOL_NAME,
+                    call_id=final_answer_call_id,
+                    input=output,
+                    output=output,
+                    duration_ms=0.0,
+                )
+                all_tool_calls.append(fa_record)
+
+                await dispatch_hook(hooks, "on_tool_start", {
+                    "agent": config.name,
+                    "iteration": iteration,
+                    "name": FINAL_ANSWER_TOOL_NAME,
+                    "call_id": final_answer_call_id,
+                    "input": output,
+                })
+                yield ToolStartEvent(
+                    name=FINAL_ANSWER_TOOL_NAME,
+                    call_id=final_answer_call_id,
+                    input=output,
+                )
+                if config.record_final_answer is not None:
+                    try:
+                        await config.record_final_answer(
+                            final_answer_call_id, args_raw, output,
+                        )
+                    except BaseException:
+                        # Tracing must never break the run.
+                        pass
+                await dispatch_hook(hooks, "on_tool_end", {
+                    "agent": config.name,
+                    "iteration": iteration,
+                    "name": FINAL_ANSWER_TOOL_NAME,
+                    "call_id": final_answer_call_id,
+                    "output": output,
+                    "error": None,
+                    "duration_ms": 0.0,
+                })
+                yield ToolEndEvent(
+                    name=FINAL_ANSWER_TOOL_NAME,
+                    call_id=final_answer_call_id,
+                    output=output,
+                    error=None,
+                    duration_ms=0.0,
+                )
+
+                meta = RunMeta(
+                    usage=_usage_to_aggregated(usage),
+                    iterations=iteration,
+                    tool_calls=all_tool_calls,
+                    response_id=response_id,
+                    reasoning=all_reasoning if all_reasoning else None,
+                )
+
+                await dispatch_hook(hooks, "on_iteration_end", {
+                    "agent": config.name,
+                    "iteration": iteration,
+                    "usage": _usage_to_aggregated(usage),
+                })
+                yield IterationEndEvent(iteration=iteration, usage=_usage_to_aggregated(usage))
+
+                await dispatch_hook(hooks, "on_agent_end", {
+                    "agent": config.name,
+                    "result": RunResult(output=output, meta=meta),
+                })
+                yield ResultEvent(output=output, meta=meta)
+                return
+
+            # No function calls → done (or nudge, when the fallback is active)
             if not function_calls:
+                fallback_on = _is_fallback_active(config, options, or_tools)
                 output_text = _extract_text(response.get("output", [])) if response else None
+
+                # Fallback was active but the model produced prose instead
+                # of calling ``final_answer``. Nudge it to use the tool on
+                # the next iteration rather than silently returning text
+                # that doesn't match the requested schema. Capped by
+                # ``max_iterations``.
+                if fallback_on and not is_recovery_turn(iteration, max_iterations):
+                    items.append({
+                        "type": "message",
+                        "role": "system",
+                        "content": (
+                            "Your previous response did not call the "
+                            f"`{FINAL_ANSWER_TOOL_NAME}` tool. You must "
+                            f"deliver your final response by calling "
+                            f"`{FINAL_ANSWER_TOOL_NAME}` with arguments "
+                            "that match the required output schema."
+                        ),
+                    })
+                    last_iteration_called_tools = True  # ensures the recovery turn still runs
+
+                    await dispatch_hook(hooks, "on_iteration_end", {
+                        "agent": config.name,
+                        "iteration": iteration,
+                        "usage": _usage_to_aggregated(usage),
+                    })
+                    yield IterationEndEvent(iteration=iteration, usage=_usage_to_aggregated(usage))
+                    continue
+
                 output = _parse_output(output_text, config.output_schema)
 
                 meta = RunMeta(
