@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New applied example `examples/agents/applied_agents/datadog_error_summary_agent.py`:
+  multi-step agent that wires the official Datadog hosted MCP server with
+  env-var auth headers and produces a structured 2-hour error report.
+
+### Changed
+
+- Rewrote `examples/agents/applied_agents/daily_digest_agent.py` around three
+  direct-API `@tool` functions (Hacker News, Jina search, Notion REST),
+  removing the previous Composio MCP integration that proved unreliable for
+  headless runs.
+
 ## [2.0.2] - 2026-05-21
 
 ### Changed
