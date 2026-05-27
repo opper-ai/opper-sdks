@@ -10,6 +10,7 @@ import type { Model } from "../types.js";
 import { Conversation } from "./conversation.js";
 import { AgentError } from "./errors.js";
 import { streamLoop } from "./loop.js";
+import { FINAL_ANSWER_TOOL_NAME } from "./models.js";
 import { AgentStream } from "./stream.js";
 import type {
   AgentConfig,
@@ -143,6 +144,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   readonly tracing: boolean;
   readonly retry?: RetryPolicy;
   readonly onMaxIterations?: "throw" | "return_partial";
+  readonly structuredOutputMode?: "auto" | "native" | "tool";
 
   private readonly providers: ToolProvider[];
   private readonly client: OpenResponsesClient;
@@ -172,6 +174,7 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
     this.traceName = config.traceName ?? config.name;
     this.retry = config.retry;
     this.onMaxIterations = config.onMaxIterations;
+    this.structuredOutputMode = config.structuredOutputMode;
 
     // Create clients
     const apiKey =
@@ -307,6 +310,11 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
           traceContext,
           retry: this.retry,
           onMaxIterations: this.onMaxIterations,
+          structuredOutputMode: this.structuredOutputMode,
+          recordFinalAnswer: this.spansClient
+            ? (callId, argumentsRaw, output) =>
+                this.recordFinalAnswerSpan(callId, argumentsRaw, output)
+            : undefined,
         },
         input,
         options,
@@ -454,6 +462,11 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
           traceContext,
           retry: this.retry,
           onMaxIterations: this.onMaxIterations,
+          structuredOutputMode: this.structuredOutputMode,
+          recordFinalAnswer: this.spansClient
+            ? (callId, argumentsRaw, output) =>
+                this.recordFinalAnswerSpan(callId, argumentsRaw, output)
+            : undefined,
         },
         input,
         options,
@@ -550,6 +563,50 @@ export class Agent<S extends SchemaLike | undefined = undefined> {
   private async deactivateProviders(): Promise<void> {
     if (this.providers.length === 0) return;
     await Promise.allSettled(this.providers.map((p) => p.teardown()));
+  }
+
+  /** Create a platform span for the synthetic `final_answer` tool call.
+   *
+   * Mirrors {@link wrapToolWithTracing}: type `"tool"` plus tags
+   * `{tool: true, final_answer: true, call_id}` so the platform can render
+   * the structured-output delivery alongside real tool calls while still
+   * being filterable. End-time is set immediately — the synthetic call has
+   * no real duration. Tracing must never break a run, so each step is
+   * best-effort.
+   */
+  private async recordFinalAnswerSpan(
+    callId: string,
+    argumentsRaw: string,
+    output: unknown,
+  ): Promise<void> {
+    if (!this.spansClient) return;
+    const ctx = getTraceContext();
+    if (!ctx) return;
+
+    const now = new Date().toISOString();
+    let span: { id: string; trace_id: string };
+    try {
+      span = await this.spansClient.create({
+        name: FINAL_ANSWER_TOOL_NAME,
+        start_time: now,
+        input: argumentsRaw,
+        trace_id: ctx.traceId,
+        parent_id: ctx.spanId,
+        type: "tool",
+        tags: { tool: true, final_answer: true, call_id: callId },
+      });
+    } catch {
+      return;
+    }
+
+    this._pendingSpanUpdates.push(
+      this.spansClient
+        .update(span.id, {
+          end_time: now,
+          output: typeof output === "string" ? output : JSON.stringify(output),
+        })
+        .catch(() => {}),
+    );
   }
 
   /** Lazily resolve outputSchema from Standard Schema to JSON Schema. */

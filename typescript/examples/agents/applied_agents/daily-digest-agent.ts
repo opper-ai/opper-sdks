@@ -1,117 +1,210 @@
 /**
- * Daily Digest Agent with Multi-MCP Integration
+ * Daily Digest Agent — direct API tools, no MCP middleware.
  *
- * Demonstrates a real-world agent that combines multiple MCP servers to:
- * 1. Fetch emails from the last 24h via Gmail MCP
- * 2. Get top Hacker News posts via HN MCP
- * 3. Create a structured Notion page with news, emails, and action items
- * 4. On Thursday/Friday, add Stockholm restaurant recommendations via Search MCP
+ * Builds a daily digest by:
+ * 1. Fetching the top Hacker News posts (free, no auth).
+ * 2. Searching the web for restaurant recommendations via Jina AI's search API.
+ * 3. Writing the result as a structured Notion page with action items.
+ *
+ * This example shows the opperai Agent loop driving plain `tool({ ... })`
+ * functions against three small public APIs — no MCP server, no third-party
+ * tool broker.
  *
  * Prerequisites:
  *   - OPPER_API_KEY in .env
- *   - Composio MCP URLs in .env (see below)
- *   - npm install @modelcontextprotocol/sdk
+ *   - JINA_API_KEY in .env (https://jina.ai/?sui=apikey)
+ *   - NOTION_TOKEN in .env (notion.so/profile/integrations, "Internal" integration)
+ *   - NOTION_PARENT_PAGE_ID in .env — a Notion page ID where the digest will be
+ *     created as a child. Share that page with your integration first
+ *     (Notion → page → Share → add the integration).
  *
- * Required .env variables:
- *   COMPOSIO_GMAIL_MCP_URL=...
- *   COMPOSIO_HACKERNEWS_MCP_URL=...
- *   COMPOSIO_NOTION_MCP_URL=...
- *   COMPOSIO_SEARCH_MCP_URL=...
- *   COMPOSIO_API_KEY=... (optional, for auth)
- *
- * Run with: node --env-file=../.env node_modules/.bin/tsx examples/agents/applied_agents/daily-digest-agent.ts
+ * Run with:
+ *   cd typescript
+ *   node --env-file=../.env node_modules/.bin/tsx \
+ *     examples/agents/applied_agents/daily-digest-agent.ts
  */
 
 import { z } from "zod";
-import { Agent, mcp } from "../../../src/index.js";
-import type { Hooks, MCPStreamableHTTPConfig } from "../../../src/index.js";
+import { Agent, tool } from "../../../src/index.js";
+import type { Hooks } from "../../../src/index.js";
 
 // ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
 
-const EmailSummarySchema = z.object({
-  sender: z.string().describe("Email sender"),
-  subject: z.string().describe("Email subject"),
-  summary: z.string().describe("Brief summary of the email content"),
-  action_required: z.boolean().describe("Whether this email requires action"),
-  priority: z.enum(["high", "medium", "low"]),
-});
-
 const NewsItemSchema = z.object({
   title: z.string().describe("News title"),
-  url: z.string().optional().describe("Link to the article"),
-  points: z.number().optional().describe("Number of points"),
-  summary: z.string().describe("Brief summary"),
-  relevance: z.string().describe("Why this might be interesting"),
+  url: z.string().nullable().optional().describe("Link to the article"),
+  points: z.number().nullable().optional().describe("Number of points / upvotes"),
+  summary: z.string().describe("Brief summary or commentary on the story"),
+});
+
+const RestaurantPickSchema = z.object({
+  name: z.string().describe("Restaurant name"),
+  location: z.string().describe("City and neighbourhood"),
+  cuisine: z.string().describe("Type of cuisine"),
+  reason: z.string().describe("Why it is worth a visit"),
+  url: z.string().nullable().optional().describe("Source URL with more info"),
 });
 
 const ActionItemSchema = z.object({
   action: z.string().describe("The action to take"),
-  source: z.enum(["email", "news", "other"]),
-  link: z.string().optional().describe("Related link if available"),
-  priority: z.enum(["high", "medium", "low"]),
-});
-
-const WeekendRecommendationSchema = z.object({
-  name: z.string().describe("Restaurant name"),
-  cuisine: z.string().describe("Type of cuisine"),
-  description: z.string().describe("Brief description"),
-  reason: z.string().describe("Why this is recommended"),
+  source: z.enum(["news", "restaurant"]),
+  link: z.string().nullable().optional().describe("Related link if available"),
 });
 
 const DailyDigestSchema = z.object({
-  date: z.string().describe("Date of the digest"),
-  emails: z.array(EmailSummarySchema).describe("Important emails from last 24h"),
+  date: z.string().describe("Date of the digest, ISO 8601 (YYYY-MM-DD)"),
   news: z.array(NewsItemSchema).describe("Top news items from Hacker News"),
-  actions: z.array(ActionItemSchema).describe("Action items for today"),
-  weekend_recommendations: z
-    .array(WeekendRecommendationSchema)
-    .optional()
-    .describe("Weekend restaurant recommendations (Thu/Fri only)"),
-  notion_page_created: z.boolean().describe("Whether the Notion page was created"),
-  notion_page_url: z.string().optional().describe("URL to the created Notion page"),
+  restaurants: z.array(RestaurantPickSchema).describe("Restaurants worth trying"),
+  actions: z.array(ActionItemSchema).describe("Action items derived from the digest"),
+  notion_page_url: z.string().describe("URL of the created Notion page"),
 });
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Tools
 // ---------------------------------------------------------------------------
 
-function getEnvOrThrow(key: string): string {
-  const value = process.env[key];
-  if (!value) {
-    throw new Error(
-      `Missing required environment variable: ${key}\n` +
-        "Get your Composio MCP URLs from https://app.composio.dev/",
+const HN_BASE = "https://hacker-news.firebaseio.com/v0";
+
+const fetchHnTopStories = tool({
+  name: "fetch_hn_top_stories",
+  description:
+    "Fetch the top stories currently on Hacker News. Returns id, title, url, score (upvotes), author, and comment count.",
+  parameters: z.object({
+    limit: z.number().int().min(1).max(30).default(10).describe("Number of stories to fetch"),
+  }),
+  execute: async ({ limit }) => {
+    const idsResp = await fetch(`${HN_BASE}/topstories.json`);
+    if (!idsResp.ok) throw new Error(`HN topstories: HTTP ${idsResp.status}`);
+    const ids = (await idsResp.json()) as number[];
+    const picked = ids.slice(0, limit);
+
+    const items = await Promise.all(
+      picked.map(async (id) => {
+        const r = await fetch(`${HN_BASE}/item/${id}.json`);
+        if (!r.ok) throw new Error(`HN item ${id}: HTTP ${r.status}`);
+        return (await r.json()) as Record<string, unknown>;
+      }),
     );
-  }
-  return value;
-}
 
-function isWeekendPlanningDay(): boolean {
-  const day = new Date().getDay();
-  return day === 4 || day === 5; // Thursday or Friday
-}
+    return items.map((it) => ({
+      id: it.id,
+      title: it.title,
+      url: it.url,
+      score: it.score,
+      by: it.by,
+      descendants: it.descendants,
+    }));
+  },
+});
 
-/** Create a Composio MCP server config with optional auth. */
-function composioMCP(name: string, envKey: string): MCPStreamableHTTPConfig {
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  return {
-    name,
-    transport: "streamable-http",
-    url: getEnvOrThrow(envKey),
-    ...(apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : {}),
-  };
-}
+const searchWeb = tool({
+  name: "search_web",
+  description:
+    "Search the web via Jina AI's search API. Pass a natural-language query (e.g. 'best ramen restaurants in Stockholm 2026'). Returns {title, url, description} results.",
+  parameters: z.object({
+    query: z.string().describe("Natural-language search query"),
+    max_results: z.number().int().min(1).max(10).default(5),
+  }),
+  execute: async ({ query, max_results }) => {
+    const apiKey = process.env.JINA_API_KEY;
+    if (!apiKey) throw new Error("JINA_API_KEY not set");
 
-// ---------------------------------------------------------------------------
-// MCP Servers — defined as reusable constants
-// ---------------------------------------------------------------------------
+    const resp = await fetch(`https://s.jina.ai/${encodeURIComponent(query)}`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: "application/json",
+        "X-Respond-With": "no-content",
+      },
+    });
+    if (!resp.ok) throw new Error(`Jina search: HTTP ${resp.status}`);
+    const json = (await resp.json()) as { data?: Array<Record<string, unknown>> };
+    const data = json.data ?? [];
 
-const GmailMCP = mcp(composioMCP("composio-gmail", "COMPOSIO_GMAIL_MCP_URL"));
-const HackerNewsMCP = mcp(composioMCP("composio-hackernews", "COMPOSIO_HACKERNEWS_MCP_URL"));
-const NotionMCP = mcp(composioMCP("composio-notion", "COMPOSIO_NOTION_MCP_URL"));
-const SearchMCP = mcp(composioMCP("composio-search", "COMPOSIO_SEARCH_MCP_URL"));
+    return data.slice(0, max_results).map((item) => ({
+      title: item.title,
+      url: item.url,
+      description: item.description ?? item.content ?? "",
+    }));
+  },
+});
+
+const createNotionPage = tool({
+  name: "create_notion_page",
+  description:
+    "Create a Notion page as a child of NOTION_PARENT_PAGE_ID. `sections` is a list of {heading, body}. Each section is rendered as a heading_2 + paragraph block. Returns the URL of the created page.",
+  parameters: z.object({
+    title: z.string().describe("Page title"),
+    sections: z
+      .array(
+        z.object({
+          heading: z.string(),
+          body: z.string(),
+        }),
+      )
+      .describe("Sections to render as heading + paragraph blocks"),
+  }),
+  execute: async ({ title, sections }) => {
+    const token = process.env.NOTION_TOKEN;
+    const parentId = process.env.NOTION_PARENT_PAGE_ID;
+    if (!token) throw new Error("NOTION_TOKEN not set");
+    if (!parentId) throw new Error("NOTION_PARENT_PAGE_ID not set");
+
+    const children: Array<Record<string, unknown>> = [];
+    for (const section of sections) {
+      const heading = (section.heading ?? "").trim();
+      const body = (section.body ?? "").trim();
+      if (heading) {
+        children.push({
+          object: "block",
+          type: "heading_2",
+          heading_2: {
+            rich_text: [{ type: "text", text: { content: heading } }],
+          },
+        });
+      }
+      if (body) {
+        // Notion caps text blocks at ~2000 chars; chunk conservatively.
+        const chunks: string[] = [];
+        for (let i = 0; i < body.length; i += 1900) chunks.push(body.slice(i, i + 1900));
+        for (const chunk of chunks.length ? chunks : [""]) {
+          children.push({
+            object: "block",
+            type: "paragraph",
+            paragraph: {
+              rich_text: [{ type: "text", text: { content: chunk } }],
+            },
+          });
+        }
+      }
+    }
+
+    const payload = {
+      parent: { page_id: parentId },
+      properties: {
+        title: { title: [{ type: "text", text: { content: title } }] },
+      },
+      children,
+    };
+
+    const resp = await fetch("https://api.notion.com/v1/pages", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Notion: HTTP ${resp.status} — ${text}`);
+    }
+    const json = (await resp.json()) as { url?: string };
+    return json.url ?? "";
+  },
+});
 
 // ---------------------------------------------------------------------------
 // Agent
@@ -120,74 +213,54 @@ const SearchMCP = mcp(composioMCP("composio-search", "COMPOSIO_SEARCH_MCP_URL"))
 const today = new Date();
 const dateStr = today.toISOString().split("T")[0];
 const dayName = today.toLocaleDateString("en-US", { weekday: "long" });
-const isWeekendPrep = isWeekendPlanningDay();
 
-let instructions = `
-You are a personal productivity assistant that creates comprehensive daily digests.
+const instructions = `
+You are a personal productivity assistant that produces a daily digest.
 
-Your workflow:
-1. Fetch emails from the last 24 hours using Gmail tools
-   - Focus on important/unread emails
-   - Identify emails that require action
-   - Summarize key content
+Workflow for ${dateStr} (${dayName}):
+1. Fetch the top Hacker News posts (use fetch_hn_top_stories).
+   - Pick the most interesting 5-7.
+   - Summarize what makes each one notable.
 
-2. Fetch top 10 Hacker News posts from the last day
-   - Get the most upvoted posts
-   - Summarize what makes them interesting
+2. Search the web for restaurant recommendations (use search_web).
+   - Aim for highly-rated restaurants in Stockholm with recent reviews.
+   - Pick 3-5 worth trying this weekend.
 
-3. Generate action items based on emails and news
-   - Extract actionable tasks from emails
-   - Include relevant links
+3. Derive 2-4 action items from the news and restaurants.
 
-4. Create a Notion page titled "Daily Digest - ${dateStr}" with sections:
-   - "Main News last 24h"
-   - "Main Email last 24h"
-   - "Actions for today"
-`;
+4. Create a Notion page titled "Daily Digest - ${dateStr}" (use
+   create_notion_page) with sections:
+   - "Top News"
+   - "Restaurant Picks"
+   - "Actions"
+   Render each section's body as concise plain text — one line per item with
+   the title and link.
 
-if (isWeekendPrep) {
-  instructions += `
-5. WEEKEND PLANNING (Thursday/Friday only):
-   - Search for Stockholm restaurant recommendations
-   - Focus on highly-rated restaurants with good reviews
-   - Add a "Weekend Recommendations" section to the Notion page
-`;
-}
-
-instructions += `
-Guidelines:
-- Be concise and actionable
-- Prioritize important information
-- Include links where relevant
-`;
-
-// Assemble tools — add search only on weekend planning days
-const tools = [GmailMCP, HackerNewsMCP, NotionMCP];
-if (isWeekendPrep) {
-  tools.push(SearchMCP);
-}
+Be concise. Always include source URLs. Iterate through every step; do not
+return an empty digest.
+`.trim();
 
 const hooks: Hooks = {
   onIterationStart: ({ iteration }) => {
     console.log(`\n--- Iteration ${iteration} ---`);
   },
   onToolStart: ({ name, input }) => {
-    const preview = JSON.stringify(input).slice(0, 120);
-    console.log(`  → ${name}(${preview}${JSON.stringify(input).length > 120 ? "..." : ""})`);
+    const s = JSON.stringify(input);
+    console.log(`  -> ${name}(${s.slice(0, 120)}${s.length > 120 ? "..." : ""})`);
   },
   onToolEnd: ({ name, output, error, durationMs }) => {
     if (error) {
-      console.log(`  ✗ ${name} failed (${durationMs}ms): ${error}`);
+      console.log(`  x ${name} failed (${durationMs}ms): ${error}`);
     } else {
-      const preview = JSON.stringify(output).slice(0, 150);
-      console.log(`  ← ${name} (${durationMs}ms): ${preview}${JSON.stringify(output).length > 150 ? "..." : ""}`);
+      const s = JSON.stringify(output);
+      console.log(`  <- ${name} (${durationMs}ms): ${s.slice(0, 150)}${s.length > 150 ? "..." : ""}`);
     }
   },
   onAgentEnd: ({ result, error }) => {
     if (error) {
-      console.log(`\n✗ Agent failed: ${error.message}`);
+      console.log(`\nx Agent failed: ${error.message}`);
     } else if (result) {
-      console.log(`\n✓ Agent completed in ${result.meta.iterations} iteration(s)`);
+      console.log(`\nv Agent completed in ${result.meta.iterations} iteration(s)`);
     }
   },
 };
@@ -197,8 +270,8 @@ const agent = new Agent({
   instructions,
   outputSchema: DailyDigestSchema,
   model: "anthropic/claude-sonnet-4-6",
-  tools,
-  maxIterations: 30,
+  tools: [fetchHnTopStories, searchWeb, createNotionPage],
+  maxIterations: 15,
   hooks,
 });
 
@@ -206,35 +279,31 @@ const agent = new Agent({
 // Run
 // ---------------------------------------------------------------------------
 
+for (const key of ["OPPER_API_KEY", "JINA_API_KEY", "NOTION_TOKEN", "NOTION_PARENT_PAGE_ID"]) {
+  if (!process.env[key]) {
+    console.error(`Missing required env var: ${key}`);
+    console.error("See the comment block at the top of this file for setup steps.");
+    process.exit(1);
+  }
+}
+
 console.log("Daily Digest Agent");
 console.log("=".repeat(60));
-console.log(`Date: ${dateStr} (${dayName})`);
-if (isWeekendPrep) {
-  console.log("Weekend planning mode: including restaurant recommendations");
-}
-console.log("\nRunning...\n");
+console.log(`Date: ${dateStr} (${dayName})\n`);
+console.log("Running...\n");
 
 try {
-  const result = await agent.run(
-    `Create my daily digest for ${dateStr} (${dayName}).` +
-      (isWeekendPrep ? " Include Stockholm restaurant recommendations for the weekend." : ""),
-  );
-
+  const result = await agent.run(`Create my daily digest for ${dateStr} (${dayName}).`);
   const digest = result.output;
   console.log("=".repeat(60));
   console.log("DAILY DIGEST CREATED");
   console.log("=".repeat(60));
   console.log(`\nDate: ${digest.date}`);
-  console.log(`Emails processed: ${digest.emails.length}`);
   console.log(`News items: ${digest.news.length}`);
-  console.log(`Action items: ${digest.actions.length}`);
-  if (digest.weekend_recommendations) {
-    console.log(`Weekend recommendations: ${digest.weekend_recommendations.length}`);
-  }
-  if (digest.notion_page_created) {
-    console.log(`\nNotion page: ${digest.notion_page_url ?? "created"}`);
-  }
-  console.log(`\nTokens used: ${result.meta.usage.totalTokens}`);
+  console.log(`Restaurants: ${digest.restaurants.length}`);
+  console.log(`Actions: ${digest.actions.length}`);
+  console.log(`\nNotion page: ${digest.notion_page_url}`);
+  console.log(`Tokens used: ${result.meta.usage.totalTokens}`);
   console.log(`Iterations: ${result.meta.iterations}`);
   console.log(`Tool calls: ${result.meta.toolCalls.length}`);
 } catch (error: unknown) {
@@ -244,10 +313,5 @@ try {
     console.error(`Cause: ${err.cause.message}`);
     if (err.cause.body) console.error("Body:", JSON.stringify(err.cause.body, null, 2));
   }
-  console.error("\nTroubleshooting:");
-  console.error("  - Verify Composio credentials are valid");
-  console.error("  - Check MCP endpoint URLs in .env");
-  console.error("  - Ensure OPPER_API_KEY is set");
-  console.error("  - Verify connected apps in Composio (Gmail, Notion, etc.)");
   process.exit(1);
 }

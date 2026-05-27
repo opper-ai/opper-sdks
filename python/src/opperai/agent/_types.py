@@ -224,6 +224,10 @@ class RunOptions:
     reasoning_effort: Literal["low", "medium", "high"] | None = None
     reasoning_summary: str | None = None
     parent_span_id: str | None = None
+    # "auto" (default): consult the model capability lookup. "native": force
+    # JSON-schema response format even with tools. "tool": always use the
+    # synthetic ``final_answer`` tool to deliver the structured output.
+    structured_output_mode: Literal["auto", "native", "tool"] | None = None
 
 
 # =============================================================================

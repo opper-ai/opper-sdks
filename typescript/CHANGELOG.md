@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-05-27
+
+### Added
+
+- Synthetic `final_answer` tool fallback for the agent loop when a model
+  can't accept JSON-schema response format + tools in one request
+  (Moonshot, Fireworks GLM, Gemini 1.x, etc.). A capability lookup picks
+  the path; structured output is delivered via a tool call the loop
+  treats as terminal. Surfaces as a `final_answer` record in
+  `result.meta.toolCalls`, fires `onToolStart`/`onToolEnd` hooks, emits
+  `tool_start`/`tool_end` stream events, and stitches a `final_answer`
+  span (tagged `final_answer: true`) under the agent root.
+- `new Agent({ structuredOutputMode: "auto" | "native" | "tool" })` and
+  matching per-call override on `RunOptions` to force a path.
+- `examples/agents/12-agent-with-tools-and-schema.ts` — exercises the
+  combo end-to-end. Flip the `model` line to a non-whitelisted model
+  (e.g. `fireworks/glm-5.1`) to see the fallback in action.
+- `examples/agents/applied_agents/datadog-error-summary-agent.ts`:
+  multi-step agent that wires the official Datadog hosted MCP server with
+  env-var auth headers and produces a structured 2-hour error report.
+
+### Changed
+
+- Rewrote `examples/agents/applied_agents/daily-digest-agent.ts` around
+  three direct-API `tool({ ... })` functions (Hacker News, Jina search,
+  Notion REST), removing the previous Composio MCP integration that
+  proved unreliable for headless runs.
+
 ## [4.0.1] - 2026-05-21
 
 ### Changed
@@ -251,6 +279,7 @@ per-pre-release history.
 
 - New major version built for Opper API v3
 
+[4.1.0]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.1.0
 [4.0.1]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.1
 [4.0.0]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0
 [4.0.0-beta.16]: https://github.com/opper-ai/opper-sdks/releases/tag/ts-v4.0.0-beta.16

@@ -369,6 +369,18 @@ export interface AgentConfig<S extends SchemaLike | undefined = SchemaLike | und
   retry?: RetryPolicy;
   /** Behavior when max iterations is reached. `"throw"` (default) or `"return_partial"`. */
   onMaxIterations?: "throw" | "return_partial";
+  /**
+   * How to deliver a structured output when tools are also in play.
+   *
+   * - `"auto"` (default): consult the SDK's model-capability lookup. Models
+   *   on the whitelist use the native JSON-schema response format; others
+   *   fall back to a synthetic `final_answer` tool whose `parameters` are
+   *   the requested `outputSchema`.
+   * - `"native"`: always use JSON-schema response format alongside tools,
+   *   even on models not known to support it (the provider may reject).
+   * - `"tool"`: always use the `final_answer` synthetic-tool fallback.
+   */
+  structuredOutputMode?: "auto" | "native" | "tool";
 }
 
 /**
@@ -474,6 +486,8 @@ export interface RunOptions {
   signal?: AbortSignal;
   parentSpanId?: string;
   requestOptions?: RequestOptions;
+  /** Per-run override of {@link AgentConfig.structuredOutputMode}. */
+  structuredOutputMode?: "auto" | "native" | "tool";
 }
 
 /** Record of a single tool call made during the run. */

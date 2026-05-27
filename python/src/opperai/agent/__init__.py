@@ -277,6 +277,7 @@ class Agent:
         client: dict[str, str] | None = None,
         retry: RetryPolicy | None = None,
         on_max_iterations: Literal["throw", "return_partial"] = "throw",
+        structured_output_mode: Literal["auto", "native", "tool"] | None = None,
     ) -> None:
         """Initialise an Agent.
 
@@ -301,6 +302,7 @@ class Agent:
         self.tracing: bool = tracing
         self.retry: RetryPolicy | None = retry
         self.on_max_iterations: Literal["throw", "return_partial"] = on_max_iterations
+        self.structured_output_mode: Literal["auto", "native", "tool"] | None = structured_output_mode
 
         # Resolve client
         client_config = client or {}
@@ -423,7 +425,10 @@ class Agent:
             for provider in providers:
                 try:
                     await provider.teardown()
-                except Exception:
+                except (Exception, asyncio.CancelledError):
+                    # Teardown is best-effort cleanup. MCP / anyio
+                    # transports can emit CancelledError as their cancel
+                    # scopes unwind — swallow so it doesn't propagate.
                     pass
 
     # --- stream ---------------------------------------------------------------
@@ -525,7 +530,11 @@ class Agent:
             for provider in providers:
                 try:
                     await provider.teardown()
-                except Exception:
+                except (Exception, asyncio.CancelledError):
+                    # Teardown is best-effort cleanup. MCP / anyio
+                    # transports can emit CancelledError as their cancel
+                    # scopes unwind — swallow so it doesn't poison the
+                    # caller's task with a pending cancellation.
                     pass
 
     # --- as_tool --------------------------------------------------------------
@@ -614,6 +623,46 @@ class Agent:
         """Await all queued span updates; never raises."""
         await flush_pending_span_updates(self._pending_span_updates)
 
+    async def _record_final_answer_span(
+        self, call_id: str, arguments_raw: str, output: Any
+    ) -> None:
+        """Create a platform span for the synthetic ``final_answer`` tool call.
+
+        Mirrors ``wrap_tool_with_tracing``: span ``type`` is ``"tool"`` and
+        tags include ``{"tool": True, "final_answer": True}`` so the platform
+        can render the structured-output delivery alongside real tool calls
+        while still being filterable. End-time is set immediately — the
+        synthetic call has no real duration, so the span represents the
+        moment the model committed to a final answer.
+
+        Tracing must never break a run, so every step is best-effort.
+        """
+        if self._spans_client is None:
+            return
+        ctx = get_trace_context()
+        if ctx is None:
+            return
+
+        now = datetime.now(timezone.utc).isoformat()
+        try:
+            span = await self._spans_client.create_async(
+                name="final_answer",
+                start_time=now,
+                input=arguments_raw,
+                trace_id=ctx.trace_id,
+                parent_id=ctx.span_id,
+                type="tool",
+                tags={"tool": True, "final_answer": True, "call_id": call_id},
+            )
+        except BaseException:
+            return
+
+        self._defer_span_update(
+            span.id,
+            end_time=now,
+            output=to_text(output),
+        )
+
     def _build_loop_config(self, resolved_tools: list[AgentTool]) -> LoopConfig:
         """Build the internal LoopConfig from agent settings."""
         # Read trace context from contextvars (set by Opper.trace_async())
@@ -639,6 +688,10 @@ class Agent:
             trace_context=trace_context,
             retry=self.retry,
             on_max_iterations=self.on_max_iterations,
+            structured_output_mode=self.structured_output_mode,
+            record_final_answer=(
+                self._record_final_answer_span if self._spans_client is not None else None
+            ),
         )
 
 
@@ -652,6 +705,7 @@ def _kwargs_to_run_options(kwargs: dict[str, Any]) -> RunOptions:
         reasoning_effort=kwargs.get("reasoning_effort"),
         reasoning_summary=kwargs.get("reasoning_summary"),
         parent_span_id=kwargs.get("parent_span_id"),
+        structured_output_mode=kwargs.get("structured_output_mode"),
     )
 
 

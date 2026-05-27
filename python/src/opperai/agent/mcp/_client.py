@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any
@@ -79,7 +80,13 @@ class MCPClient:
         if self._exit_stack is not None:
             try:
                 await self._exit_stack.aclose()
-            except Exception:
+            except (Exception, asyncio.CancelledError):
+                # MCP transports (stdio/sse/streamable-http) use anyio task
+                # groups internally. Tearing them down can surface
+                # CancelledError on the current asyncio task as the anyio
+                # cancel scope unwinds. Disconnect is best-effort cleanup —
+                # the agent run-end loop reconciles any leftover cancel
+                # state across providers; here we just suppress.
                 pass
             self._exit_stack = None
 
