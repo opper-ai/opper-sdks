@@ -15,6 +15,12 @@ import {
 import { AbortError, AgentError, MaxIterationsError } from "./errors.js";
 import { dispatchHook } from "./hooks.js";
 import { resolveToolSchema } from "./index.js";
+import {
+  FINAL_ANSWER_INSTRUCTIONS,
+  FINAL_ANSWER_TOOL_NAME,
+  type StructuredOutputMode,
+  useToolFallback,
+} from "./models.js";
 import { accumulateReasoning } from "./reasoning.js";
 import { getWarningMessage, isRecoveryTurn } from "./turn-awareness.js";
 import type {
@@ -61,6 +67,14 @@ interface LoopConfig {
   retry?: RetryPolicy;
   /** Behavior when max iterations is reached. */
   onMaxIterations?: "throw" | "return_partial";
+  /** How structured output is delivered when tools are in play. */
+  structuredOutputMode?: StructuredOutputMode;
+  /**
+   * Optional callback installed by the agent layer to create a platform span
+   * for the synthetic `final_answer` tool call. Receives (callId, argsRaw,
+   * parsedOutput). Never raises — tracing is best-effort.
+   */
+  recordFinalAnswer?: (callId: string, argumentsRaw: string, output: unknown) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +260,34 @@ async function executeTool(
   }
 }
 
+/** Synthetic tool used to deliver structured output when a model can't
+ * accept JSON-schema response format and tools in the same request. */
+function finalAnswerTool(outputSchema: Record<string, unknown>): ORTool {
+  return {
+    type: "function",
+    name: FINAL_ANSWER_TOOL_NAME,
+    description:
+      "Call this exactly once to provide your final answer. Its arguments " +
+      "must conform to the required output schema. Do not produce any plain-text " +
+      "final response — only this tool call counts as your answer.",
+    parameters: outputSchema as ORTool["parameters"],
+  };
+}
+
+/** Same fallback decision as `buildRequest` — for the loop body to branch on. */
+function isFallbackActive(
+  config: LoopConfig,
+  options: RunOptions | undefined,
+  orTools: ORTool[],
+): boolean {
+  return useToolFallback({
+    model: options?.model ?? config.model,
+    hasTools: orTools.length > 0,
+    hasOutputSchema: config.outputSchema !== undefined,
+    mode: options?.structuredOutputMode ?? config.structuredOutputMode,
+  });
+}
+
 /** Build the ORRequest from loop config, items, and per-run options. */
 function buildRequest(
   config: LoopConfig,
@@ -262,10 +304,26 @@ function buildRequest(
           ...(reasoningSummary ? { summary: reasoningSummary } : {}),
         }
       : undefined;
+
+  const fallback = isFallbackActive(config, options, orTools);
+
+  // When the fallback is active we (a) drop the native `text.format`
+  // response_format the provider can't accept alongside tools, and (b)
+  // append a synthetic `final_answer` tool whose parameters are the
+  // requested output schema. The loop body intercepts the call as terminal.
+  const instructions = fallback
+    ? config.instructions
+      ? `${FINAL_ANSWER_INSTRUCTIONS}\n\n${config.instructions}`
+      : FINAL_ANSWER_INSTRUCTIONS
+    : config.instructions;
+
+  const toolsForReq: ORTool[] =
+    fallback && config.outputSchema ? [...orTools, finalAnswerTool(config.outputSchema)] : orTools;
+
   return {
     input: items,
-    instructions: config.instructions,
-    ...(orTools.length > 0 ? { tools: orTools } : {}),
+    instructions,
+    ...(toolsForReq.length > 0 ? { tools: toolsForReq } : {}),
     ...((options?.model ?? config.model) ? { model: options?.model ?? config.model } : {}),
     ...((options?.temperature ?? config.temperature)
       ? { temperature: options?.temperature ?? config.temperature }
@@ -274,7 +332,8 @@ function buildRequest(
       ? { max_output_tokens: options?.maxTokens ?? config.maxTokens }
       : {}),
     ...(reasoning ? { reasoning } : {}),
-    ...(config.outputSchema
+    // Only emit the native response_format when we're NOT using the fallback.
+    ...(config.outputSchema && !fallback
       ? { text: { format: { type: "json_schema", name: "output", schema: config.outputSchema } } }
       : {}),
   };
@@ -580,6 +639,7 @@ export async function* streamLoop(
           events: AgentStreamEvent[];
         }>[] = [];
         const eagerFunctionCalls: ORFunctionCallOutputItemResponse[] = [];
+        const fallbackActive = isFallbackActive(config, options, orTools);
 
         const consumer = consumeStream(sseStream);
         let consumerResult: IteratorResult<
@@ -599,6 +659,13 @@ export async function* streamLoop(
           if (event.type === "tool_ready") {
             const signal = event as ToolReadySignal;
             eagerFunctionCalls.push(signal.call);
+
+            // The synthetic `final_answer` is not a real tool — skip eager
+            // execution; the post-stream phase reads its arguments and
+            // terminates the loop.
+            if (fallbackActive && signal.call.name === FINAL_ANSWER_TOOL_NAME) {
+              continue;
+            }
 
             const toolPromise = (async () => {
               let parsed: unknown;
@@ -735,6 +802,108 @@ export async function* streamLoop(
         throw new AgentError(`Server error: ${response.error.message}`);
       }
 
+      // When the structured-output-as-tool fallback is active, peel the
+      // synthetic `final_answer` call (if present) out of `functionCalls`
+      // so the regular tool-execution path doesn't try to dispatch it as a
+      // user tool.
+      let finalAnswerCall: ORFunctionCallOutputItemResponse | undefined;
+      if (isFallbackActive(config, options, orTools)) {
+        const remaining: ORFunctionCallOutputItemResponse[] = [];
+        for (const fc of functionCalls) {
+          if (fc.name === FINAL_ANSWER_TOOL_NAME && finalAnswerCall === undefined) {
+            finalAnswerCall = fc;
+          } else {
+            remaining.push(fc);
+          }
+        }
+        functionCalls = remaining;
+      }
+
+      // Fallback terminal path: model delivered structured output via
+      // `final_answer`. Parse args, surface the call as a regular
+      // observability artifact (tool record, hooks, stream events, span
+      // via the agent-layer callback), and return.
+      if (finalAnswerCall !== undefined) {
+        const argsRaw = finalAnswerCall.arguments || "{}";
+        let parsedOutput: unknown;
+        try {
+          parsedOutput = JSON.parse(argsRaw);
+        } catch {
+          parsedOutput = argsRaw;
+        }
+
+        // If the model called real tools alongside `final_answer`, the
+        // eager path already executed them — preserve their records.
+        if (toolRecords.length > 0) {
+          allToolCalls.push(...toolRecords);
+        }
+
+        const faCallId = finalAnswerCall.call_id || "final_answer";
+        allToolCalls.push({
+          name: FINAL_ANSWER_TOOL_NAME,
+          callId: faCallId,
+          input: parsedOutput,
+          output: parsedOutput,
+          durationMs: 0,
+        });
+
+        await dispatchHook(hooks, "onToolStart", {
+          agent: config.name,
+          iteration,
+          name: FINAL_ANSWER_TOOL_NAME,
+          callId: faCallId,
+          input: parsedOutput,
+        });
+        yield {
+          type: "tool_start",
+          name: FINAL_ANSWER_TOOL_NAME,
+          callId: faCallId,
+          input: parsedOutput,
+        };
+        if (config.recordFinalAnswer) {
+          try {
+            await config.recordFinalAnswer(faCallId, argsRaw, parsedOutput);
+          } catch {
+            // Tracing must never break the run.
+          }
+        }
+        await dispatchHook(hooks, "onToolEnd", {
+          agent: config.name,
+          iteration,
+          name: FINAL_ANSWER_TOOL_NAME,
+          callId: faCallId,
+          output: parsedOutput,
+          durationMs: 0,
+        });
+        yield {
+          type: "tool_end",
+          name: FINAL_ANSWER_TOOL_NAME,
+          callId: faCallId,
+          output: parsedOutput,
+          durationMs: 0,
+        };
+
+        const meta = {
+          usage,
+          iterations: iteration,
+          toolCalls: allToolCalls,
+          responseId,
+          ...(allReasoning.length > 0 ? { reasoning: allReasoning } : {}),
+        };
+
+        await dispatchHook(hooks, "onIterationEnd", {
+          agent: config.name,
+          iteration,
+          usage: { ...usage },
+        });
+        yield { type: "iteration_end", iteration, usage: { ...usage } };
+
+        const result: RunResult = { output: parsedOutput, meta };
+        await dispatchHook(hooks, "onAgentEnd", { agent: config.name, result });
+        yield { type: "result", output: parsedOutput, meta };
+        return;
+      }
+
       // Execute tools for retry path (non-retry path already executed them eagerly)
       if (!toolsAlreadyExecuted && functionCalls.length > 0) {
         const executeAndYield = async function* (
@@ -809,8 +978,36 @@ export async function* streamLoop(
         }
       }
 
-      // No function calls → done
+      // No function calls → done (or nudge, when the fallback is active)
       if (functionCalls.length === 0) {
+        const fallbackOn = isFallbackActive(config, options, orTools);
+
+        // Fallback was active but the model produced prose instead of
+        // calling `final_answer`. Nudge it to use the tool on the next
+        // iteration rather than silently returning text that doesn't
+        // match the requested schema. Capped by `maxIterations`.
+        if (fallbackOn && !isRecoveryTurn(iteration, maxIterations)) {
+          items.push({
+            type: "message",
+            role: "system",
+            content:
+              "Your previous response did not call the " +
+              `\`${FINAL_ANSWER_TOOL_NAME}\` tool. You must deliver your ` +
+              "final response by calling " +
+              `\`${FINAL_ANSWER_TOOL_NAME}\` with arguments that match the ` +
+              "required output schema.",
+          });
+          lastIterationCalledTools = true; // ensures the recovery turn still runs
+
+          await dispatchHook(hooks, "onIterationEnd", {
+            agent: config.name,
+            iteration,
+            usage: { ...usage },
+          });
+          yield { type: "iteration_end", iteration, usage: { ...usage } };
+          continue;
+        }
+
         const output = parseOutput(
           response ? extractText(response.output) : undefined,
           config.outputSchema,
