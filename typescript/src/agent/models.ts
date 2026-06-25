@@ -80,6 +80,11 @@ export function supportsStructuredOutputsWithTools(model: Model | undefined): bo
  *   - `"tool"`: always fall back (useful for debugging or when a model
  *     was recently broken upstream).
  *   - `"auto"` / undefined: consult the whitelist.
+ *
+ * `mode` is honored before the `hasTools` guard so an explicit `"tool"`
+ * forces the fallback even for tool-less agents (matching the contract
+ * above); `"auto"` still requires tools, since native structured output
+ * works everywhere when no tools are present.
  */
 export function useToolFallback(args: {
   model: Model | undefined;
@@ -87,8 +92,9 @@ export function useToolFallback(args: {
   hasOutputSchema: boolean;
   mode: StructuredOutputMode | undefined;
 }): boolean {
-  if (!(args.hasTools && args.hasOutputSchema)) return false;
+  if (!args.hasOutputSchema) return false;
   if (args.mode === "native") return false;
   if (args.mode === "tool") return true;
+  if (!args.hasTools) return false;
   return !supportsStructuredOutputsWithTools(args.model);
 }
