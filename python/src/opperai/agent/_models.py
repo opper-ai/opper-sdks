@@ -97,13 +97,20 @@ def use_tool_fallback(
       - ``"tool"``: always fall back (useful for debugging or when a model
         was recently broken upstream).
       - ``"auto"`` / ``None``: consult the whitelist.
+
+    ``mode`` is honored before the ``has_tools`` guard so an explicit
+    ``"tool"`` forces the fallback even for tool-less agents (matching the
+    docstring contract); ``"auto"`` still requires tools, since native
+    structured output works everywhere when no tools are present.
     """
-    if not (has_tools and has_output_schema):
+    if not has_output_schema:
         return False
     if mode == "native":
         return False
     if mode == "tool":
         return True
+    if not has_tools:
+        return False
     return not supports_structured_outputs_with_tools(model)
 
 

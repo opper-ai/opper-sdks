@@ -81,6 +81,17 @@ interface LoopConfig {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Default cap on generated tokens per LLM call when the caller sets none.
+ * Provider defaults (~4096) are a footgun for reasoning models and structured
+ * output: a long reasoning trace can exhaust them before the answer is
+ * emitted, silently truncating the result. 16k is generous headroom while
+ * staying within most models' output limits. Models that cap output lower will
+ * reject it — set `maxTokens` on the agent or per-run options to match such a
+ * model.
+ */
+export const DEFAULT_MAX_OUTPUT_TOKENS = 16000;
+
 /** Convert an AgentTool to the ORTool wire format. */
 function toORTool(t: AgentTool): ORTool {
   return {
@@ -91,18 +102,25 @@ function toORTool(t: AgentTool): ORTool {
   };
 }
 
-/** Extract text from assistant message output items. */
+/**
+ * Concatenate every `output_text` part across all assistant messages.
+ *
+ * Returning only the first part dropped content whenever the model split its
+ * answer across multiple message items or text parts (common with reasoning
+ * models). Join them all so the full answer is parsed.
+ */
 function extractText(output: OROutputItem[]): string | undefined {
+  const parts: string[] = [];
   for (const item of output) {
     if (item.type === "message" && item.role === "assistant") {
       for (const part of item.content) {
         if (part.type === "output_text" && part.text) {
-          return part.text;
+          parts.push(part.text);
         }
       }
     }
   }
-  return undefined;
+  return parts.length > 0 ? parts.join("") : undefined;
 }
 
 /** Aggregate usage from an ORUsage into running totals. */
@@ -328,9 +346,7 @@ function buildRequest(
     ...((options?.temperature ?? config.temperature)
       ? { temperature: options?.temperature ?? config.temperature }
       : {}),
-    ...((options?.maxTokens ?? config.maxTokens)
-      ? { max_output_tokens: options?.maxTokens ?? config.maxTokens }
-      : {}),
+    max_output_tokens: options?.maxTokens ?? config.maxTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
     ...(reasoning ? { reasoning } : {}),
     // Only emit the native response_format when we're NOT using the fallback.
     ...(config.outputSchema && !fallback
@@ -339,16 +355,151 @@ function buildRequest(
   };
 }
 
-/** Parse output: extract text and optionally parse structured output. */
-function parseOutput(text: string | undefined, outputSchema?: Record<string, unknown>): unknown {
-  if (outputSchema && text) {
-    try {
-      return JSON.parse(text);
-    } catch {
-      return text;
+/**
+ * Return the substring from the first `{`/`[` to its matching closer, or
+ * undefined when no balanced span is found. String-aware so braces inside
+ * string literals don't throw off the depth count. Recovers a JSON value
+ * embedded in prose (e.g. a leading sentence before the object).
+ */
+function outerJsonSpan(text: string): string | undefined {
+  let start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "{" || text[i] === "[") {
+      start = i;
+      break;
     }
   }
-  return text;
+  if (start === -1) return undefined;
+  const opener = text[start];
+  const closer = opener === "{" ? "}" : "]";
+  let depth = 0;
+  let inStr = false;
+  let escaped = false;
+  for (let j = start; j < text.length; j++) {
+    const ch = text[j];
+    if (inStr) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === opener) depth++;
+    else if (ch === closer) {
+      depth--;
+      if (depth === 0) return text.slice(start, j + 1);
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Progressively more aggressive substrings to try JSON-parsing. Handles the
+ * common ways models wrap structured output: markdown code fences
+ * (```json ... ```) and a leading/trailing sentence around the object/array.
+ */
+function jsonCandidates(text: string): string[] {
+  const candidates: string[] = [];
+  const stripped = text.trim();
+  if (stripped) candidates.push(stripped);
+
+  // Strip a leading ```/```json fence and the trailing ``` fence.
+  if (stripped.startsWith("```")) {
+    let body = stripped.slice(3);
+    const newline = body.indexOf("\n");
+    if (newline !== -1) body = body.slice(newline + 1);
+    if (body.trimEnd().endsWith("```")) body = body.trimEnd().slice(0, -3);
+    body = body.trim();
+    if (body && !candidates.includes(body)) candidates.push(body);
+  }
+
+  // Grab the outer {...} / [...] span from the best candidate so far.
+  const span = outerJsonSpan(candidates[candidates.length - 1] ?? stripped);
+  if (span && !candidates.includes(span)) candidates.push(span);
+  return candidates;
+}
+
+/**
+ * Tolerant JSON parse. Returns `{ ok: true, value }` on success, else
+ * `{ ok: false }`. Tries the raw text, then fence-stripped, then the outer
+ * object/array span.
+ */
+function tryParseJson(text: string | undefined): { ok: boolean; value?: unknown } {
+  if (!text) return { ok: false };
+  for (const candidate of jsonCandidates(text)) {
+    try {
+      return { ok: true, value: JSON.parse(candidate) };
+    } catch {
+      // try the next candidate
+    }
+  }
+  return { ok: false };
+}
+
+/**
+ * Return a human-readable reason if the response looks truncated, else
+ * undefined. Signals, in order of reliability: a `status === "incomplete"`
+ * frame, an `incomplete_details` payload, or `output_tokens` reaching the
+ * `max_output_tokens` cap (defends against gateways that mislabel a
+ * mid-generation cutoff as `completed`).
+ */
+/** Output-token count for *this* response (not the cumulative run total). */
+function responseOutputTokens(response: ORResponse | undefined): number {
+  return response?.usage?.output_tokens ?? 0;
+}
+
+function detectTruncation(
+  response: ORResponse | undefined,
+  requestMaxTokens: number | undefined,
+): string | undefined {
+  if (response) {
+    if (response.status === "incomplete") {
+      const details = response.incomplete_details as { reason?: string } | undefined;
+      const reason = details && typeof details === "object" ? details.reason : undefined;
+      return `status=incomplete${reason ? ` (reason=${reason})` : ""}`;
+    }
+    if (response.incomplete_details) {
+      const details = response.incomplete_details as { reason?: string };
+      const reason = typeof details === "object" ? details.reason : details;
+      return `incomplete_details=${reason}`;
+    }
+  }
+  const outTokens = responseOutputTokens(response);
+  if (requestMaxTokens && outTokens >= requestMaxTokens) {
+    return `output_tokens (${outTokens}) reached max_output_tokens (${requestMaxTokens})`;
+  }
+  return undefined;
+}
+
+/**
+ * Build a diagnostic error for when an outputSchema is set but the model
+ * produced nothing parseable as structured output.
+ */
+function structuredOutputError(
+  response: ORResponse | undefined,
+  requestMaxTokens: number | undefined,
+  rawText: string | undefined,
+): AgentError {
+  const bits: string[] = [];
+  if (response?.status) bits.push(`status=${response.status}`);
+  if (response?.incomplete_details) {
+    bits.push(`incomplete_details=${JSON.stringify(response.incomplete_details)}`);
+  }
+  bits.push(`output_tokens=${responseOutputTokens(response)}`);
+  if (requestMaxTokens) bits.push(`max_output_tokens=${requestMaxTokens}`);
+
+  let msg =
+    "Agent has an outputSchema but the model did not return a parseable " +
+    `structured response (${bits.join(", ")}).`;
+  const truncation = detectTruncation(response, requestMaxTokens);
+  if (truncation) {
+    msg += ` The response appears truncated (${truncation}) — increase maxTokens and retry.`;
+  }
+  if (rawText) {
+    const snippet = rawText.length <= 200 ? rawText : `${rawText.slice(0, 200)}…`;
+    msg += ` Raw output: ${JSON.stringify(snippet)}`;
+  }
+  return new AgentError(msg);
 }
 
 /** Merge tracing headers into request options. Uses explicit context first, ALS fallback. */
@@ -825,12 +976,11 @@ export async function* streamLoop(
       // via the agent-layer callback), and return.
       if (finalAnswerCall !== undefined) {
         const argsRaw = finalAnswerCall.arguments || "{}";
-        let parsedOutput: unknown;
-        try {
-          parsedOutput = JSON.parse(argsRaw);
-        } catch {
-          parsedOutput = argsRaw;
+        const parsed = tryParseJson(argsRaw);
+        if (!parsed.ok) {
+          throw structuredOutputError(response, request.max_output_tokens, argsRaw);
         }
+        const parsedOutput = parsed.value;
 
         // If the model called real tools alongside `final_answer`, the
         // eager path already executed them — preserve their records.
@@ -1008,10 +1158,23 @@ export async function* streamLoop(
           continue;
         }
 
-        const output = parseOutput(
-          response ? extractText(response.output) : undefined,
-          config.outputSchema,
-        );
+        const outputText = response ? extractText(response.output) : undefined;
+
+        // When a schema is set, the model MUST produce something we can parse
+        // as structured output. A reasoning-only response (no text) or
+        // truncated/invalid JSON would otherwise surface as a silent
+        // `output: undefined` / raw-string success, or a contextless schema
+        // error downstream. Raise with diagnostics instead.
+        let output: unknown;
+        if (config.outputSchema !== undefined) {
+          const parsed = tryParseJson(outputText);
+          if (!parsed.ok) {
+            throw structuredOutputError(response, request.max_output_tokens, outputText);
+          }
+          output = parsed.value;
+        } else {
+          output = outputText;
+        }
 
         const meta = {
           usage,

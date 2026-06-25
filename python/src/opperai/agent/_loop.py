@@ -82,6 +82,15 @@ class LoopConfig:
     record_final_answer: Callable[[str, str, Any], Awaitable[None]] | None = None
 
 
+# Default cap on generated tokens per LLM call when the caller sets none.
+# Provider defaults (~4096) are a footgun for reasoning models and structured
+# output: a long reasoning trace can exhaust them before the answer is emitted,
+# silently truncating the result. 16k is generous headroom while staying within
+# most models' output limits. Models that cap output lower will reject it — set
+# ``max_tokens`` on the agent or per-run options to match such a model.
+DEFAULT_MAX_OUTPUT_TOKENS = 16000
+
+
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -98,13 +107,19 @@ def _to_or_tool(t: AgentTool) -> dict[str, Any]:
 
 
 def _extract_text(output: list[dict[str, Any]]) -> str | None:
-    """Extract text from assistant message output items."""
+    """Concatenate every ``output_text`` part across all assistant messages.
+
+    Returning only the first part dropped content whenever the model split
+    its answer across multiple message items or text parts (common with
+    reasoning models). Join them all so the full answer is parsed.
+    """
+    parts: list[str] = []
     for item in output:
         if item.get("type") == "message" and item.get("role") == "assistant":
             for part in item.get("content", []):
                 if part.get("type") == "output_text" and part.get("text"):
-                    return part["text"]
-    return None
+                    parts.append(part["text"])
+    return "".join(parts) if parts else None
 
 
 def _add_usage(agg: dict[str, Any], usage: dict[str, Any] | None) -> None:
@@ -188,8 +203,7 @@ def _build_request(
         req["temperature"] = temp
 
     max_tokens = (options.max_tokens if options else None) or config.max_tokens
-    if max_tokens is not None:
-        req["max_output_tokens"] = max_tokens
+    req["max_output_tokens"] = max_tokens if max_tokens is not None else DEFAULT_MAX_OUTPUT_TOKENS
 
     reasoning_effort = (options.reasoning_effort if options else None) or config.reasoning_effort
     reasoning_summary = (options.reasoning_summary if options else None) or config.reasoning_summary
@@ -230,14 +244,152 @@ def _is_fallback_active(
     )
 
 
-def _parse_output(text: str | None, output_schema: dict[str, Any] | None) -> Any:
-    """Parse output text, attempting JSON parse when output_schema is set."""
-    if output_schema and text:
+def _outer_json_span(text: str) -> str | None:
+    """Return the substring from the first ``{``/``[`` to its matching closer.
+
+    Lets us recover a JSON value embedded in prose (e.g. a leading sentence
+    before the object). String-aware so braces inside string literals don't
+    throw off the depth count. Returns None when no balanced span is found.
+    """
+    start = next((i for i, ch in enumerate(text) if ch in "{["), None)
+    if start is None:
+        return None
+    opener = text[start]
+    closer = "}" if opener == "{" else "]"
+    depth = 0
+    in_str = False
+    escape = False
+    for j in range(start, len(text)):
+        ch = text[j]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == opener:
+            depth += 1
+        elif ch == closer:
+            depth -= 1
+            if depth == 0:
+                return text[start : j + 1]
+    return None
+
+
+def _json_candidates(text: str) -> list[str]:
+    """Progressively more aggressive substrings to try JSON-parsing.
+
+    Handles the common ways models wrap structured output: markdown code
+    fences (```json ... ```) and a leading/trailing sentence around the
+    actual object/array.
+    """
+    candidates: list[str] = []
+    stripped = text.strip()
+    if stripped:
+        candidates.append(stripped)
+
+    # Strip a leading ```/```json fence and the trailing ``` fence.
+    if stripped.startswith("```"):
+        body = stripped[3:]
+        newline = body.find("\n")
+        if newline != -1:
+            body = body[newline + 1 :]
+        if body.rstrip().endswith("```"):
+            body = body.rstrip()[:-3]
+        body = body.strip()
+        if body and body not in candidates:
+            candidates.append(body)
+
+    # Grab the outer {...} / [...] span from the best candidate so far.
+    source = candidates[-1] if candidates else stripped
+    span = _outer_json_span(source)
+    if span and span not in candidates:
+        candidates.append(span)
+    return candidates
+
+
+def _try_parse_json(text: str | None) -> tuple[bool, Any]:
+    """Tolerant JSON parse. Returns ``(True, value)`` on success, else
+    ``(False, None)``. Tries the raw text, then fence-stripped, then the
+    outer object/array span."""
+    if not text:
+        return (False, None)
+    for candidate in _json_candidates(text):
         try:
-            return json.loads(text)
+            return (True, json.loads(candidate))
         except (json.JSONDecodeError, ValueError):
-            return text
-    return text
+            continue
+    return (False, None)
+
+
+def _response_output_tokens(response: dict[str, Any] | None) -> int:
+    """Output-token count for *this* response (not the cumulative run total)."""
+    return ((response or {}).get("usage") or {}).get("output_tokens", 0) or 0
+
+
+def _detect_truncation(
+    response: dict[str, Any] | None,
+    request_max_tokens: int | None,
+) -> str | None:
+    """Return a human-readable reason if the response looks truncated, else None.
+
+    Signals, in order of reliability: a ``status == "incomplete"`` frame, an
+    ``incomplete_details`` payload, or this response's ``output_tokens``
+    reaching the request's ``max_output_tokens`` cap (defends against gateways
+    that mislabel a mid-generation cutoff as ``completed``). Uses the per-call
+    usage and the actual cap sent, so multi-iteration runs don't false-positive.
+    """
+    if response:
+        if response.get("status") == "incomplete":
+            details = response.get("incomplete_details")
+            reason = details.get("reason") if isinstance(details, dict) else None
+            return f"status=incomplete{f' (reason={reason})' if reason else ''}"
+        details = response.get("incomplete_details")
+        if details:
+            reason = details.get("reason") if isinstance(details, dict) else details
+            return f"incomplete_details={reason}"
+    out_tokens = _response_output_tokens(response)
+    if request_max_tokens and out_tokens >= request_max_tokens:
+        return f"output_tokens ({out_tokens}) reached max_output_tokens ({request_max_tokens})"
+    return None
+
+
+def _structured_output_error(
+    response: dict[str, Any] | None,
+    request_max_tokens: int | None,
+    raw_text: str | None,
+) -> AgentError:
+    """Build a diagnostic error for when an output_schema is set but the model
+    produced nothing parseable as structured output.
+
+    ``request_max_tokens`` is the cap actually sent on this call (a caller
+    value, the injected default, or None when no cap was sent)."""
+    detail_bits: list[str] = []
+    status = (response or {}).get("status")
+    if status:
+        detail_bits.append(f"status={status}")
+    incomplete = (response or {}).get("incomplete_details")
+    if incomplete:
+        detail_bits.append(f"incomplete_details={incomplete}")
+    detail_bits.append(f"output_tokens={_response_output_tokens(response)}")
+    if request_max_tokens:
+        detail_bits.append(f"max_output_tokens={request_max_tokens}")
+
+    msg = (
+        "Agent has an output_schema but the model did not return a parseable "
+        f"structured response ({', '.join(detail_bits)})."
+    )
+    truncation = _detect_truncation(response, request_max_tokens)
+    if truncation:
+        msg += f" The response appears truncated ({truncation}) — increase max_tokens and retry."
+    if raw_text:
+        snippet = raw_text if len(raw_text) <= 200 else raw_text[:200] + "…"
+        msg += f" Raw output: {snippet!r}"
+    return AgentError(msg)
 
 
 def _with_tracing_headers(
@@ -819,10 +971,11 @@ async def stream_loop(
             # ``final_answer``. Parse its arguments as the output and return.
             if final_answer_call is not None:
                 args_raw = final_answer_call.get("arguments") or "{}"
-                try:
-                    output = json.loads(args_raw)
-                except (json.JSONDecodeError, ValueError):
-                    output = args_raw
+                ok, output = _try_parse_json(args_raw)
+                if not ok:
+                    raise _structured_output_error(
+                        response, request.get("max_output_tokens"), args_raw,
+                    )
 
                 # If the model called real tools alongside ``final_answer``,
                 # the eager path already executed them — preserve their
@@ -936,7 +1089,19 @@ async def stream_loop(
                     yield IterationEndEvent(iteration=iteration, usage=_usage_to_aggregated(usage))
                     continue
 
-                output = _parse_output(output_text, config.output_schema)
+                # When a schema is set, the model MUST produce something we can
+                # parse as structured output. A reasoning-only response (no
+                # text) or truncated/invalid JSON would otherwise surface as a
+                # silent ``output=None`` / raw-string success, or a contextless
+                # ValidationError downstream. Raise with diagnostics instead.
+                if config.output_schema is not None:
+                    ok, output = _try_parse_json(output_text)
+                    if not ok:
+                        raise _structured_output_error(
+                            response, request.get("max_output_tokens"), output_text,
+                        )
+                else:
+                    output = output_text
 
                 meta = RunMeta(
                     usage=_usage_to_aggregated(usage),

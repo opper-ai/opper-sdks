@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-06-25
+
+### Fixed
+
+- **Agent structured output no longer silently lost.** When an
+  `output_schema` is set but the model returns nothing usable, the loop
+  raised no error: a reasoning-only response became `output=None` and
+  truncated/invalid JSON was returned as a raw string (later blowing up as a
+  contextless `ValidationError`). Both cases now raise `AgentError` with
+  diagnostics — response `status`, `incomplete_details`, `output_tokens` vs
+  `max_output_tokens`, a truncation hint, and a snippet of the raw output.
+  Applies to both the native and `final_answer` fallback paths.
+- **`structured_output_mode="tool"` now works for tool-less agents.** The
+  mode check runs before the `has_tools` guard, so forcing the tool fallback
+  is honored even when `tools=[]` (previously a silent no-op that
+  contradicted the documented contract).
+- **`_extract_text` no longer drops content.** It concatenates every
+  `output_text` part across all assistant message items instead of returning
+  only the first — fixes truncated answers from models that split output
+  across parts.
+- **Tolerant structured-output parsing.** Output wrapped in ` ```json `
+  fences or preceded by a sentence is now recovered before the loop gives up.
+
+### Changed
+
+- **Default `max_output_tokens` is now 16000** for agent LLM calls when the
+  caller sets none, replacing the small provider default (~4096) that could
+  truncate reasoning models mid-answer. 16k stays within most models' output
+  limits; for a model that caps output lower, set `max_tokens` on the agent or
+  per-run options to match it.
+
 ## [2.1.0] - 2026-05-27
 
 ### Added
@@ -265,6 +296,7 @@ history.
 
 - New major version built for Opper API v3
 
+[2.1.1]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.1.1
 [2.1.0]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.1.0
 [2.0.2]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.2
 [2.0.1]: https://github.com/opper-ai/opper-sdks/releases/tag/py-v2.0.1
