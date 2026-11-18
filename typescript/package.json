@@ -7,7 +7,7 @@
     "url": "https://github.com/opper-ai/opper-sdks.git",
     "directory": "typescript"
   },
-  "homepage": "https://github.com/opper-ai/opper-sdks/tree/main/typescript",
+  "homepage": "https://opper.ai",
   "bugs": {
     "url": "https://github.com/opper-ai/opper-sdks/issues"
   },
