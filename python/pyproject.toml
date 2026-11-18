@@ -44,6 +44,12 @@ dependencies = [
     "httpx>=0.27,<1",
 ]
 
+[project.urls]
+Homepage = "https://opper.ai"
+Documentation = "https://docs.opper.ai"
+Repository = "https://github.com/opper-ai/opper-sdks"
+Issues = "https://github.com/opper-ai/opper-sdks/issues"
+
 [project.optional-dependencies]
 pydantic = [
     "pydantic>=2",
